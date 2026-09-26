@@ -2,15 +2,15 @@
 import { esc } from './dom.js'
 import { postToLabel } from './host.js'
 
-/** @param {string} url @param {boolean} [filled] */
-export function viewCommentHtml(url, filled = false) {
-  return `<a class="cmd${filled ? ' fill' : ''}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">view comment</a>`
+/** @param {string} url */
+export function viewCommentHtml(url) {
+  return `<a class="cmd" href="${esc(url)}" target="_blank" rel="noopener noreferrer">view comment</a>`
 }
 
 /** @param {HTMLElement} button @param {string} url */
 export function replacePostButton(button, url) {
   const template = button.ownerDocument.createElement('template')
-  template.innerHTML = viewCommentHtml(url, button.classList.contains('fill'))
+  template.innerHTML = viewCommentHtml(url)
   const link = template.content.firstElementChild
   if (link instanceof HTMLAnchorElement) {
     const focused = button.ownerDocument.activeElement === button

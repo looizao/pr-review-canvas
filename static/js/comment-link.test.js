@@ -17,7 +17,7 @@ afterEach(() => document.body.replaceChildren())
 
 it('replaces a focused posting button with a focused comment link', () => {
   const button = document.createElement('button')
-  button.className = 'cmd fill'
+  button.className = 'cmd'
   button.textContent = 'post to github'
   document.body.appendChild(button)
   button.focus()
@@ -25,7 +25,7 @@ it('replaces a focused posting button with a focused comment link', () => {
   const link = document.querySelector('a')
   expect(link?.textContent).toBe('view comment')
   expect(link?.getAttribute('href')).toBe(posted.url)
-  expect(link?.className).toBe('cmd fill')
+  expect(link?.className).toBe('cmd')
   expect(link?.target).toBe('_blank')
   expect(link?.rel).toBe('noopener noreferrer')
   expect(document.activeElement).toBe(link)
