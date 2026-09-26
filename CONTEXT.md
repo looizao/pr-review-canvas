@@ -61,6 +61,10 @@ _Avoid_: Invalidated, rejected, expired
 A canvas of another commit of the pull request that the head's diff no longer matches, shown with the diff of its own commit and a bar saying so. Review marks made on it stay with it and never count for a later canvas.
 _Avoid_: Stale review, expired canvas
 
+**Review checkout**:
+A copy of the repository at the reviewed commit, kept apart from the reader's own checkout, which the AI chat reads code from. It follows the commit being chatted about, and is removed once nobody has chatted about that review for a while; it comes back on the next chat turn. A review of uncommitted work has none: the chat reads the reader's own checkout, because that is the work under review.
+_Avoid_: PR checkout, reader's checkout, working tree, materialized head
+
 **Illustrative sample**:
 An attributed walkthrough of selected changes from a public pull request, with editorial layer groupings and scripted chat examples. It demonstrates concepts without claiming to be a complete generated canvas.
 _Avoid_: Live review, live AI chat

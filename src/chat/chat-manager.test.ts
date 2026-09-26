@@ -9,9 +9,10 @@ import { createPrStore } from '../store/pr-store.js'
 import { createSettingsStore, type SettingsStore } from '../store/settings-store.js'
 import { createStateStore, type StateStore } from '../store/state-store.js'
 import { createFakeRunner, type FakeRunner } from '../testing/fake-runner.js'
-import { makeTempDir } from '../testing/fakes.js'
+import { createFakeCheckoutGit, type FakeCheckoutGit, makeTempDir } from '../testing/fakes.js'
 import { HEAD_SHA, SYNTHETIC_FILES, syntheticArtifact } from '../testing/synthetic.js'
 import { ChatBusyError, type ChatManager, type ChatTarget, createChatManager } from './chat-manager.js'
+import { CheckoutBusyError, createReviewCheckouts, type ReviewCheckouts } from './checkouts.js'
 import { createTranscriptStore, type TranscriptStore } from './threads.js'
 
 const artifact = syntheticArtifact()
@@ -26,6 +27,8 @@ let state: StateStore
 let settings: SettingsStore
 let transcripts: TranscriptStore
 let manager: ChatManager
+let checkoutGit: FakeCheckoutGit
+let checkouts: ReviewCheckouts
 
 function target(): ChatTarget {
   return {
@@ -40,9 +43,19 @@ function target(): ChatTarget {
 }
 
 function build(
-  opts: { runner?: FakeRunner; overrides?: { chatAgent?: 'claude' | 'codex'; chatModel?: string } } = {}
+  opts: {
+    runner?: FakeRunner
+    overrides?: { chatAgent?: 'claude' | 'codex'; chatModel?: string }
+    checkoutGit?: FakeCheckoutGit
+  } = {}
 ) {
   runner = opts.runner ?? createFakeRunner()
+  checkoutGit = opts.checkoutGit ?? createFakeCheckoutGit()
+  checkouts = createReviewCheckouts({
+    root: path.join(dataDir, 'checkouts'),
+    git: checkoutGit,
+    now: () => new Date('2026-09-11T10:00:00.000Z'),
+  })
   const prs = createPrStore(dataDir)
   state = createStateStore(prs, () => new Date('2026-09-11T10:00:00.000Z'))
   settings = createSettingsStore(dataDir)
@@ -56,6 +69,8 @@ function build(
     repoRoot: '/repo',
     overrides: opts.overrides ?? {},
     loadSeedTemplate: async () => 'SEED for {{PR_META}}',
+    checkouts,
+    currentBranch: async () => 'main',
     now: () => new Date('2026-09-11T10:00:00.000Z'),
   })
 }
@@ -66,6 +81,16 @@ async function collect(events: AsyncIterable<ChatEvent>): Promise<ChatEvent[]> {
     out.push(event)
   }
   return out
+}
+
+/** Reads the stream up to and including the first event named `name`. */
+async function advanceTo(iterator: AsyncIterator<ChatEvent>, name: ChatEvent['event']): Promise<void> {
+  for (;;) {
+    const next = await iterator.next()
+    if (next.done === true || next.value.event === name) {
+      return
+    }
+  }
 }
 
 beforeEach(async () => {
@@ -83,6 +108,7 @@ describe('createChatManager().send', () => {
       manager.send(target(), { message: 'is this covered?', context: { kind: 'pr' } })
     )
     expect(events).toEqual([
+      { event: 'checkout', status: 'preparing', sha: HEAD_SHA, creating: true },
       { event: 'turn', thread: T1, agent: 'claude', seeded: true },
       { event: 'chunk', text: 'Yes. ' },
       { event: 'chunk', text: 'The behavior is covered at `src/a.ts:10`.' },
@@ -93,7 +119,7 @@ describe('createChatManager().send', () => {
     expect(prompt).toContain('## Context: the whole pull request')
     expect(prompt).toContain('## Question\n\nis this covered?')
     expect(runner.runs[0]?.session).toBe(T1)
-    expect(runner.runs[0]?.cwd).toBe('/repo')
+    expect(runner.runs[0]?.cwd).toBe(path.join(dataDir, 'checkouts', '42'))
   })
 
   it('seeds once per thread, and again after the head moves', async () => {
@@ -103,7 +129,12 @@ describe('createChatManager().send', () => {
 
     const moved = { ...target(), headSha: 'c'.repeat(40) }
     const events = await collect(manager.send(moved, { message: 'three', context: { kind: 'pr' } }))
-    expect(events[0]).toEqual({ event: 'turn', thread: T1, agent: 'claude', seeded: true })
+    expect(events.find(e => e.event === 'turn')).toEqual({
+      event: 'turn',
+      thread: T1,
+      agent: 'claude',
+      seeded: true,
+    })
     expect(runner.runs[2]?.prompt).toContain('SEED for')
   })
 
@@ -217,7 +248,7 @@ describe('createChatManager().send', () => {
     ]
     build({ runner: createFakeRunner({ script }) })
     const events = await collect(manager.send(target(), { message: 'x', context: { kind: 'pr' } }))
-    expect(events.slice(1)).toEqual([
+    expect(events.filter(e => e.event !== 'turn' && e.event !== 'checkout')).toEqual([
       { event: 'thought', text: 'hmm' },
       { event: 'tool', id: 't1', title: 'Read File', status: 'pending' },
       { event: 'done', stopReason: 'end_turn' },
@@ -417,7 +448,7 @@ describe('a turn the agent never took', () => {
     build({ runner: createFakeRunner({ delayMs: 5 }) })
     const stream = manager.send(target(), { message: 'one', context: { kind: 'pr' } })
     const iterator = stream[Symbol.asyncIterator]()
-    await iterator.next()
+    await advanceTo(iterator, 'turn')
     await manager.cancel(42)
     for (;;) {
       if ((await iterator.next()).done === true) {
@@ -440,7 +471,7 @@ describe('a stop that arrives before the agent has started', () => {
     const first = iterator.next()
     expect(await manager.cancel(42)).toBe(true)
     openGate()
-    expect((await first).value).toMatchObject({ event: 'turn', thread: T1 })
+    expect((await first).value).toMatchObject({ event: 'checkout', status: 'preparing' })
     const rest: ChatEvent[] = []
     for (;;) {
       const next = await iterator.next()
@@ -449,7 +480,10 @@ describe('a stop that arrives before the agent has started', () => {
       }
       rest.push(next.value)
     }
-    expect(rest).toEqual([{ event: 'cancelled' }])
+    expect(rest).toEqual([
+      { event: 'turn', thread: T1, agent: 'claude', seeded: true },
+      { event: 'cancelled' },
+    ])
     // No agent was started at all, so there was nothing left to cancel.
     expect(runner.runs).toEqual([])
     expect(manager.busy(42)).toBe(false)
@@ -483,8 +517,7 @@ describe('an answer the reader walked out on', () => {
     build({ runner: createFakeRunner({ delayMs: 5 }) })
     const stream = manager.send(target(), { message: 'one', context: { kind: 'pr' } })
     const iterator = stream[Symbol.asyncIterator]()
-    await iterator.next()
-    await iterator.next()
+    await advanceTo(iterator, 'chunk')
     await iterator.return?.(undefined)
     const turns = await transcripts.read(42, T1)
     expect(turns.at(-1)).toMatchObject({ role: 'assistant', text: 'Yes. ', incomplete: 'cancelled' })
@@ -542,5 +575,123 @@ describe('a thread whose first message reads like the placeholder', () => {
     await collect(manager.send(target(), { message: 'and now a real question', context: { kind: 'pr' } }))
     expect(runner.runs[2]?.prompt).toContain('SEED for')
     expect((await manager.threads(42)).threads[0]?.title).toBe('New thread')
+  })
+})
+
+describe('the review checkout a turn reads', () => {
+  const FALLBACK = 'git worktree add failed (128): disk full'
+  const checkoutDir = (): string => path.join(dataDir, 'checkouts', '42')
+
+  it('creates it on the first turn and moves it only when the commit changes', async () => {
+    await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    const second = await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
+    expect(second.filter(e => e.event === 'checkout')).toEqual([])
+    const moved = 'c'.repeat(40)
+    const third = await collect(
+      manager.send({ ...target(), headSha: moved }, { message: 'three', context: { kind: 'pr' } })
+    )
+    expect(third[0]).toEqual({ event: 'checkout', status: 'preparing', sha: moved, creating: false })
+    expect(checkoutGit.calls.map(c => c[0])).toEqual(['add', 'move'])
+    expect(runner.runs.every(r => r.cwd === checkoutDir())).toBe(true)
+  })
+
+  it('tells the agent the checkout is its working directory, and where installed dependencies are', async () => {
+    build({ runner: createFakeRunner() })
+    manager = createChatManager({
+      runner,
+      settings,
+      state,
+      transcripts,
+      repo: REPO,
+      repoRoot: '/repo',
+      overrides: {},
+      loadSeedTemplate: async () => '{{CODE_LOCATION}}',
+      checkouts,
+      currentBranch: async () => 'main',
+      now: () => new Date('2026-09-11T10:00:00.000Z'),
+    })
+    await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    const prompt = runner.runs[0]?.prompt ?? ''
+    expect(prompt).toContain(`Your working directory, \`${checkoutDir()}\``)
+    expect(prompt).toContain('/repo')
+    expect(prompt).toContain('may not be what the pull request uses')
+  })
+
+  it('reads the working tree for uncommitted work, without a checkout', async () => {
+    const events = await collect(
+      manager.send({ ...target(), key: 'uncommitted' }, { message: 'one', context: { kind: 'pr' } })
+    )
+    expect(events.filter(e => e.event === 'checkout')).toEqual([])
+    expect(runner.runs[0]?.cwd).toBe('/repo')
+    expect(checkoutGit.calls).toEqual([])
+  })
+
+  it("reads the reader's checkout when checkouts are turned off", async () => {
+    await settings.write({ checkoutEnabled: false })
+    const events = await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    expect(events.filter(e => e.event === 'checkout')).toEqual([])
+    expect(runner.runs[0]?.cwd).toBe('/repo')
+    expect(checkoutGit.calls).toEqual([])
+  })
+
+  it("falls back to the reader's checkout with a warning when the checkout fails", async () => {
+    build({ checkoutGit: createFakeCheckoutGit({ fail: 'disk full' }) })
+    const events = await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    expect(events.filter(e => e.event === 'checkout')).toEqual([
+      { event: 'checkout', status: 'preparing', sha: HEAD_SHA, creating: true },
+      { event: 'checkout', status: 'fallback', message: FALLBACK, branch: 'main' },
+    ])
+    expect(events.at(-1)).toEqual({ event: 'done', stopReason: 'end_turn' })
+    expect(runner.runs[0]?.cwd).toBe('/repo')
+    // The warning is saved on the answer, so the thread shows it again when reopened.
+    expect((await transcripts.read(42, T1)).at(-1)).toMatchObject({
+      role: 'assistant',
+      fallback: { message: FALLBACK, branch: 'main' },
+    })
+  })
+
+  it('is busy while another process holds the checkout, and free again after the turn', async () => {
+    const held = await checkouts.lease(42)
+    await expect(
+      collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    ).rejects.toThrow(CheckoutBusyError)
+    await held.release()
+    await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
+    const again = await checkouts.lease(42)
+    await again.release()
+  })
+
+  it('keeps a thread from before review checkouts on its session in the reader checkout', async () => {
+    await settings.write({ checkoutEnabled: false })
+    await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    // A state file written before threads recorded their folder.
+    await state.update(42, current => ({
+      ...current,
+      chat: {
+        ...current.chat,
+        threads: current.chat.threads.map(({ seededCwd: _cwd, ...thread }) => thread),
+      },
+    }))
+    await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
+    expect(runner.ensured).toEqual([T1])
+    expect(runner.runs[1]?.prompt).not.toContain('SEED for')
+    // Turning review checkouts on moves it to a new session in the checkout, once.
+    await settings.write({ checkoutEnabled: true })
+    await collect(manager.send(target(), { message: 'three', context: { kind: 'pr' } }))
+    await collect(manager.send(target(), { message: 'four', context: { kind: 'pr' } }))
+    expect(runner.ensured).toEqual([T1, T1])
+    expect(runner.runs[2]?.prompt).toContain('SEED for')
+    expect(runner.runs[3]?.prompt).not.toContain('SEED for')
+  })
+
+  it('starts a new session and seeds again when the thread last ran in another folder', async () => {
+    await settings.write({ checkoutEnabled: false })
+    await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    await settings.write({ checkoutEnabled: true })
+    const events = await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
+    expect(events.find(e => e.event === 'turn')).toMatchObject({ seeded: true })
+    expect(runner.ensured).toEqual([T1, T1])
+    expect(runner.runs[1]?.prompt).toContain('SEED for')
+    expect(runner.runs[1]?.cwd).toBe(checkoutDir())
   })
 })

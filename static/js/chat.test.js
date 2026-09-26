@@ -14,6 +14,8 @@ import {
   CHAT_WIDTH_KEY,
   CHAT_WIDTH_MAX,
   CHAT_WIDTH_MIN,
+  checkoutActivityText,
+  checkoutWarningHtml,
   clampWidth,
   proposedCommentHtml,
   QUICK_QUESTIONS,
@@ -1476,4 +1478,84 @@ it('animates preparation, tracks elapsed time, and collapses updated tool calls'
   expect(el(root, '.chat-activity').textContent).toBe('Elapsed: 1s')
   chat.stop()
   vi.useRealTimers()
+})
+
+it('shows the review checkout while it is prepared, and the answer once the turn starts', async () => {
+  let checkedOut = () => {}
+  const sha = 'b'.repeat(40)
+  const { root, chat } = mount({
+    streamChat: async (_pr, _input, opts) => {
+      opts.onEvent({ event: 'checkout', data: { status: 'preparing', sha, creating: true } })
+      await new Promise(resolve => {
+        checkedOut = () => resolve(undefined)
+      })
+      opts.onEvent({ event: 'turn', data: { thread: 't1', agent: 'claude', seeded: true } })
+      opts.onEvent({ event: 'chunk', data: { text: 'Answer' } })
+    },
+  })
+  await flush()
+  const box = /** @type {HTMLTextAreaElement} */ (el(root, 'textarea'))
+  box.value = 'Explain'
+  el(root, 'form').dispatchEvent(new Event('submit', { cancelable: true }))
+  await flush()
+  const activity = el(root, '.chat-activity')
+  expect(activity.textContent).toMatch(/^Creating the review checkout at bbbbbbb\./)
+  expect(activity.classList.contains('checking-out')).toBe(true)
+  checkedOut()
+  await flush()
+  expect(activity.classList.contains('checking-out')).toBe(false)
+  expect(el(root, '.turn.a .prose').textContent).toContain('Answer')
+  chat.stop()
+})
+
+it('warns when the review checkout failed and the answer read the reader checkout', async () => {
+  const { root, chat } = mount({
+    streamChat: async (_pr, _input, opts) => {
+      opts.onEvent({ event: 'checkout', data: { status: 'preparing', sha: 'c'.repeat(40), creating: false } })
+      opts.onEvent({ event: 'checkout', data: { status: 'fallback', message: 'disk full', branch: 'main' } })
+      opts.onEvent({ event: 'chunk', data: { text: 'Answer' } })
+    },
+  })
+  await flush()
+  const box = /** @type {HTMLTextAreaElement} */ (el(root, 'textarea'))
+  box.value = 'Explain'
+  el(root, 'form').dispatchEvent(new Event('submit', { cancelable: true }))
+  await flush()
+  const warning = el(root, '.turn.a .chat-warning')
+  expect(warning.textContent).toContain('AI Chat read your checkout on main')
+  expect(warning.textContent).toContain('disk full')
+  chat.stop()
+})
+
+it('shows a saved fallback warning again when the thread is reopened', async () => {
+  const { root, chat } = mount({
+    fetchThreads: async () => ({
+      threads: [{ name: 't1', agent: 'claude', title: 'x', createdAt: '' }],
+      activeThread: 't1',
+      agent: 'claude',
+    }),
+    fetchThreadHistory: async () => ({
+      name: 't1',
+      turns: [
+        { role: 'user', text: 'Is this safe?', at: '' },
+        { role: 'assistant', text: 'Yes.', at: '', fallback: { message: 'disk full', branch: 'main' } },
+      ],
+    }),
+  })
+  await flush()
+  await flush()
+  expect(el(root, '.turn.a .chat-warning').textContent).toContain('AI Chat read your checkout on main')
+  chat.stop()
+})
+
+describe('checkoutWarningHtml', () => {
+  it('names no branch when the reader checkout is on a detached HEAD', () => {
+    expect(checkoutWarningHtml({ message: 'x', branch: null })).toContain('AI Chat read your checkout.')
+  })
+})
+
+describe('checkoutActivityText', () => {
+  it('says whether the checkout is created or moved', () => {
+    expect(checkoutActivityText({ sha: 'd'.repeat(40), creating: false })).toBe('Checking out ddddddd')
+  })
 })

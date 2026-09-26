@@ -3,12 +3,13 @@
 // in the loop has no agent surface at all; the settings file stays reachable for the reading level.
 import { Hono, type MiddlewareHandler } from 'hono'
 import { ChatBusyError } from '../../chat/chat-manager.js'
+import { CheckoutBusyError } from '../../chat/checkouts.js'
 import { ChatContextError } from '../../chat/context.js'
 import { isThreadNameFor } from '../../chat/threads.js'
 import type { ChatEvent, ChatHistoryResponse } from '../../contract/chat.js'
 import { ChatSendSchema } from '../../contract/chat.js'
 import type { Pr, ReviewArtifact } from '../../contract/review-artifact.js'
-import type { SettingsResponse } from '../../contract/settings.js'
+import type { CheckoutsResponse, SettingsResponse } from '../../contract/settings.js'
 import { isChatAgent, SettingsInputSchema } from '../../contract/settings.js'
 import { lookupCanvas } from '../../review/carry-over.js'
 import type { Derived } from '../../store/derived-store.js'
@@ -133,6 +134,7 @@ function withDiff(artifact: ReviewArtifact, headSha: string, derived: Derived | 
 export const CHAT_ROUTE_PATTERNS = [
   '/settings/agents',
   '/settings/agents/*',
+  '/checkouts',
   '/prs/:n/chat',
   '/prs/:n/chat/*',
 ] as const
@@ -181,6 +183,23 @@ export function chatRoutes(ctx: AppContext, loader: PrLoader): Hono {
       throw new AppError('BAD_REQUEST', `not an agent this tool knows: ${id}`, 400)
     }
     return c.json(await ctx.agents.probe(id, { refresh: c.req.query('refresh') === '1' }))
+  })
+
+  api.get('/checkouts', async c => {
+    const listed = await ctx.checkouts.list()
+    const body: CheckoutsResponse = {
+      root: ctx.checkouts.root,
+      checkouts: await Promise.all(
+        listed.map(async ({ key, sha, lastUsedAt, locked, dir }) => ({
+          key,
+          sha,
+          lastUsedAt,
+          locked,
+          bytes: await ctx.checkouts.size(dir),
+        }))
+      ),
+    }
+    return c.json(body)
   })
 
   api.get('/prs/:n/chat/threads', async c => c.json(await ctx.chat.threads(parseTargetKey(c.req.param('n')))))
@@ -283,6 +302,14 @@ export function replayFrom(
 export function toChatError(err: unknown): AppError {
   if (err instanceof ChatBusyError) {
     return new AppError('CHAT_BUSY', err.message, 409, 'stop the running answer, or wait for it to finish')
+  }
+  if (err instanceof CheckoutBusyError) {
+    return new AppError(
+      'CHAT_BUSY',
+      err.message,
+      409,
+      'another pr-review serve of this clone is answering about this review; ask again once it is done'
+    )
   }
   if (err instanceof ChatContextError) {
     return new AppError('BAD_REQUEST', err.message, 400)

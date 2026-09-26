@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { GenerationModels, Sharing } from '../project-config.js'
+import type { ReviewKey } from './review-key.js'
 import { DEFAULT_FOLD_LEVEL, FOLD_LEVELS } from '../../static/js/fold-levels.js'
 import { DEFAULT_LAYER_VIEW, LAYER_VIEWS } from '../../static/js/layer-views.js'
 import { DEFAULT_SKIN, isSkin, SKINS, type Skin } from '../../static/js/skin.js'
@@ -25,6 +26,24 @@ export function isChatAgent(value: string): value is ChatAgent {
 export const CHAT_TIMEOUT_MIN_SEC = 30
 export const CHAT_TIMEOUT_MAX_SEC = 3600
 
+/** `checkoutIdleDays` that turns the idle cleanup of review checkouts off. */
+export const CHECKOUT_IDLE_NEVER = -1
+export const CHECKOUT_IDLE_MAX_DAYS = 365
+export const CHECKOUT_SWEEP_MIN_MINUTES = 5
+export const CHECKOUT_SWEEP_MAX_MINUTES = 1440
+
+const CheckoutIdleDaysSchema = z
+  .number()
+  .int()
+  .min(CHECKOUT_IDLE_NEVER)
+  .max(CHECKOUT_IDLE_MAX_DAYS)
+  .refine(days => days !== 0, { message: 'checkoutIdleDays is -1 or at least 1' })
+const CheckoutSweepMinutesSchema = z
+  .number()
+  .int()
+  .min(CHECKOUT_SWEEP_MIN_MINUTES)
+  .max(CHECKOUT_SWEEP_MAX_MINUTES)
+
 export const SettingsSchema = z.object({
   version: z.literal(1),
   skin: z.enum(SKINS),
@@ -39,6 +58,12 @@ export const SettingsSchema = z.object({
   chatModel: z.string().min(1).nullable(),
   chatTimeoutSec: z.number().int().min(CHAT_TIMEOUT_MIN_SEC).max(CHAT_TIMEOUT_MAX_SEC),
   maxTurns: z.number().int().positive().max(100).nullable(),
+  /** Whether AI Chat reads a review checkout at the reviewed commit, or the reader's own checkout. */
+  checkoutEnabled: z.boolean(),
+  /** Days without a chat turn before a review checkout is removed; -1 never removes one for that. */
+  checkoutIdleDays: CheckoutIdleDaysSchema,
+  /** How often `serve` looks for idle review checkouts. */
+  checkoutSweepMinutes: CheckoutSweepMinutesSchema,
   /** Overrides `sharing.canvasComment` in pr-review.config.yml; null follows the project. */
   canvasComment: z.boolean().nullable(),
   /** Overrides `sharing.mentionCanvas` in pr-review.config.yml; null follows the project. */
@@ -56,6 +81,9 @@ export const DEFAULT_SETTINGS: Settings = {
   chatModel: null,
   chatTimeoutSec: 600,
   maxTurns: null,
+  checkoutEnabled: true,
+  checkoutIdleDays: 7,
+  checkoutSweepMinutes: 60,
   canvasComment: null,
   mentionCanvas: null,
 }
@@ -81,6 +109,9 @@ export const SettingsInputSchema = z.strictObject({
   chatModel: z.string().max(200).nullable().optional(),
   chatTimeoutSec: z.number().int().min(CHAT_TIMEOUT_MIN_SEC).max(CHAT_TIMEOUT_MAX_SEC).optional(),
   maxTurns: z.number().int().positive().max(100).nullable().optional(),
+  checkoutEnabled: z.boolean().optional(),
+  checkoutIdleDays: CheckoutIdleDaysSchema.optional(),
+  checkoutSweepMinutes: CheckoutSweepMinutesSchema.optional(),
 })
 export type SettingsInput = z.infer<typeof SettingsInputSchema>
 
@@ -177,4 +208,19 @@ export interface AgentProbeResult {
   /** When this result was produced; results are reused for ten minutes. */
   at: string
   cached: boolean
+}
+
+/** `GET /api/checkouts`: the review checkouts of this repository, newest use first. */
+export interface CheckoutsResponse {
+  /** The folder they live in. */
+  root: string
+  checkouts: Array<{
+    key: ReviewKey
+    sha: string
+    lastUsedAt: string
+    /** True while a chat turn holds it. */
+    locked: boolean
+    /** Bytes on disk, `.git` excluded. */
+    bytes: number
+  }>
 }

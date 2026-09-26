@@ -2,7 +2,10 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  checkoutListHtml,
+  formatBytes,
   MODEL_SUGGESTIONS,
+  SETTINGS_TAB_KEY,
   modelOptionsHtml,
   openSettingsDialog,
   readSettingsForm,
@@ -22,6 +25,9 @@ const SETTINGS = {
     chatModel: null,
     chatTimeoutSec: 600,
     maxTurns: null,
+    checkoutEnabled: true,
+    checkoutIdleDays: 7,
+    checkoutSweepMinutes: 60,
     canvasComment: null,
     mentionCanvas: null,
   },
@@ -79,6 +85,7 @@ async function open(api = {}, onSaved = () => undefined) {
         at: '',
         cached: false,
       }),
+      fetchCheckouts: async () => ({ root: '/repo/.pr-review/repos/acme__widgets/checkouts', checkouts: [] }),
       ...api,
     },
     onSaved,
@@ -137,7 +144,7 @@ describe('settingsDialogHtml', () => {
 
   it('labels the chat fields as AI Chat, apart from the canvas generation models', () => {
     const html = settingsDialogHtml(SETTINGS, AGENTS)
-    expect(html).toContain('<h3 id="settings-chat-h">AI Chat</h3>')
+    expect(html).toContain('role="tab" class="settings-tab" id="settings-tab-chat"')
     expect(html).toContain('<label for="set-chat-agent">Chat agent</label>')
     expect(html).toContain('<label for="set-chat-model">Chat model</label>')
     expect(html).toContain('They do not change which model generates canvases')
@@ -226,6 +233,9 @@ describe('readSettingsForm', () => {
       chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
   })
 
@@ -316,6 +326,9 @@ describe('openSettingsDialog', () => {
       chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
     expect(saved[1]).toBe('claude')
     expect(dialog.hasAttribute('open')).toBe(false)
@@ -399,6 +412,9 @@ describe('the dialog with parts missing', () => {
       chatModel: 'gpt-5.2',
       chatTimeoutSec: 120,
       maxTurns: 6,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
   })
 
@@ -496,5 +512,145 @@ describe('the probe with the dialog cut down', () => {
     el(dialog, '[data-act="settings-probe"]').click()
     await flush()
     expect(dialog.querySelector('.cmd-err')).toBeNull()
+  })
+})
+
+describe('the settings tabs', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  /** @param {HTMLElement} dialog */
+  const visiblePanels = dialog =>
+    [...dialog.querySelectorAll('[role="tabpanel"]')].filter(p => !p.hasAttribute('hidden')).map(p => p.id)
+
+  it('opens on Reading, shows one panel at a time, and remembers the last tab', async () => {
+    const dialog = await open()
+    expect([...dialog.querySelectorAll('[role="tab"]')].map(t => t.textContent)).toEqual([
+      'Reading',
+      'AI Chat',
+      'Checkouts',
+      'Project',
+    ])
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+    el(dialog, '#settings-tab-project').click()
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-project'])
+    expect(el(dialog, '#settings-tab-project').getAttribute('aria-selected')).toBe('true')
+    expect(localStorage.getItem(SETTINGS_TAB_KEY)).toBe('project')
+    dialog.close()
+    const again = await open()
+    expect(visiblePanels(again)).toEqual(['settings-panel-project'])
+  })
+
+  it('moves between tabs with the arrow keys', async () => {
+    const dialog = await open()
+    const reading = el(dialog, '#settings-tab-reading')
+    reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-project'])
+    expect(document.activeElement?.id).toBe('settings-tab-project')
+    const project = el(dialog, '#settings-tab-project')
+    project.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+    // Other keys, and arrows outside the tab list, leave the tab where it is.
+    reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    el(dialog, '#set-fold-level').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+    )
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+  })
+
+  it('says so when the checkouts cannot be listed', async () => {
+    const dialog = await open({
+      fetchCheckouts: async () => {
+        throw new Error('gone')
+      },
+    })
+    el(dialog, '#settings-tab-checkouts').click()
+    await flush()
+    expect(el(dialog, '.checkout-list').textContent).toBe('could not list the checkouts: gone')
+  })
+
+  it('lists the checkouts only once their tab is shown', async () => {
+    let asked = 0
+    const dialog = await open({
+      fetchCheckouts: async () => {
+        asked += 1
+        return {
+          root: '/data/checkouts',
+          checkouts: [
+            {
+              key: 42,
+              sha: 'a'.repeat(40),
+              lastUsedAt: '2026-09-20T12:30:00.000Z',
+              locked: true,
+              bytes: 5 * 1024 * 1024,
+            },
+          ],
+        }
+      },
+    })
+    expect(asked).toBe(0)
+    el(dialog, '#settings-tab-checkouts').click()
+    await flush()
+    expect(asked).toBe(1)
+    const list = el(dialog, '.checkout-list').textContent ?? ''
+    expect(list).toContain('#42 (in use)')
+    expect(list).toContain('aaaaaaa')
+    expect(list).toContain('2026-09-20 12:30')
+    expect(list).toContain('5 MB')
+  })
+
+  it('shows the saved checkout settings, and reads the fields into the saved settings', async () => {
+    const dialog = await open({
+      fetchSettings: async () => ({
+        ...SETTINGS,
+        settings: { ...SETTINGS.settings, checkoutEnabled: false },
+      }),
+    })
+    expect(/** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled')).checked).toBe(false)
+    const enabled = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled'))
+    const idle = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-idle'))
+    const sweep = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-sweep'))
+    enabled.checked = false
+    idle.value = '-1'
+    sweep.value = '30'
+    expect(readSettingsForm(dialog)).toMatchObject({
+      checkoutEnabled: false,
+      checkoutIdleDays: -1,
+      checkoutSweepMinutes: 30,
+    })
+  })
+
+  it('has no AI Chat or Checkouts tab when the project turns chat off', () => {
+    const holder = document.createElement('div')
+    holder.innerHTML = settingsDialogHtml(SETTINGS, null, 'checkouts')
+    expect([...holder.querySelectorAll('[role="tab"]')].map(t => t.textContent)).toEqual([
+      'Reading',
+      'Project',
+    ])
+    expect(holder.querySelector('#settings-panel-reading')?.hasAttribute('hidden')).toBe(false)
+  })
+})
+
+describe('checkoutListHtml', () => {
+  it('says there are none yet', () => {
+    expect(checkoutListHtml({ root: '/x', checkouts: [] })).toContain('No review checkouts yet')
+  })
+
+  it('names local reviews by what they are', () => {
+    const html = checkoutListHtml({
+      root: '/x',
+      checkouts: [
+        {
+          key: 'branch',
+          sha: 'b'.repeat(40),
+          lastUsedAt: '2026-09-20T12:00:00.000Z',
+          locked: false,
+          bytes: 10,
+        },
+      ],
+    })
+    expect(html).toContain('Branch review')
+    expect(formatBytes(3 * 1024 * 1024 * 1024)).toBe('3 GB')
   })
 })

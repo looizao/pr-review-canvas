@@ -167,7 +167,7 @@ function withDefaults(overrides) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnHtml(role, bodyHtml, opts = {}) {
   return `<div class="turn ${role === 'assistant' ? 'a' : 'u'}">${turnInnerHtml(role, bodyHtml, opts)}</div>`
@@ -176,7 +176,7 @@ function turnHtml(role, bodyHtml, opts = {}) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnInnerHtml(role, bodyHtml, opts = {}) {
   const note =
@@ -185,7 +185,32 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
       : `<p class="muted small">the answer stopped early (${esc(opts.incomplete)})</p>`
   return (
     `<span class="role">${role === 'assistant' ? 'AI Chat' : 'You'}</span>` +
+    (opts.fallback === undefined ? '' : checkoutWarningHtml(opts.fallback)) +
     `<div class="prose">${bodyHtml}</div>${note}`
+  )
+}
+
+/**
+ * What the activity line says while a review checkout is created or moved.
+ * @param {{ sha: string, creating: boolean }} event
+ */
+export function checkoutActivityText(event) {
+  const sha = event.sha.slice(0, 7)
+  return event.creating ? `Creating the review checkout at ${sha}` : `Checking out ${sha}`
+}
+
+/**
+ * The warning a turn shows when its review checkout failed and it read the reader's checkout.
+ * @param {{ message: string, branch: string | null }} event
+ */
+export function checkoutWarningHtml(event) {
+  const where =
+    event.branch === null
+      ? 'your checkout'
+      : `your checkout on <span class="mono">${esc(event.branch)}</span>`
+  return (
+    `<p class="chat-warning small" role="status">The review checkout could not be updated, so AI Chat read ${where}. ` +
+    `Answers may describe another version of the code. <span class="muted">${esc(event.message)}</span></p>`
   )
 }
 
@@ -427,7 +452,7 @@ export function wireChat(options) {
    * redrawn without looking it up again.
    * @param {ChatTurn['role']} role
    * @param {string} html
-   * @param {{ incomplete?: string }} [opts]
+   * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
    * @returns {{ turn: HTMLElement, body: HTMLElement }}
    */
   const appendTurn = (role, html, opts = {}) => {
@@ -525,7 +550,10 @@ export function wireChat(options) {
                       pendingComments(session.state)
                     )
                   : renderMarkdown(turn.text, { paths }),
-                turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }
+                {
+                  ...(turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }),
+                  ...(turn.fallback === undefined ? {} : { fallback: turn.fallback }),
+                }
               )
             )
             .join('')
@@ -592,9 +620,11 @@ export function wireChat(options) {
     activity.setAttribute('aria-live', 'off')
     answer.turn.append(activity)
     const started = Date.now()
+    /** What the turn is waiting on: the answer, or a review checkout first. */
+    let phase = 'Preparing answer'
     const updateActivity = () => {
       const elapsed = Date.now() - started
-      activity.textContent = `Preparing answer${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
+      activity.textContent = `${phase}${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
     }
     updateActivity()
     const timer = setInterval(updateActivity, 400)
@@ -621,6 +651,26 @@ export function wireChat(options) {
             if (event.event === 'turn' && typeof thread === 'string') {
               activeThread = thread
               void refreshThreads()
+              // The checkout, if there was one, is done once the turn starts.
+              phase = 'Preparing answer'
+              activity.classList.remove('checking-out')
+              updateActivity()
+              return
+            }
+            if (event.event === 'checkout') {
+              const checkout = /** @type {import('./contract-types.js').ChatCheckoutEvent} */ ({
+                event: 'checkout',
+                ...data,
+              })
+              if (checkout.status === 'preparing') {
+                phase = checkoutActivityText(checkout)
+                activity.classList.add('checking-out')
+                updateActivity()
+              } else {
+                answer.turn
+                  .querySelector('.role')
+                  ?.insertAdjacentHTML('afterend', checkoutWarningHtml(checkout))
+              }
               return
             }
             if (event.event === 'tool') {

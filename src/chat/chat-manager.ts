@@ -10,8 +10,9 @@ import type { ReviewKey } from '../contract/review-key.js'
 import type { ChatThread } from '../contract/state.js'
 import type { SettingsStore } from '../store/settings-store.js'
 import type { StateStore } from '../store/state-store.js'
+import type { CheckoutLease, ReviewCheckouts } from './checkouts.js'
 import { type ContextSources, renderChatContext } from './context.js'
-import { renderSeed, type SeedPaths } from './seed.js'
+import { type CodeSource, renderSeed, type SeedPaths } from './seed.js'
 import {
   NEW_THREAD_TITLE,
   nextThreadIndex,
@@ -37,6 +38,9 @@ export interface ChatManagerDeps {
   /** `serve --chat-agent/--chat-model`, which win over the settings file. */
   overrides: SettingsOverrides
   loadSeedTemplate: () => Promise<string>
+  checkouts: ReviewCheckouts
+  /** The branch the reader's checkout is on, for the warning when a turn falls back to it. */
+  currentBranch: () => Promise<string | null>
   now: () => Date
 }
 
@@ -72,6 +76,8 @@ export interface ChatManager {
 /** The slot a turn holds while it runs. The handle is filled in once the agent has started. */
 interface RunningTurn {
   run: { cancel: () => Promise<void> } | null
+  /** The review checkout this turn holds, released when the turn ends. */
+  lease: CheckoutLease | null
   /** True once a stop arrived, which can be before the agent has started. */
   stopped: boolean
 }
@@ -164,6 +170,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     userText: string,
     assistant: ChatTurn,
     seededHeadSha: string,
+    seededCwd: string,
     reached: boolean
   ): Promise<void> => {
     await deps.transcripts.append(key, thread.name, assistant)
@@ -180,6 +187,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
                 ...t,
                 rev: t.rev + 1,
                 seededHeadSha,
+                seededCwd,
                 // The first turn of a thread gives it its title.
                 title: t.rev === 0 ? threadTitle(userText) : t.title,
               }
@@ -210,12 +218,50 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     }
     // The slot is taken before the first await, so a second request that arrives while this one
     // is still reading the settings sees a busy chat rather than starting a second agent.
-    const slot: RunningTurn = { run: null, stopped: false }
+    const slot: RunningTurn = { run: null, stopped: false, lease: null }
     running.set(target.key, slot)
     try {
       yield* runTurn(target, input, slot)
     } finally {
+      // The lock goes first, so a slot that looks free always has a free checkout behind it.
+      await slot.lease?.release().catch(() => undefined)
       running.delete(target.key)
+    }
+  }
+
+  /**
+   * Where the agent reads code for this turn, and the events that say so. The uncommitted review,
+   * and a reader who turned checkouts off, read the reader's own checkout. Otherwise the review
+   * checkout is leased before the first event, so another process holding it is a refusal, and
+   * then put at the turn's commit; a checkout that fails falls back to the reader's checkout with
+   * a warning rather than failing the turn.
+   */
+  async function* prepareCode(
+    target: ChatTarget,
+    settings: Settings,
+    slot: RunningTurn
+  ): AsyncGenerator<ChatEvent, CodeSource> {
+    if (target.key === 'uncommitted') {
+      return { kind: 'working-tree', cwd: deps.repoRoot }
+    }
+    if (!settings.checkoutEnabled) {
+      return { kind: 'reader-checkout', cwd: deps.repoRoot }
+    }
+    const lease = await deps.checkouts.lease(target.key)
+    slot.lease = lease
+    if (lease.head !== target.headSha) {
+      yield { event: 'checkout', status: 'preparing', sha: target.headSha, creating: lease.head === null }
+    }
+    try {
+      await lease.moveTo(target.headSha)
+      return { kind: 'checkout', cwd: lease.dir, sha: target.headSha }
+    } catch (err) {
+      const fallback = {
+        message: err instanceof Error ? err.message : String(err),
+        branch: await deps.currentBranch().catch(() => null),
+      }
+      yield { event: 'checkout', status: 'fallback', ...fallback }
+      return { kind: 'fallback', cwd: deps.repoRoot, ...fallback }
     }
   }
 
@@ -226,7 +272,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
   ): AsyncIterable<ChatEvent> {
     const settings = await effectiveSettings()
     const thread = await resolveThread(target.key, settings.chatAgent, input.thread)
-    const seeded = thread.seededHeadSha !== target.headSha
     const at = deps.now().toISOString()
     const contextBlock = await renderChatContext(input.context, {
       artifact: target.artifact,
@@ -234,21 +279,27 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
       patches: target.patches,
       readLines: target.readLines,
     })
+    const code = yield* prepareCode(target, settings, slot)
+    const { cwd } = code
+    // Saved on the answer, so the warning is still there when the thread is opened again.
+    const fallback: Pick<ChatTurn, 'fallback'> =
+      code.kind === 'fallback' ? { fallback: { message: code.message, branch: code.branch } } : {}
+    // acpx scopes a session by its folder, so a thread whose session ran elsewhere starts over.
+    const sameSession = thread.seededHeadSha !== '' && (thread.seededCwd ?? deps.repoRoot) === cwd
+    const seeded = !sameSession || thread.seededHeadSha !== target.headSha
     const seed = seeded
-      ? `${renderSeed(await deps.loadSeedTemplate(), target.artifact, seedPaths(deps, target))}\n\n`
+      ? `${renderSeed(await deps.loadSeedTemplate(), target.artifact, seedPaths(deps, target, code))}\n\n`
       : ''
     const prompt = `${seed}${contextBlock}\n\n## Question\n\n${input.message}\n`
 
-    // A thread that has never been seeded has no acpx session behind it either.
-    if (thread.seededHeadSha === '') {
+    if (!sameSession) {
       await deps.runner.ensureSession({
         agent: settings.chatAgent,
         session: thread.name,
-        cwd: deps.repoRoot,
+        cwd,
         timeoutSec: settings.chatTimeoutSec,
       })
     }
-
     await deps.transcripts.append(target.key, thread.name, {
       role: 'user',
       text: input.message,
@@ -256,7 +307,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
       context: input.context,
     })
 
-    const model = await modelForTurn(deps.runner, settings, thread.name, deps.repoRoot)
+    const model = await modelForTurn(deps.runner, settings, thread.name, cwd)
 
     // A stop that arrived while the turn was setting up means no agent is started at all. The
     // transcript is written before the events, so a reader who leaves now still finds it there.
@@ -265,8 +316,9 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         target.key,
         thread,
         input.message,
-        { role: 'assistant', text: '', at: deps.now().toISOString(), incomplete: 'cancelled' },
+        { role: 'assistant', text: '', at: deps.now().toISOString(), incomplete: 'cancelled', ...fallback },
         target.headSha,
+        cwd,
         // The seed never went anywhere, so the thread stays where it was.
         false
       )
@@ -279,7 +331,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
       agent: settings.chatAgent,
       session: thread.name,
       prompt,
-      cwd: deps.repoRoot,
+      cwd,
       timeoutSec: settings.chatTimeoutSec,
       model,
       maxTurns: settings.maxTurns ?? undefined,
@@ -340,7 +392,10 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
       // what it had said by then is a partial answer rather than the whole one.
       if (!ended) {
         incomplete ??= 'cancelled'
-        await run.cancel().catch(() => undefined)
+        // A stop that already reached the agent through `cancel` is not sent twice.
+        if (!slot.stopped) {
+          await run.cancel().catch(() => undefined)
+        }
       }
       await saveTurn(
         target.key,
@@ -351,8 +406,10 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
           text: answer,
           at: deps.now().toISOString(),
           ...(incomplete === undefined ? {} : { incomplete }),
+          ...fallback,
         },
         target.headSha,
+        cwd,
         // An error before the agent said anything means the turn never reached it.
         answer !== '' || incomplete === undefined || incomplete === 'cancelled'
       )
@@ -409,12 +466,13 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
   }
 }
 
-function seedPaths(deps: ChatManagerDeps, target: ChatTarget): SeedPaths {
+function seedPaths(deps: ChatManagerDeps, target: ChatTarget, code: CodeSource): SeedPaths {
   return {
     headDir: `${target.derivedDir}/head`,
     baseDir: `${target.derivedDir}/base`,
     patchDir: `${target.derivedDir}/patches`,
     repoRoot: deps.repoRoot,
+    code,
   }
 }
 
