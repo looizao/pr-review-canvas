@@ -1,11 +1,9 @@
 // Review checkouts: one detached git worktree per review, at the commit the chat talks about, so
 // the agent reads the reviewed version of every file without touching the reader's checkout.
 // See docs/adr/0004-chat-reads-a-review-checkout.md.
-import { execFile } from 'node:child_process'
 import { lstat, mkdir, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { envWithoutRepo } from '../git/environment.mjs'
-import { redactStderr } from '../git/git.js'
+import { execGit, GitError, type GitExec } from '../git/git.js'
 import { keyToString, parseReviewKey, type ReviewKey } from '../contract/review-key.js'
 
 /** A lock older than this is left over from a process that died without letting go. */
@@ -18,13 +16,6 @@ export class CheckoutBusyError extends Error {
   }
 }
 
-export class CheckoutError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'CheckoutError'
-  }
-}
-
 /** The git commands a checkout needs. The real one runs git; tests pass a fake. */
 export interface CheckoutGit {
   /** `git worktree add --detach --force <dir> <sha>`, run in the reader's repository. */
@@ -33,43 +24,35 @@ export interface CheckoutGit {
   move(dir: string, sha: string): Promise<void>
   /** The commit the checkout is on, or null when `dir` is not a working checkout. */
   head(dir: string): Promise<string | null>
-  /** `git worktree remove --force <dir>`, then `git worktree prune`. */
+  /**
+   * `git worktree remove --force <dir>`, which also forgets a checkout whose folder is gone. No
+   * `git worktree prune`: it would forget every missing worktree of the clone, the reader's too.
+   */
   remove(dir: string): Promise<void>
 }
 
-export function createCheckoutGit(repoRoot: string): CheckoutGit {
-  const run = (cwd: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> =>
-    new Promise(resolve => {
-      execFile('git', args, { cwd, env: envWithoutRepo(), encoding: 'utf8' }, (error, stdout, stderr) => {
-        const code = error && typeof error.code === 'number' ? error.code : error ? 1 : 0
-        resolve({ code, stdout, stderr })
-      })
-    })
+export function createCheckoutGit(repoRoot: string, exec: GitExec = execGit): CheckoutGit {
   // A checkout is only read, so the repository's own hooks (post-checkout and the like) stay off.
-  const noHooks = ['-c', 'core.hooksPath=/dev/null']
   const must = async (cwd: string, args: string[]): Promise<void> => {
-    const r = await run(cwd, [...noHooks, ...args])
+    const full = ['-c', 'core.hooksPath=/dev/null', ...args]
+    const r = await exec(cwd, full)
     if (r.code !== 0) {
-      throw new CheckoutError(`git ${args.slice(0, 2).join(' ')} failed: ${redactStderr(r.stderr)}`)
+      throw new GitError(full, r.stderr, r.code)
     }
   }
   return {
-    add: async (dir, sha) => {
-      // A checkout folder removed by hand leaves its worktree registered, which blocks the add.
-      await run(repoRoot, ['worktree', 'prune'])
-      await must(repoRoot, ['worktree', 'add', '--detach', '--force', dir, sha])
-    },
+    // `--force` also takes over a registration whose folder was removed by hand.
+    add: (dir, sha) => must(repoRoot, ['worktree', 'add', '--detach', '--force', dir, sha]),
     move: (dir, sha) => must(dir, ['checkout', '--detach', '--force', '--quiet', sha]),
     head: async dir => {
       if (!(await exists(path.join(dir, '.git')))) {
         return null
       }
-      const r = await run(dir, ['rev-parse', '--verify', '--quiet', 'HEAD'])
-      return r.code === 0 ? r.stdout.trim() : null
+      const r = await exec(dir, ['rev-parse', '--verify', '--quiet', 'HEAD'])
+      return r.code === 0 ? r.stdout.toString('utf8').trim() : null
     },
     remove: async dir => {
-      await run(repoRoot, ['worktree', 'remove', '--force', dir])
-      await run(repoRoot, ['worktree', 'prune'])
+      await exec(repoRoot, ['worktree', 'remove', '--force', dir])
     },
   }
 }

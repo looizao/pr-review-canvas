@@ -161,7 +161,7 @@ function withDefaults(overrides) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnHtml(role, bodyHtml, opts = {}) {
   return `<div class="turn ${role === 'assistant' ? 'a' : 'u'}">${turnInnerHtml(role, bodyHtml, opts)}</div>`
@@ -170,7 +170,7 @@ function turnHtml(role, bodyHtml, opts = {}) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnInnerHtml(role, bodyHtml, opts = {}) {
   const note =
@@ -179,6 +179,7 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
       : `<p class="muted small">the answer stopped early (${esc(opts.incomplete)})</p>`
   return (
     `<span class="role">${role === 'assistant' ? 'AI Chat' : 'You'}</span>` +
+    (opts.fallback === undefined ? '' : checkoutWarningHtml(opts.fallback)) +
     `<div class="prose">${bodyHtml}</div>${note}`
   )
 }
@@ -417,7 +418,7 @@ export function wireChat(options) {
    * redrawn without looking it up again.
    * @param {ChatTurn['role']} role
    * @param {string} html
-   * @param {{ incomplete?: string }} [opts]
+   * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
    * @returns {{ turn: HTMLElement, body: HTMLElement }}
    */
   const appendTurn = (role, html, opts = {}) => {
@@ -507,7 +508,10 @@ export function wireChat(options) {
                 turn.role === 'assistant'
                   ? answerHtml(turn.text, targets, proposed, paths, `history-${i}`, postedComments())
                   : renderMarkdown(turn.text, { paths }),
-                turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }
+                {
+                  ...(turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }),
+                  ...(turn.fallback === undefined ? {} : { fallback: turn.fallback }),
+                }
               )
             )
             .join('')

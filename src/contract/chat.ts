@@ -47,6 +47,11 @@ export const ChatTurnSchema = z.object({
   context: ChatContextSchema.optional(),
   /** Why the turn ended, on an assistant turn that did not finish. */
   incomplete: z.string().optional(),
+  /**
+   * On an assistant turn whose review checkout failed: why, and the branch of the reader's
+   * checkout it read instead.
+   */
+  fallback: z.object({ message: z.string(), branch: z.string().nullable() }).optional(),
 })
 export type ChatTurn = z.infer<typeof ChatTurnSchema>
 

@@ -17,7 +17,7 @@ const PATHS = {
   baseDir: '/data/canvases/aaa/derived/base',
   patchDir: '/data/canvases/aaa/derived/patches',
   repoRoot: '/repo',
-  code: { kind: 'reader-checkout' },
+  code: { kind: 'reader-checkout', cwd: '/repo' },
 } as const
 
 describe('renderSeed', () => {
@@ -47,9 +47,10 @@ describe('where the code is', () => {
   it('names the review checkout as the working directory, and the lockfile caveat', async () => {
     const seed = renderSeed(await loadSeedTemplate(), artifact, {
       ...PATHS,
-      code: { kind: 'checkout', dir: '/data/checkouts/42', sha: 'b'.repeat(40) },
+      code: { kind: 'checkout', cwd: '/data/checkouts/42', sha: 'b'.repeat(40) },
     })
-    expect(seed).toContain('Your working directory, `/data/checkouts/42`, is a checkout of the whole')
+    expect(seed).toContain('Your working directory, `/data/checkouts/42`, is a checkout of the')
+    expect(seed).toContain('Git submodules are not checked out')
     expect(seed).toContain('`bbbbbbb`')
     expect(seed).toContain("reader's checkout at `/repo`")
     expect(seed).toContain('may not be what the pull request uses')
@@ -57,7 +58,10 @@ describe('where the code is', () => {
   })
 
   it('says the working tree is the work under review for uncommitted work', async () => {
-    const seed = renderSeed(await loadSeedTemplate(), artifact, { ...PATHS, code: { kind: 'working-tree' } })
+    const seed = renderSeed(await loadSeedTemplate(), artifact, {
+      ...PATHS,
+      code: { kind: 'working-tree', cwd: '/repo' },
+    })
     expect(seed).toContain('uncommitted edits included')
   })
 

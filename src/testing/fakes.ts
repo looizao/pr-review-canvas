@@ -6,7 +6,7 @@ import path from 'node:path'
 import { Writable } from 'node:stream'
 import { stripVTControlCharacters } from 'node:util'
 import type { AgentRunner } from '../acpx/acpx.js'
-import { type CheckoutGit, CheckoutError } from '../chat/checkouts.js'
+import type { CheckoutGit } from '../chat/checkouts.js'
 import type { RuntimeConfig } from '../config.js'
 import { GITHUB_HOST, type Host } from '../host/host.js'
 import type { ReviewArtifact } from '../contract/review-artifact.js'
@@ -340,7 +340,7 @@ export function createFakeCheckoutGit(options: { fail?: string; delayMs?: number
       await new Promise(resolve => setTimeout(resolve, options.delayMs))
     }
     if (options.fail !== undefined) {
-      throw new CheckoutError(options.fail)
+      throw new GitError(['worktree', 'add'], options.fail, 128)
     }
     await mkdir(dir, { recursive: true })
     await writeFile(path.join(dir, 'HEAD'), sha)

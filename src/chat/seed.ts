@@ -5,14 +5,15 @@ import { loadPromptFile, type ProjectPrompts } from '../prompt-files.js'
 import { PROMPTS_DIR } from '../paths.js'
 
 /**
- * Where the agent's working directory is for this thread: a review checkout at the reviewed
- * commit, the reader's working tree when that is the work under review, or the reader's checkout
- * because checkouts are turned off or this one failed.
+ * The agent's working directory for this turn: a review checkout at the reviewed commit, the
+ * reader's working tree when that is the work under review, or the reader's checkout because
+ * checkouts are turned off or this one failed (`fallback`, with why).
  */
 export type CodeSource =
-  | { kind: 'checkout'; dir: string; sha: string }
-  | { kind: 'working-tree' }
-  | { kind: 'reader-checkout' }
+  | { kind: 'checkout'; cwd: string; sha: string }
+  | { kind: 'working-tree'; cwd: string }
+  | { kind: 'reader-checkout'; cwd: string }
+  | { kind: 'fallback'; cwd: string; message: string; branch: string | null }
 
 export interface SeedPaths {
   headDir: string
@@ -77,9 +78,10 @@ export function codeLocationMarkdown(paths: SeedPaths): string {
   switch (paths.code.kind) {
     case 'checkout':
       return [
-        `Your working directory, \`${paths.code.dir}\`, is a checkout of the whole repository at the`,
+        `Your working directory, \`${paths.code.cwd}\`, is a checkout of the repository at the`,
         `reviewed commit \`${paths.code.sha.slice(0, 7)}\`. Read any file there, changed or not, for the`,
-        'version under review. The other side of the diff is materialized too:',
+        'version under review. Git submodules are not checked out in it. The other side of the diff is',
+        'materialized too:',
         '',
         ...sides,
         '',
@@ -97,6 +99,7 @@ export function codeLocationMarkdown(paths: SeedPaths): string {
         ...sides,
       ].join('\n')
     case 'reader-checkout':
+    case 'fallback':
       return [
         "The pull request's files are materialized on disk, so you can read either side without git:",
         '',

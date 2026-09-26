@@ -668,12 +668,13 @@ chat pane shows **Creating the review checkout** or **Checking out** while that 
   commit, without your uncommitted edits.
 - The uncommitted review has none: the agent reads your working tree, which is the work under
   review.
-- A review checkout holds tracked files only. The agent reads installed dependencies from your
-  checkout and is told they may not match a pull request that changes them.
+- A review checkout holds tracked files only, and no submodules. The agent reads installed
+  dependencies from your checkout and is told they may not match a pull request that changes them.
 - If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
-  carries a warning naming your branch.
-- Every worktree of one clone shares the checkouts. A turn from a second `pr-review serve` on the
-  same review waits for the first to finish (`CHAT_BUSY`).
+  carries a warning naming your branch, also when the thread is reopened later.
+- Every worktree of one clone shares the checkouts. While one `pr-review serve` answers about a
+  review, a turn on the same review from another is refused with `CHAT_BUSY`; ask again once the
+  first answer is done.
 
 `serve` removes checkouts with no chat turn for `checkoutIdleDays`, at startup and every
 `checkoutSweepMinutes`. `pr-review clean` does the same on demand:
@@ -720,7 +721,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `CANVAS_STALE`                          | The PR head moved; prepare again for the current commit                                                                                               |
 | `MODEL_INVALID`                         | Fix the reported problems in `model.json`, validate, then publish again                                                                               |
 | `SKILL_DIR_EXISTS`                      | The destination contains a customized directory; preserve it elsewhere before replacing it with `--force`                                             |
-| `CHAT_BUSY`                             | Wait for the running reply or press **stop**                                                                                                          |
+| `CHAT_BUSY`                             | Wait for the running reply or press **stop**; when another `pr-review serve` holds the review checkout, ask again once its answer is done             |
 | `AGENT_AUTH_REQUIRED`                   | Sign in through the selected agent's CLI, then retry                                                                                                  |
 | `AGENT_MISSING` or missing chat pane    | Check `chat.enabled` and confirm the server can find `acpx` and the selected agent; run `pr-review doctor --all-checks`                               |
 | `AGENT_INCOMPLETE`                      | Retry the message or increase the chat timeout                                                                                                        |

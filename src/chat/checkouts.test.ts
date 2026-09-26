@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
-import { readFile, rm, utimes, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { envWithoutRepo } from '../git/environment.mjs'
@@ -124,6 +124,10 @@ describe('createCheckoutGit', () => {
     git(repo, 'commit', '-q', '-am', 'two')
     const second = git(repo, 'rev-parse', 'HEAD')
     await writeFile(path.join(repo, 'a.txt'), 'uncommitted\n')
+    // One of the reader's own worktrees, its folder moved away for now.
+    const readerWorktree = path.join(tmp, 'reader-wt')
+    git(repo, 'worktree', 'add', '-q', '--detach', readerWorktree)
+    await rename(readerWorktree, `${readerWorktree}-moved`)
 
     const real = createReviewCheckouts({
       root: path.join(tmp, 'data', 'checkouts'),
@@ -147,5 +151,18 @@ describe('createCheckoutGit', () => {
     await real.sweep({ all: true })
     expect(git(repo, 'worktree', 'list')).not.toContain(lease.dir)
     expect(await real.list()).toEqual([])
+    // Creating, moving, and removing the checkout never forgot the reader's worktree.
+    expect(git(repo, 'worktree', 'list')).toContain(readerWorktree)
+
+    // A checkout folder deleted by hand is taken over on the next turn.
+    const again = await real.lease(7)
+    await again.moveTo(first)
+    await again.release()
+    await rm(again.dir, { recursive: true, force: true })
+    const retaken = await real.lease(7)
+    expect(retaken.head).toBeNull()
+    await retaken.moveTo(second)
+    expect(await readFile(path.join(retaken.dir, 'a.txt'), 'utf8')).toBe('two\n')
+    await retaken.release()
   })
 })

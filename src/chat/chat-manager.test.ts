@@ -12,7 +12,7 @@ import { createFakeRunner, type FakeRunner } from '../testing/fake-runner.js'
 import { createFakeCheckoutGit, type FakeCheckoutGit, makeTempDir } from '../testing/fakes.js'
 import { HEAD_SHA, SYNTHETIC_FILES, syntheticArtifact } from '../testing/synthetic.js'
 import { ChatBusyError, type ChatManager, type ChatTarget, createChatManager } from './chat-manager.js'
-import { createReviewCheckouts, type ReviewCheckouts } from './checkouts.js'
+import { CheckoutBusyError, createReviewCheckouts, type ReviewCheckouts } from './checkouts.js'
 import { createTranscriptStore, type TranscriptStore } from './threads.js'
 
 const artifact = syntheticArtifact()
@@ -579,6 +579,7 @@ describe('a thread whose first message reads like the placeholder', () => {
 })
 
 describe('the review checkout a turn reads', () => {
+  const FALLBACK = 'git worktree add failed (128): disk full'
   const checkoutDir = (): string => path.join(dataDir, 'checkouts', '42')
 
   it('creates it on the first turn and moves it only when the commit changes', async () => {
@@ -634,21 +635,26 @@ describe('the review checkout a turn reads', () => {
   })
 
   it("falls back to the reader's checkout with a warning when the checkout fails", async () => {
-    build({ checkoutGit: createFakeCheckoutGit({ fail: 'git worktree failed: disk full' }) })
+    build({ checkoutGit: createFakeCheckoutGit({ fail: 'disk full' }) })
     const events = await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
     expect(events.filter(e => e.event === 'checkout')).toEqual([
       { event: 'checkout', status: 'preparing', sha: HEAD_SHA, creating: true },
-      { event: 'checkout', status: 'fallback', message: 'git worktree failed: disk full', branch: 'main' },
+      { event: 'checkout', status: 'fallback', message: FALLBACK, branch: 'main' },
     ])
     expect(events.at(-1)).toEqual({ event: 'done', stopReason: 'end_turn' })
     expect(runner.runs[0]?.cwd).toBe('/repo')
+    // The warning is saved on the answer, so the thread shows it again when reopened.
+    expect((await transcripts.read(42, T1)).at(-1)).toMatchObject({
+      role: 'assistant',
+      fallback: { message: FALLBACK, branch: 'main' },
+    })
   })
 
   it('is busy while another process holds the checkout, and free again after the turn', async () => {
     const held = await checkouts.lease(42)
     await expect(
       collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
-    ).rejects.toThrow(ChatBusyError)
+    ).rejects.toThrow(CheckoutBusyError)
     await held.release()
     await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
     const again = await checkouts.lease(42)

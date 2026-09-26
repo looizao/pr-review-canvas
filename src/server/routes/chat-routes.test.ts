@@ -2,6 +2,7 @@
 // The chat and settings routes end to end through Hono, with an in-memory agent.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ChatBusyError } from '../../chat/chat-manager.js'
+import { CheckoutBusyError } from '../../chat/checkouts.js'
 import { ChatContextError } from '../../chat/context.js'
 import type { ErrorEnvelope, HealthResponse } from '../../contract/api.js'
 import type { ChatEvent, ChatHistoryResponse, ChatThreadsResponse } from '../../contract/chat.js'
@@ -518,6 +519,9 @@ describe('the health check with chat off', () => {
 describe('toChatError', () => {
   it('maps every way a turn can be refused', () => {
     expect(toChatError(new ChatBusyError()).code).toBe('CHAT_BUSY')
+    // Another process's answer cannot be stopped from this page, so the hint does not say to.
+    expect(toChatError(new CheckoutBusyError(42))).toMatchObject({ code: 'CHAT_BUSY', status: 409 })
+    expect(toChatError(new CheckoutBusyError(42)).hint).toContain('another pr-review serve')
     expect(toChatError(new ChatContextError('no such file')).status).toBe(400)
     const app = new AppError('CANVAS_NOT_FOUND', 'gone', 404)
     expect(toChatError(app)).toBe(app)

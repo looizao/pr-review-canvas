@@ -1499,6 +1499,27 @@ it('warns when the review checkout failed and the answer read the reader checkou
   chat.stop()
 })
 
+it('shows a saved fallback warning again when the thread is reopened', async () => {
+  const { root, chat } = mount({
+    fetchThreads: async () => ({
+      threads: [{ name: 't1', agent: 'claude', title: 'x', createdAt: '' }],
+      activeThread: 't1',
+      agent: 'claude',
+    }),
+    fetchThreadHistory: async () => ({
+      name: 't1',
+      turns: [
+        { role: 'user', text: 'Is this safe?', at: '' },
+        { role: 'assistant', text: 'Yes.', at: '', fallback: { message: 'disk full', branch: 'main' } },
+      ],
+    }),
+  })
+  await flush()
+  await flush()
+  expect(el(root, '.turn.a .chat-warning').textContent).toContain('AI Chat read your checkout on main')
+  chat.stop()
+})
+
 describe('checkoutActivityText', () => {
   it('says whether the checkout is created or moved', () => {
     expect(checkoutActivityText({ sha: 'd'.repeat(40), creating: false })).toBe('Checking out ddddddd')

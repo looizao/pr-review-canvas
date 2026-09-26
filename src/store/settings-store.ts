@@ -146,6 +146,15 @@ function withChatKeys(raw: object): object {
   return out
 }
 
+/** The comment the template puts above `key`, or null when it has none. */
+function templateComment(key: string): string | null {
+  const template = parseDocument(SETTINGS_TEMPLATE).contents
+  const found = isMap(template)
+    ? template.items.find(p => isScalar(p.key) && p.key.value === key)?.key
+    : undefined
+  return isScalar(found) ? (found.commentBefore ?? null) : null
+}
+
 /**
  * Renames a legacy chat key where it stands, so its position survives, and gives it the template's
  * comment, which says the key is for the chat only. A legacy key next to its new spelling goes.
@@ -154,7 +163,6 @@ function renameLegacyKeys(doc: Document): void {
   if (!isMap(doc.contents)) {
     return
   }
-  const templateKeys = parseDocument(SETTINGS_TEMPLATE).contents
   for (const [legacy, key] of Object.entries(LEGACY_KEYS)) {
     if (doc.has(key)) {
       doc.delete(legacy)
@@ -163,10 +171,7 @@ function renameLegacyKeys(doc: Document): void {
     const found = doc.contents.items.find(p => isScalar(p.key) && p.key.value === legacy)?.key
     if (isScalar(found)) {
       found.value = key
-      const template = isMap(templateKeys)
-        ? templateKeys.items.find(p => isScalar(p.key) && p.key.value === key)?.key
-        : undefined
-      found.commentBefore = isScalar(template) ? (template.commentBefore ?? null) : null
+      found.commentBefore = templateComment(key)
     }
   }
 }
@@ -183,18 +188,10 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
     doc = parseDocument(SETTINGS_TEMPLATE)
   }
   renameLegacyKeys(doc)
-  doc.set('version', 1)
-  doc.set('skin', settings.skin)
-  doc.set('theme', settings.theme)
-  doc.set('foldLevel', settings.foldLevel)
-  doc.set('layerView', settings.layerView)
-  doc.set('chatAgent', settings.chatAgent)
-  doc.set('chatModel', settings.chatModel)
-  doc.set('chatTimeoutSec', settings.chatTimeoutSec)
-  doc.set('maxTurns', settings.maxTurns)
-  setWithTemplateComment(doc, 'checkoutEnabled', settings.checkoutEnabled)
-  setWithTemplateComment(doc, 'checkoutIdleDays', settings.checkoutIdleDays)
-  setWithTemplateComment(doc, 'checkoutSweepMinutes', settings.checkoutSweepMinutes)
+  // Every key the schema names, in its order, so a hand-edited file gains what it lacks.
+  for (const [key, value] of Object.entries(settings)) {
+    setKey(doc, key, value)
+  }
   return { text: String(doc), settings }
 }
 
@@ -202,18 +199,15 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
  * Sets a key, and gives it the template's comment when the file did not have it yet, so a file
  * written before the key existed explains it the same way a new file does.
  */
-function setWithTemplateComment(doc: Document, key: string, value: unknown): void {
+function setKey(doc: Document, key: string, value: unknown): void {
   if (doc.has(key) || !isMap(doc.contents)) {
     doc.set(key, value)
     return
   }
   const pair = doc.createPair(key, value)
-  const template = parseDocument(SETTINGS_TEMPLATE).contents
-  const comment = isMap(template)
-    ? template.items.find(p => isScalar(p.key) && p.key.value === key)?.key
-    : undefined
-  if (isScalar(pair.key) && isScalar(comment) && comment.commentBefore !== undefined) {
-    pair.key.commentBefore = comment.commentBefore
+  const comment = templateComment(key)
+  if (isScalar(pair.key) && comment !== null) {
+    pair.key.commentBefore = comment
     pair.key.spaceBefore = true
   }
   doc.contents.items.push(pair)

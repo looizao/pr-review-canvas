@@ -3,6 +3,7 @@
 // in the loop has no agent surface at all; the settings file stays reachable for the reading level.
 import { Hono, type MiddlewareHandler } from 'hono'
 import { ChatBusyError } from '../../chat/chat-manager.js'
+import { CheckoutBusyError } from '../../chat/checkouts.js'
 import { ChatContextError } from '../../chat/context.js'
 import { isThreadNameFor } from '../../chat/threads.js'
 import type { ChatEvent, ChatHistoryResponse } from '../../contract/chat.js'
@@ -301,6 +302,14 @@ export function replayFrom(
 export function toChatError(err: unknown): AppError {
   if (err instanceof ChatBusyError) {
     return new AppError('CHAT_BUSY', err.message, 409, 'stop the running answer, or wait for it to finish')
+  }
+  if (err instanceof CheckoutBusyError) {
+    return new AppError(
+      'CHAT_BUSY',
+      err.message,
+      409,
+      'another pr-review serve of this clone is answering about this review; ask again once it is done'
+    )
   }
   if (err instanceof ChatContextError) {
     return new AppError('BAD_REQUEST', err.message, 400)

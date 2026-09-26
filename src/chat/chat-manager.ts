@@ -10,7 +10,7 @@ import type { ReviewKey } from '../contract/review-key.js'
 import type { ChatThread } from '../contract/state.js'
 import type { SettingsStore } from '../store/settings-store.js'
 import type { StateStore } from '../store/state-store.js'
-import { CheckoutBusyError, type CheckoutLease, type ReviewCheckouts } from './checkouts.js'
+import type { CheckoutLease, ReviewCheckouts } from './checkouts.js'
 import { type ContextSources, renderChatContext } from './context.js'
 import { type CodeSource, renderSeed, type SeedPaths } from './seed.js'
 import {
@@ -22,8 +22,8 @@ import {
 } from './threads.js'
 
 export class ChatBusyError extends Error {
-  constructor(message = 'a chat turn is already running for this pull request') {
-    super(message)
+  constructor() {
+    super('a chat turn is already running for this pull request')
     this.name = 'ChatBusyError'
   }
 }
@@ -223,40 +223,45 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     try {
       yield* runTurn(target, input, slot)
     } finally {
-      running.delete(target.key)
+      // The lock goes first, so a slot that looks free always has a free checkout behind it.
       await slot.lease?.release().catch(() => undefined)
+      running.delete(target.key)
     }
   }
 
   /**
-   * Puts the review checkout at the turn's commit and says so. The uncommitted review, and a
-   * reader who turned checkouts off, read the reader's own checkout. A checkout that fails falls
-   * back to it with a warning rather than failing the turn.
+   * Where the agent reads code for this turn, and the events that say so. The uncommitted review,
+   * and a reader who turned checkouts off, read the reader's own checkout. Otherwise the review
+   * checkout is leased before the first event, so another process holding it is a refusal, and
+   * then put at the turn's commit; a checkout that fails falls back to the reader's checkout with
+   * a warning rather than failing the turn.
    */
-  async function* prepareCode(target: ChatTarget, slot: RunningTurn): AsyncGenerator<ChatEvent, CodeSource> {
+  async function* prepareCode(
+    target: ChatTarget,
+    settings: Settings,
+    slot: RunningTurn
+  ): AsyncGenerator<ChatEvent, CodeSource> {
     if (target.key === 'uncommitted') {
-      return { kind: 'working-tree' }
+      return { kind: 'working-tree', cwd: deps.repoRoot }
     }
-    // No lease means the reader turned checkouts off.
-    if (slot.lease === null) {
-      return { kind: 'reader-checkout' }
+    if (!settings.checkoutEnabled) {
+      return { kind: 'reader-checkout', cwd: deps.repoRoot }
     }
-    const lease = slot.lease
+    const lease = await deps.checkouts.lease(target.key)
+    slot.lease = lease
     if (lease.head !== target.headSha) {
       yield { event: 'checkout', status: 'preparing', sha: target.headSha, creating: lease.head === null }
     }
     try {
       await lease.moveTo(target.headSha)
-      return { kind: 'checkout', dir: lease.dir, sha: target.headSha }
+      return { kind: 'checkout', cwd: lease.dir, sha: target.headSha }
     } catch (err) {
-      const branch = await deps.currentBranch().catch(() => null)
-      yield {
-        event: 'checkout',
-        status: 'fallback',
+      const fallback = {
         message: err instanceof Error ? err.message : String(err),
-        branch,
+        branch: await deps.currentBranch().catch(() => null),
       }
-      return { kind: 'reader-checkout' }
+      yield { event: 'checkout', status: 'fallback', ...fallback }
+      return { kind: 'fallback', cwd: deps.repoRoot, ...fallback }
     }
   }
 
@@ -274,19 +279,11 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
       patches: target.patches,
       readLines: target.readLines,
     })
-    // Taken before the first event, so another process holding the checkout is a refusal.
-    if (settings.checkoutEnabled && target.key !== 'uncommitted') {
-      try {
-        slot.lease = await deps.checkouts.lease(target.key)
-      } catch (err) {
-        if (err instanceof CheckoutBusyError) {
-          throw new ChatBusyError(err.message)
-        }
-        throw err
-      }
-    }
-    const code = yield* prepareCode(target, slot)
-    const cwd = code.kind === 'checkout' ? code.dir : deps.repoRoot
+    const code = yield* prepareCode(target, settings, slot)
+    const { cwd } = code
+    // Saved on the answer, so the warning is still there when the thread is opened again.
+    const fallback: Pick<ChatTurn, 'fallback'> =
+      code.kind === 'fallback' ? { fallback: { message: code.message, branch: code.branch } } : {}
     // acpx scopes a session by its folder, so a thread whose session ran elsewhere starts over.
     const sameSession = thread.seededHeadSha !== '' && (thread.seededCwd ?? deps.repoRoot) === cwd
     const seeded = !sameSession || thread.seededHeadSha !== target.headSha
@@ -319,7 +316,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         target.key,
         thread,
         input.message,
-        { role: 'assistant', text: '', at: deps.now().toISOString(), incomplete: 'cancelled' },
+        { role: 'assistant', text: '', at: deps.now().toISOString(), incomplete: 'cancelled', ...fallback },
         target.headSha,
         cwd,
         // The seed never went anywhere, so the thread stays where it was.
@@ -409,6 +406,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
           text: answer,
           at: deps.now().toISOString(),
           ...(incomplete === undefined ? {} : { incomplete }),
+          ...fallback,
         },
         target.headSha,
         cwd,
