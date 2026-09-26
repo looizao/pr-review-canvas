@@ -658,7 +658,7 @@ incomplete answer can be retried; increase `chatTimeoutSec` if replies need more
 
 ### Review checkouts
 
-AI Chat reads code from a review checkout: a detached `git worktree` of the whole repository at
+AI Chat reads code from a review checkout: a detached `git worktree` of the repository at
 the reviewed commit, kept under the data directory (`repos/<owner>__<repo>/checkouts/<key>`) and
 apart from your own checkout. Your branch and your uncommitted edits are never touched. The first
 chat turn of a review creates it, and each turn moves it to the commit the chat talks about. The
@@ -670,6 +670,15 @@ chat pane shows **Creating the review checkout** or **Checking out** while that 
   review.
 - A review checkout holds tracked files only, and no submodules. The agent reads installed
   dependencies from your checkout and is told they may not match a pull request that changes them.
+- In a repository that uses Git LFS, creating or moving a review checkout downloads its LFS files,
+  like any checkout does. On a large LFS repository the first chat turn of a review can take a
+  while and use network and disk; the chat pane shows the checkout while it runs.
+- Review checkouts are full copies of the repository inside the data directory, which by default
+  sits in your main checkout (`.pr-review/`, ignored by git). Tools that respect `.gitignore`, such
+  as ripgrep and `git status`, skip them. Tools that do not may index them as duplicate sources:
+  some IDE indexers, a Jest module map, or a `tsc` run without `include`. Exclude `.pr-review/`
+  in those tools, or set `--data-dir` / `PR_REVIEW_DATA_DIR` to a folder outside the checkout.
+  They also appear in `git worktree list`.
 - If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
   carries a warning naming your branch, also when the thread is reopened later.
 - Every worktree of one clone shares the checkouts. While one `pr-review serve` answers about a

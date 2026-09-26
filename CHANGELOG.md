@@ -14,7 +14,7 @@
 
 ### AI Chat
 
-- AI Chat reads code from a review checkout: a detached git worktree of the whole repository at
+- AI Chat reads code from a review checkout: a detached git worktree of the repository at
   the reviewed commit, kept in the data directory. Files the pull request did not change now come
   from the pull request's base instead of whatever branch you have checked out. The uncommitted
   review still reads your working tree. The chat pane shows the checkout while it runs, and
