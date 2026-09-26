@@ -17,8 +17,8 @@
 - AI Chat reads code from a review checkout: a detached git worktree of the whole repository at
   the reviewed commit, kept in the data directory. Files the pull request did not change now come
   from the pull request's base instead of whatever branch you have checked out. The uncommitted
-  review still reads your working tree. The chat pane shows the checkout while it runs, marks
-  each answer with the commit it read, and warns when a failed checkout made it read your own.
+  review still reads your working tree. The chat pane shows the checkout while it runs, and
+  warns when a failed checkout made it read your own.
 - `checkoutEnabled`, `checkoutIdleDays` (`-1` never removes), and `checkoutSweepMinutes` in
   `.pr-review/settings.yml`. `serve` removes idle checkouts on that schedule.
 - Threads started before this version begin a new agent session on their next turn.

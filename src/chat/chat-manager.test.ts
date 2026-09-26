@@ -110,7 +110,6 @@ describe('createChatManager().send', () => {
     expect(events).toEqual([
       { event: 'checkout', status: 'preparing', sha: HEAD_SHA, creating: true },
       { event: 'turn', thread: T1, agent: 'claude', seeded: true },
-      { event: 'checkout', status: 'ready', source: 'checkout', sha: HEAD_SHA },
       { event: 'chunk', text: 'Yes. ' },
       { event: 'chunk', text: 'The behavior is covered at `src/a.ts:10`.' },
       { event: 'done', stopReason: 'end_turn' },
@@ -483,7 +482,6 @@ describe('a stop that arrives before the agent has started', () => {
     }
     expect(rest).toEqual([
       { event: 'turn', thread: T1, agent: 'claude', seeded: true },
-      { event: 'checkout', status: 'ready', source: 'checkout', sha: HEAD_SHA },
       { event: 'cancelled' },
     ])
     // No agent was started at all, so there was nothing left to cancel.
@@ -586,9 +584,7 @@ describe('the review checkout a turn reads', () => {
   it('creates it on the first turn and moves it only when the commit changes', async () => {
     await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
     const second = await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
-    expect(second.filter(e => e.event === 'checkout')).toEqual([
-      { event: 'checkout', status: 'ready', source: 'checkout', sha: HEAD_SHA },
-    ])
+    expect(second.filter(e => e.event === 'checkout')).toEqual([])
     const moved = 'c'.repeat(40)
     const third = await collect(
       manager.send({ ...target(), headSha: moved }, { message: 'three', context: { kind: 'pr' } })
@@ -624,9 +620,7 @@ describe('the review checkout a turn reads', () => {
     const events = await collect(
       manager.send({ ...target(), key: 'uncommitted' }, { message: 'one', context: { kind: 'pr' } })
     )
-    expect(events.filter(e => e.event === 'checkout')).toEqual([
-      { event: 'checkout', status: 'ready', source: 'working-tree', sha: HEAD_SHA },
-    ])
+    expect(events.filter(e => e.event === 'checkout')).toEqual([])
     expect(runner.runs[0]?.cwd).toBe('/repo')
     expect(checkoutGit.calls).toEqual([])
   })
@@ -634,9 +628,7 @@ describe('the review checkout a turn reads', () => {
   it("reads the reader's checkout when checkouts are turned off", async () => {
     await settings.write({ checkoutEnabled: false })
     const events = await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
-    expect(events.filter(e => e.event === 'checkout')).toEqual([
-      { event: 'checkout', status: 'ready', source: 'working-tree', sha: HEAD_SHA },
-    ])
+    expect(events.filter(e => e.event === 'checkout')).toEqual([])
     expect(runner.runs[0]?.cwd).toBe('/repo')
     expect(checkoutGit.calls).toEqual([])
   })

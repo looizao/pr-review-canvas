@@ -15,7 +15,7 @@ async function ask(page: Page, question: string): Promise<void> {
   await page.locator('#chat-send').click()
 }
 
-test('shows the review checkout being created, then the commit each answer read', async ({
+test('shows the review checkout being created, and only on the turn that creates it', async ({
   page,
   chatServer,
 }) => {
@@ -27,14 +27,12 @@ test('shows the review checkout being created, then the commit each answer read'
   await ask(page, 'Is the new flag covered by a test?')
   const first = pane.locator('.turn.a').first()
   await expect(first.locator('.chat-activity')).toContainText(`Creating the review checkout at ${SHORT}`)
-  await expect(first.locator('.chat-source')).toHaveText(`review checkout ${SHORT}`)
   await expect(first.locator('.prose')).toContainText('The behavior is covered at')
   await expect(first.locator('.chat-activity')).toContainText('Elapsed')
 
   // The checkout is already at this commit, so the second turn goes straight to the answer.
   await ask(page, 'And the error path?')
   const second = pane.locator('.turn.a').nth(1)
-  await expect(second.locator('.chat-source')).toHaveText(`review checkout ${SHORT}`)
   await expect(second.locator('.chat-activity')).not.toContainText('review checkout')
   await expect(second.locator('.prose')).toContainText('The behavior is covered at')
   await expect(second.locator('.chat-activity')).toContainText('Elapsed')
@@ -55,7 +53,6 @@ test("warns when the review checkout fails and the answer read the reader's chec
   await expect(warning).toContainText('The review checkout could not be updated')
   await expect(warning).toContainText('No space left on device')
   await expect(answer.locator('.prose')).toContainText('The behavior is covered at')
-  await expect(answer.locator('.chat-source')).toHaveCount(0)
   await expect(answer.locator('.chat-activity')).toContainText('Elapsed')
 })
 
@@ -66,7 +63,7 @@ test('lists review checkouts in the settings Checkouts tab and saves its setting
   const { url, ctx } = await chatServer({ runner: { delayMs: 50 } })
   await page.goto(url)
   await ask(page, 'What does this change?')
-  await expect(page.locator('.layout > .chat .turn.a .chat-source')).toHaveText(`review checkout ${SHORT}`)
+  await expect(page.locator('.layout > .chat .turn.a .chat-activity')).toContainText('Elapsed')
 
   await page.locator('#settings').click()
   const dialog = page.locator('#settings-dialog')

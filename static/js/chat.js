@@ -193,22 +193,6 @@ export function checkoutActivityText(event) {
 }
 
 /**
- * The chip on an answer that names the code the agent read: the review checkout at a commit, or
- * the reader's own checkout, which for uncommitted work is the work under review.
- * @param {{ source: 'checkout' | 'working-tree', sha: string }} event
- * @param {import('./contract-types.js').ReviewKey} key
- */
-export function checkoutChipHtml(event, key) {
-  if (event.source === 'checkout') {
-    const sha = esc(event.sha.slice(0, 7))
-    return `<span class="chat-source" title="AI Chat read the review checkout at ${sha}">review checkout <span class="mono">${sha}</span></span>`
-  }
-  return key === 'uncommitted'
-    ? '<span class="chat-source" title="AI Chat read your working tree, the work under review">your working tree</span>'
-    : '<span class="chat-source warn" title="Review checkouts are off, so AI Chat read your own checkout, which may be on another branch">your checkout</span>'
-}
-
-/**
  * The warning a turn shows when its review checkout failed and it read the reader's checkout.
  * @param {{ message: string, branch: string | null }} event
  */
@@ -613,6 +597,10 @@ export function wireChat(options) {
             if (event.event === 'turn' && typeof thread === 'string') {
               activeThread = thread
               void refreshThreads()
+              // The checkout, if there was one, is done once the turn starts.
+              phase = 'Preparing answer'
+              activity.classList.remove('checking-out')
+              updateActivity()
               return
             }
             if (event.event === 'checkout') {
@@ -620,21 +608,15 @@ export function wireChat(options) {
                 event: 'checkout',
                 ...data,
               })
-              const role = answer.turn.querySelector('.role')
               if (checkout.status === 'preparing') {
                 phase = checkoutActivityText(checkout)
                 activity.classList.add('checking-out')
+                updateActivity()
               } else {
-                phase = 'Preparing answer'
-                activity.classList.remove('checking-out')
-                role?.insertAdjacentHTML(
-                  'afterend',
-                  checkout.status === 'ready'
-                    ? checkoutChipHtml(checkout, prNumber)
-                    : checkoutWarningHtml(checkout)
-                )
+                answer.turn
+                  .querySelector('.role')
+                  ?.insertAdjacentHTML('afterend', checkoutWarningHtml(checkout))
               }
-              updateActivity()
               return
             }
             if (event.event === 'tool') {

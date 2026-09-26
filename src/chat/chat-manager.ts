@@ -233,16 +233,13 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
    * reader who turned checkouts off, read the reader's own checkout. A checkout that fails falls
    * back to it with a warning rather than failing the turn.
    */
-  async function* prepareCode(
-    target: ChatTarget,
-    slot: RunningTurn
-  ): AsyncGenerator<ChatEvent, { code: CodeSource; fellBack: boolean }> {
+  async function* prepareCode(target: ChatTarget, slot: RunningTurn): AsyncGenerator<ChatEvent, CodeSource> {
     if (target.key === 'uncommitted') {
-      return { code: { kind: 'working-tree' }, fellBack: false }
+      return { kind: 'working-tree' }
     }
     // No lease means the reader turned checkouts off.
     if (slot.lease === null) {
-      return { code: { kind: 'reader-checkout' }, fellBack: false }
+      return { kind: 'reader-checkout' }
     }
     const lease = slot.lease
     if (lease.head !== target.headSha) {
@@ -250,7 +247,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     }
     try {
       await lease.moveTo(target.headSha)
-      return { code: { kind: 'checkout', dir: lease.dir, sha: target.headSha }, fellBack: false }
+      return { kind: 'checkout', dir: lease.dir, sha: target.headSha }
     } catch (err) {
       const branch = await deps.currentBranch().catch(() => null)
       yield {
@@ -259,7 +256,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         message: err instanceof Error ? err.message : String(err),
         branch,
       }
-      return { code: { kind: 'reader-checkout' }, fellBack: true }
+      return { kind: 'reader-checkout' }
     }
   }
 
@@ -288,7 +285,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         throw err
       }
     }
-    const { code, fellBack } = yield* prepareCode(target, slot)
+    const code = yield* prepareCode(target, slot)
     const cwd = code.kind === 'checkout' ? code.dir : deps.repoRoot
     // acpx scopes a session by its folder, so a thread whose session ran elsewhere starts over.
     const sameSession = thread.seededHeadSha !== '' && (thread.seededCwd ?? deps.repoRoot) === cwd
@@ -306,13 +303,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         timeoutSec: settings.chatTimeoutSec,
       })
     }
-    // After a fallback the warning already says what the agent reads.
-    const ready: ChatEvent | null = fellBack
-      ? null
-      : code.kind === 'checkout'
-        ? { event: 'checkout', status: 'ready', source: 'checkout', sha: code.sha }
-        : { event: 'checkout', status: 'ready', source: 'working-tree', sha: target.headSha }
-
     await deps.transcripts.append(target.key, thread.name, {
       role: 'user',
       text: input.message,
@@ -336,7 +326,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         false
       )
       yield { event: 'turn', thread: thread.name, agent: settings.chatAgent, seeded }
-      if (ready !== null) yield ready
       yield { event: 'cancelled' }
       return
     }
@@ -365,7 +354,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     let ended = false
     try {
       yield { event: 'turn', thread: thread.name, agent: settings.chatAgent, seeded }
-      if (ready !== null) yield ready
       for await (const event of run.events) {
         switch (event.type) {
           case 'chunk':

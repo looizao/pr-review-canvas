@@ -662,8 +662,7 @@ AI Chat reads code from a review checkout: a detached `git worktree` of the whol
 the reviewed commit, kept under the data directory (`repos/<owner>__<repo>/checkouts/<key>`) and
 apart from your own checkout. Your branch and your uncommitted edits are never touched. The first
 chat turn of a review creates it, and each turn moves it to the commit the chat talks about. The
-chat pane shows **Creating the review checkout** or **Checking out** while that runs, and marks
-each answer with the commit it read.
+chat pane shows **Creating the review checkout** or **Checking out** while that runs.
 
 - A pull request and the branch review each get one. The branch review reads the branch's last
   commit, without your uncommitted edits.

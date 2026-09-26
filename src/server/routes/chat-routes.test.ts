@@ -97,7 +97,6 @@ describe('POST /api/prs/:n/chat', () => {
     expect(await res.text()).toBe(
       `event: checkout\ndata: {"status":"preparing","sha":"${HEAD_SHA}","creating":true}\n\n` +
         `event: turn\ndata: {"thread":"${T1}","agent":"claude","seeded":true}\n\n` +
-        `event: checkout\ndata: {"status":"ready","source":"checkout","sha":"${HEAD_SHA}"}\n\n` +
         'event: chunk\ndata: {"text":"Yes. "}\n\n' +
         'event: chunk\ndata: {"text":"The behavior is covered at `src/a.ts:10`."}\n\n' +
         'event: done\ndata: {"stopReason":"end_turn"}\n\n'

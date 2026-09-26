@@ -35,9 +35,9 @@ checkout being removed and created again. The cost is an extra entry in `git wor
 - The worktree holds tracked files only. The seed points the agent at the reader's checkout for
   installed dependencies, and warns that they follow the reader's lockfile, which may differ from
   the reviewed commit when it changes dependencies.
-- The chat panel shows the checkout while it runs and the commit the agent reads afterwards. When
-  the worktree cannot be created or moved, the turn runs in the reader's checkout as before and the
-  panel warns that answers may describe another version of the code.
+- The chat panel shows the checkout while it runs. When the worktree cannot be created or moved,
+  the turn runs in the reader's checkout as before and the panel warns that answers may describe
+  another version of the code.
 - Settings: `checkoutEnabled` (false reads the reader's checkout as before), `checkoutIdleDays`
   (default 7; -1 never removes a checkout for idleness), and `checkoutSweepMinutes` (default 60).
   `serve` sweeps at startup and on that interval. `pr-review clean` removes idle checkouts on
