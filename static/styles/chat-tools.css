@@ -87,8 +87,13 @@
 .proposed .tbtns {
   margin-top: 8px;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  font-size: 12px;
+}
+/* The card sits in a narrow pane, so its lead command is a size down from the page's. */
+.proposed .cmd.fill {
+  padding: 3px 8px;
 }
 .proposed-invalid {
   border: 1px dashed var(--line);

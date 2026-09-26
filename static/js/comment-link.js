@@ -35,3 +35,19 @@ export function postedCommentUrl(proposed, posted) {
       c.body === proposed.body
   )?.url
 }
+
+/**
+ * Whether the proposed comment already waits in the pending review, drafted from this card.
+ * @param {import('./proposed-comment.js').ProposedComment} proposed
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
+ */
+export function isQueuedComment(proposed, pending) {
+  return pending.some(
+    p =>
+      p.path === proposed.path &&
+      p.line === proposed.line &&
+      p.side === proposed.side &&
+      (p.startLine ?? p.line) === (proposed.startLine ?? proposed.line) &&
+      p.body === proposed.body
+  )
+}

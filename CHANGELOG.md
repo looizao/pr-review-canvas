@@ -16,6 +16,8 @@
 
 - The chat keys in `.pr-review/settings.yml` are now `chatAgent` and `chatModel`. A file with the
   old `agent` and `model` keys still reads the same, and the next save renames them in place.
+- A proposed comment card offers **add to review** next to **post to github**, the way an attention
+  point does, and shows **in your review** once queued.
 
 ### CLI
 

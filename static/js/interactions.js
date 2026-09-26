@@ -1292,9 +1292,9 @@ export function wireReview(root, session, opts = {}) {
 
   return {
     /**
-     * What the chat's proposed-comment card does: post it straight away, or open the same
-     * composer the rest of the page uses, prefilled.
-     * @param {'post' | 'edit'} what
+     * What the chat's proposed-comment card does: post it straight away, add it to the pending
+     * review, or open the same composer the rest of the page uses, prefilled.
+     * @param {import('./chat.js').ProposedAct} what
      * @param {import('./proposed-comment.js').ProposedComment} comment
      * @param {HTMLElement} el
      */
@@ -1327,20 +1327,33 @@ export function wireReview(root, session, opts = {}) {
         openComposer(row, options, 'row')
         return
       }
+      const target = {
+        path: comment.path,
+        line: comment.line,
+        side: comment.side,
+        body: comment.body,
+        ...(comment.startLine === undefined || comment.startLine === comment.line
+          ? {}
+          : { startLine: comment.startLine }),
+      }
+      if (what === 'queue') {
+        void runCommand(
+          el,
+          async () => {
+            await session.addPending(target)
+            el.closest('.tbtns')?.querySelector('[data-act="proposed-post"]')?.remove()
+            el.outerHTML = '<span class="pill pending queued">in your review</span>'
+            toast(root, 'comment added to your review')
+          },
+          { pendingLabel: 'adding…' }
+        )
+        return
+      }
       void runCommand(
         el,
         async () => {
-          const input = {
-            kind: /** @type {const} */ ('inline'),
-            path: comment.path,
-            line: comment.line,
-            side: comment.side,
-            body: comment.body,
-            ...(comment.startLine === undefined || comment.startLine === comment.line
-              ? {}
-              : { startLine: comment.startLine }),
-          }
-          const answer = await postComment(input)
+          const answer = await postComment({ kind: /** @type {const} */ ('inline'), ...target })
+          el.closest('.tbtns')?.querySelector('[data-act="proposed-queue"]')?.remove()
           replacePostButton(el, answer.comment.url)
           toast(root, 'comment posted to github')
         },

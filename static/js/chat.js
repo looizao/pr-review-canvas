@@ -19,10 +19,11 @@ import {
   unseenLabel,
 } from './chat-scroll.js'
 import { runCommand, runControl, showCommandError } from './commands.js'
-import { postedCommentUrl, viewCommentHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, viewCommentHtml } from './comment-link.js'
 import { esc, qs } from './dom.js'
 import { getRenderContext } from './layers.js'
 import { renderMarkdown } from './markdown.js'
+import { pendingComments } from './pending.js'
 import { postToLabel } from './host.js'
 import { splitChatAnswer, targetsFromFiles } from './proposed-comment.js'
 
@@ -131,6 +132,12 @@ export const QUICK_QUESTIONS = [
   'Is this covered by tests?',
 ]
 
+/** @typedef {'post' | 'queue' | 'edit'} ProposedAct */
+
+/** What each proposed-comment button asks the page to do. */
+/** @type {Readonly<Record<string, ProposedAct>>} */
+const PROPOSED_ACTS = { 'proposed-post': 'post', 'proposed-queue': 'queue', 'proposed-edit': 'edit' }
+
 /**
  * @typedef {{
  *   root: HTMLElement,
@@ -139,7 +146,7 @@ export const QUICK_QUESTIONS = [
  *   storage?: Storage | null,
  *   api?: Partial<ChatApi>,
  *   reducedMotion?: boolean,
- *   onProposed?: (what: 'post' | 'edit', comment: ProposedComment, el: HTMLElement) => void,
+ *   onProposed?: (what: ProposedAct, comment: ProposedComment, el: HTMLElement) => void,
  * }} ChatOptions
  */
 
@@ -184,13 +191,35 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
 }
 
 /**
- * The card a proposed comment renders as. `post to github` goes through the same path as every
- * other post, so capability gating and the pending state apply here too.
+ * What a card offers for getting its comment onto the forge: the link to the comment it was posted
+ * as, the note that it is waiting in the review, or the two ways to send it. Like an attention
+ * point, it keeps both ways while a review is open: its text is written in advance. Adding it to
+ * the review leads, as it does on a diff-line comment.
+ * @param {string} id
+ * @param {{ postedUrl?: string | undefined, queued?: boolean }} opts
+ */
+function proposedSendHtml(id, opts) {
+  if (opts.postedUrl !== undefined) {
+    return viewCommentHtml(opts.postedUrl, true)
+  }
+  if (opts.queued === true) {
+    return '<span class="pill pending queued">in your review</span>'
+  }
+  return (
+    `<button class="cmd fill" type="button" data-act="proposed-queue" data-proposed="${esc(id)}">add to review</button>` +
+    `<button class="cmd" type="button" data-act="proposed-post" data-proposed="${esc(id)}" data-needs-post>${postToLabel()}</button>`
+  )
+}
+
+/**
+ * The card a proposed comment renders as. `post to github` and `add to review` go through the
+ * same paths as every other post and draft, so capability gating and the pending state apply here
+ * too.
  * @param {ProposedComment} comment
  * @param {string} id the key the pane stores this card's comment under
- * @param {string} [postedUrl]
+ * @param {{ postedUrl?: string | undefined, queued?: boolean }} [opts]
  */
-export function proposedCommentHtml(comment, id, postedUrl) {
+export function proposedCommentHtml(comment, id, opts = {}) {
   const range = comment.startLine === undefined ? `${comment.line}` : `${comment.startLine}–${comment.line}`
   const side = comment.side === 'old' ? ' (old side)' : ''
   return (
@@ -199,9 +228,7 @@ export function proposedCommentHtml(comment, id, postedUrl) {
     `<span class="mono">${esc(comment.path)}:${esc(range)}${side}</span></div>` +
     `<div class="prose">${renderMarkdown(comment.body)}</div>` +
     '<span class="tbtns">' +
-    (postedUrl === undefined
-      ? `<button class="cmd fill" type="button" data-act="proposed-post" data-proposed="${esc(id)}" data-needs-post>${postToLabel()}</button>`
-      : viewCommentHtml(postedUrl, true)) +
+    proposedSendHtml(id, opts) +
     `<button class="cmd" type="button" data-act="proposed-edit" data-proposed="${esc(id)}" data-needs-post>edit</button>` +
     `<button class="cmd" type="button" data-copy="${esc(comment.body)}">copy</button>` +
     '</span></div>'
@@ -219,8 +246,9 @@ export function proposedCommentHtml(comment, id, postedUrl) {
  * @param {ReadonlySet<string>} paths
  * @param {string} [turnKey] the prefix of this turn's card keys
  * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} [posted]
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [pending]
  */
-export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted = []) {
+export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted = [], pending = []) {
   let index = 0
   return splitChatAnswer(text, targets)
     .map(segment => {
@@ -231,7 +259,10 @@ export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted 
         const id = `${turnKey}-${index}`
         index += 1
         sink.set(id, segment.comment)
-        return proposedCommentHtml(segment.comment, id, postedCommentUrl(segment.comment, posted))
+        return proposedCommentHtml(segment.comment, id, {
+          postedUrl: postedCommentUrl(segment.comment, posted),
+          queued: isQueuedComment(segment.comment, pending),
+        })
       }
       return `<pre class="proposed-invalid"><code>${esc(segment.text)}</code></pre><p class="muted small">${esc(segment.reason)}</p>`
     })
@@ -481,7 +512,15 @@ export function wireChat(options) {
               turnHtml(
                 turn.role,
                 turn.role === 'assistant'
-                  ? answerHtml(turn.text, targets, proposed, paths, `history-${i}`, postedComments())
+                  ? answerHtml(
+                      turn.text,
+                      targets,
+                      proposed,
+                      paths,
+                      `history-${i}`,
+                      postedComments(),
+                      pendingComments(session.state)
+                    )
                   : renderMarkdown(turn.text, { paths }),
                 turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }
               )
@@ -522,7 +561,15 @@ export function wireChat(options) {
         proposed.delete(key)
       }
     }
-    return answerHtml(text, targets, proposed, paths, turnKey, postedComments())
+    return answerHtml(
+      text,
+      targets,
+      proposed,
+      paths,
+      turnKey,
+      postedComments(),
+      pendingComments(session.state)
+    )
   }
 
   const send = async () => {
@@ -695,10 +742,11 @@ export function wireChat(options) {
       return
     }
     const act = el.getAttribute('data-act')
-    if (act === 'proposed-post' || act === 'proposed-edit') {
+    const what = act === null ? undefined : PROPOSED_ACTS[act]
+    if (what !== undefined) {
       const comment = proposed.get(el.getAttribute('data-proposed') ?? '')
       if (comment !== undefined) {
-        options.onProposed?.(act === 'proposed-post' ? 'post' : 'edit', comment, el)
+        options.onProposed?.(what, comment, el)
       }
     }
   }

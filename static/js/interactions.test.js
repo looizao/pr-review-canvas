@@ -1814,7 +1814,9 @@ describe('the AI Chat commands', () => {
     const { root, wiring, calls } = setup()
     const card = document.createElement('div')
     card.className = 'proposed'
-    card.innerHTML = '<span class="tbtns"><button id="post">post to github</button></span>'
+    card.innerHTML =
+      '<span class="tbtns"><button data-act="proposed-queue">add to review</button>' +
+      '<button id="post">post to github</button></span>'
     root.appendChild(card)
     const button = card.querySelector('#post')
     if (!(button instanceof HTMLElement)) {
@@ -1845,6 +1847,35 @@ describe('the AI Chat commands', () => {
       'https://github.com/acme/widgets/pull/42#discussion_r5001'
     )
     expect(card.querySelector('#post')).toBeNull()
+    expect(card.querySelector('[data-act="proposed-queue"]')).toBeNull()
+  })
+
+  it('adds a proposed comment to the review at the line it names', async () => {
+    const { root, wiring, calls } = setup()
+    const card = document.createElement('div')
+    card.className = 'proposed'
+    card.innerHTML =
+      '<span class="tbtns"><button data-act="proposed-post">post to github</button>' +
+      '<button id="queue">add to review</button></span>'
+    root.appendChild(card)
+    const button = card.querySelector('#queue')
+    if (!(button instanceof HTMLElement)) {
+      throw new Error('no button')
+    }
+    wiring.onProposedComment(
+      'queue',
+      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
+      button
+    )
+    await flush()
+    expect(calls).toEqual([
+      [
+        'pending-add',
+        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+      ],
+    ])
+    expect(card.querySelector('.tbtns .pill')?.textContent).toBe('in your review')
+    expect(card.querySelector('button')).toBeNull()
   })
 
   it('opens the composer prefilled when the reader edits a proposed comment', () => {
