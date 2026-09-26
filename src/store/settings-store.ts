@@ -49,6 +49,14 @@ checkoutIdleDays: 7
 
 # How often, in minutes, pr-review serve looks for idle review checkouts.
 checkoutSweepMinutes: 60
+
+# Whether publish posts the canvas as a PR/MR comment. null follows sharing.canvasComment in
+# pr-review.config.yml; true or false wins over it for you.
+canvasComment: null
+
+# Whether what the review page posts names the canvas. null follows sharing.mentionCanvas
+# in pr-review.config.yml; true or false wins over it for you.
+mentionCanvas: null
 `
 
 export interface SettingsStore {

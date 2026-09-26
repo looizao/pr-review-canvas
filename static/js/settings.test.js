@@ -28,6 +28,8 @@ const SETTINGS = {
     checkoutEnabled: true,
     checkoutIdleDays: 7,
     checkoutSweepMinutes: 60,
+    canvasComment: null,
+    mentionCanvas: null,
   },
   overrides: {},
   file: '/repo/.pr-review/settings.yml',

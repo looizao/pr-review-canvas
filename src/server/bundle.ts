@@ -10,6 +10,7 @@ import type {
 import type { CommentsPayload } from '../contract/comments.js'
 import { isLargePr, type LocalPrepareTarget } from '../contract/generation-context.js'
 import type { FileEntry, Pr, ReviewArtifact } from '../contract/review-artifact.js'
+import { resolveSharing } from '../contract/settings.js'
 import { isLocalKey, type LocalKey, type ReviewKey } from '../contract/review-key.js'
 import { describeLocalWork, resolveLocalBase } from '../git/local-target.js'
 import { fetchPrRefs } from '../git/pr-refs.js'
@@ -327,11 +328,12 @@ async function bundleBase(
   }
 ): Promise<Omit<PrBundle, 'status' | 'skillCommand'>> {
   const chatEnabled = ctx.projectConfig.config.chat.enabled
-  const [stored, capabilities, settings, acpx] = await Promise.all([
+  const [stored, capabilities, settings, acpx, personal] = await Promise.all([
     ctx.state.read(key),
     input.capabilities,
     chatEnabled ? ctx.chat.effectiveSettings() : Promise.resolve(null),
     chatEnabled ? ctx.preflight.get() : Promise.resolve({ installed: false, version: null }),
+    ctx.settings.read(),
   ])
   if (chatEnabled && !acpx.installed) {
     input.warnings.push('acpx is not on PATH, so the AI Chat pane is off; install acpx to turn it on')
@@ -356,6 +358,7 @@ async function bundleBase(
       ...(settings === null ? {} : { agent: settings.chatAgent, model: settings.chatModel }),
     },
     largePr: largePrOf(input.diff.files),
+    mentionCanvas: resolveSharing(ctx.projectConfig.config.sharing, personal).mentionCanvas,
     warnings: input.warnings,
   }
 }

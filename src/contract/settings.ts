@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { GenerationModels } from '../project-config.js'
+import type { GenerationModels, Sharing } from '../project-config.js'
 import type { ReviewKey } from './review-key.js'
 import { DEFAULT_FOLD_LEVEL, FOLD_LEVELS } from '../../static/js/fold-levels.js'
 import { DEFAULT_LAYER_VIEW, LAYER_VIEWS } from '../../static/js/layer-views.js'
@@ -64,6 +64,10 @@ export const SettingsSchema = z.object({
   checkoutIdleDays: CheckoutIdleDaysSchema,
   /** How often `serve` looks for idle review checkouts. */
   checkoutSweepMinutes: CheckoutSweepMinutesSchema,
+  /** Overrides `sharing.canvasComment` in pr-review.config.yml; null follows the project. */
+  canvasComment: z.boolean().nullable(),
+  /** Overrides `sharing.mentionCanvas` in pr-review.config.yml; null follows the project. */
+  mentionCanvas: z.boolean().nullable(),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -80,6 +84,16 @@ export const DEFAULT_SETTINGS: Settings = {
   checkoutEnabled: true,
   checkoutIdleDays: 7,
   checkoutSweepMinutes: 60,
+  canvasComment: null,
+  mentionCanvas: null,
+}
+
+/** The project's sharing rules with this user's overrides applied: a set personal key wins. */
+export function resolveSharing(project: Sharing, settings: Settings): Sharing {
+  return {
+    canvasComment: settings.canvasComment ?? project.canvasComment,
+    mentionCanvas: settings.mentionCanvas ?? project.mentionCanvas,
+  }
 }
 
 /**

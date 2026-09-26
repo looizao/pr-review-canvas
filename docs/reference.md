@@ -132,6 +132,26 @@ Check the `sharing` result even when the process exits successfully:
   Upload that ZIP into the PR/MR description in the browser and save; replace an older attachment
   link if present. A host failure can have an uncertain outcome, so check the comment before retrying.
 - `{ "status": "local" }`: a refs-only target has no PR/MR to publish to.
+- `{ "status": "off" }`: `sharing.canvasComment` is off, so nothing was posted. The canvas is
+  saved locally and opens with `pr-review serve`; `pr-review export` makes a ZIP when you want to
+  hand it over another way.
+
+### Turning sharing off
+
+Some projects must not get a canvas comment, or any mention of the tool, on their PRs/MRs. Two
+switches cover this, both on by default:
+
+- `sharing.canvasComment`: `false` makes `publish` skip the canvas comment and return
+  `sharing.status: "off"`.
+- `sharing.mentionCanvas`: `false` keeps the canvas out of everything the review page posts. An
+  attention point's comment drops its `from the pr-review canvas` credit, and the sign-off dialog
+  opens with an empty body for you to write, since the suggested body describes the canvas.
+  Posting comments and reviews from the page still works. GitHub needs a body to request changes
+  or to post a comment-only review, so write one.
+
+Set them for everyone in `pr-review.config.yml`, or for yourself as `canvasComment` and
+`mentionCanvas` in `.pr-review/settings.yml`. A personal value of `true` or `false` wins over the
+project's; `null` follows it.
 
 The entire comment must fit the host limit: 65,536 characters on GitHub and 1,000,000 on GitLab.
 Base64 uses roughly four characters per three compressed bytes, leaving slightly under 48 KiB
@@ -286,6 +306,8 @@ within one path segment.
 | `chat.enabled`                  | `true`                                                                      | Set to `false` to disable AI Chat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `canvas.keepForIdenticalDiff`   | `true`                                                                      | Keep the canvas current for a later head whose diff is identical to the canvas's; see [outdated canvases](#outdated-canvases). Set to `false` to mark it outdated on every commit                                                                                                                                                                                                                                                                                                                                  |
 | `canvas.incremental`            | `true`                                                                      | Regenerate a canvas for a new head by updating the newest canvas of a commit the head was built on; see [incremental canvases](#incremental-canvases). Set to `false` to generate every canvas from a blank page                                                                                                                                                                                                                                                                                                   |
+| `sharing.canvasComment`         | `true`                                                                      | Set to `false` to keep canvases local: `publish` posts no PR/MR comment; see [turning sharing off](#turning-sharing-off)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `sharing.mentionCanvas`         | `true`                                                                      | Set to `false` to keep the canvas out of what the review page posts                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `prompts`                       | Bundled templates                                                           | See [prompt templates](#prompt-templates) for supported keys and behavior                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Generation's numeric options and text caps must be positive integers. An empty `layers` list
@@ -390,11 +412,16 @@ The data directory's `settings.yml` accepts these keys and values:
 | `checkoutEnabled`      | `true`   | `true` reads a [review checkout](#review-checkouts); `false` reads your checkout |
 | `checkoutIdleDays`     | `7`      | Integer 1–365, or `-1` to never remove an idle checkout                          |
 | `checkoutSweepMinutes` | `60`     | Integer minutes, 5–1440, between `serve`'s idle sweeps                           |
+| `canvasComment`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
+| `mentionCanvas`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
 
 (1) A model ID names a family; see [Model families](#model-families).
 (2) AI Chat only. Canvas generation reads `generation.models` in the project config instead. A
 file written before these keys were renamed keeps working: `agent` and `model` are read as
 `chatAgent` and `chatModel`, and the next save renames them in the file.
+(3) Overrides `sharing.canvasComment` or `sharing.mentionCanvas` in the project config for you; see
+[turning sharing off](#turning-sharing-off). Edit these in the file; the settings dialog does not
+show them.
 
 Invalid settings fall back to defaults. URL parameters `?skin=github&theme=light` can override
 appearance for one page load without saving it.
@@ -584,6 +611,7 @@ Sign-off offers three verdicts: **approve**, **request changes**, and **comment*
 review with no verdict. Each opens a
 dialog previewing an editable review body summarizing reviewed layers, dismissed attention points,
 and comments posted from the canvas, so an approval or a rejection always carries a comment.
+With `sharing.mentionCanvas` off, the dialog opens with an empty body for you to write.
 
 Approval requires every layer except **Other changes** to be reviewed for the current head.
 Requesting changes and a comment-only review do not require that completion. On GitLab,

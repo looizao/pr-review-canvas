@@ -67,6 +67,7 @@ function bundleFor(state, canvas = artifact) {
     capabilities: { canComment: true, tokenKind: 'classic', login: 'octocat' },
     chat: { enabled: false, acpx: true },
     largePr: false,
+    mentionCanvas: true,
     warnings: [],
   })
 }

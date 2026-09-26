@@ -11,6 +11,7 @@ import {
   pointRowHtml,
   pointsByLevel,
   pointToMarkdown,
+  setMentionCanvas,
   postedUrls,
   queuedFor,
   refreshPointCommands,
@@ -106,6 +107,20 @@ describe('dismissed points', () => {
         'Look at the operator because the spec is ambiguous; if the spec says sum, this is fine.\n\n' +
         '_src/app.ts:4 · decision · decide · from the pr-review canvas_'
     )
+  })
+
+  it('leaves the canvas out of the comment when mentionCanvas is off', () => {
+    const p = points[0]
+    if (!p) {
+      throw new Error('no point')
+    }
+    setMentionCanvas(false)
+    try {
+      expect(pointToMarkdown(p)).toMatch(/_src\/app\.ts:4 · decision · decide_$/)
+      expect(pointToMarkdown(p).toLowerCase()).not.toContain('canvas')
+    } finally {
+      setMentionCanvas(true)
+    }
   })
 
   it('hides the list while nothing is dismissed and names the count when something is', () => {

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Sharing
+
+- `sharing.canvasComment: false` in `pr-review.config.yml` keeps canvases local: `publish` posts
+  no PR/MR comment and reports `sharing.status: "off"`, and the skill reports the local canvas.
+- `sharing.mentionCanvas: false` keeps the canvas out of what the review page posts: attention
+  point comments drop their `from the pr-review canvas` credit, and the sign-off dialog opens with
+  an empty body. Posting comments and reviews from the page still works.
+- `canvasComment` and `mentionCanvas` in `.pr-review/settings.yml` override either switch for one
+  person; `null`, the default, follows the project.
+
 ### Canvas generation
 
 - `generation.models` in `pr-review.config.yml` sets the model each agent generates canvases with,

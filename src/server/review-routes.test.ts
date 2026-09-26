@@ -1,4 +1,4 @@
-import { rm as removeDirectory } from 'node:fs/promises'
+import { readFile, rm as removeDirectory, writeFile } from 'node:fs/promises'
 // @vitest-environment node
 // The routes that change something: local review state, comments, and the sign-off review.
 import type { PostCommentResponse, PostReviewResponse, StateResponse } from '../contract/api.js'
@@ -470,6 +470,19 @@ describe('GET /api/prs/:n/review/body', () => {
     expect(body.unreviewed).toEqual(['Run path'])
     expect(body.body).toContain('Reviewed 0 of 1 layer')
     expect(body.body).toContain(REVIEW_BODY_FOOTER)
+  })
+
+  it('suggests an empty review body when the user turns mentionCanvas off', async () => {
+    t = await contextWithCanvas(ghFor42({ postRoutes: POST_ROUTES }))
+    await t.ctx.settings.write({})
+    const file = t.ctx.settings.file
+    await writeFile(
+      file,
+      (await readFile(file, 'utf8')).replace('mentionCanvas: null', 'mentionCanvas: false')
+    )
+    const res = await createApp(t.ctx).request('/api/prs/42/review/body', { headers: LOCAL })
+    const body = await json<{ body: string }>(res)
+    expect(body.body).toBe('')
   })
 
   it('fetches the comments when none are cached yet', async () => {

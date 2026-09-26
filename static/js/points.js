@@ -47,11 +47,23 @@ export function squareHtml(p) {
 }
 
 /**
+ * Whether a point's comment names the canvas it came from. Off when `sharing.mentionCanvas` is
+ * off; `app.js` sets it once per render, before the cards that read it are built.
+ */
+let mentionCanvas = true
+
+/** @param {boolean} on */
+export function setMentionCanvas(on) {
+  mentionCanvas = on
+}
+
+/**
  * The point as a GitHub comment: the title, the body, and where it is anchored.
  * @param {Point} p
  */
 export function pointToMarkdown(p) {
-  return `**${p.title}**\n\n${p.body}\n\n_${pointLocation(p)} · ${p.kind} · ${p.level} · from the pr-review canvas_`
+  const source = mentionCanvas ? ' · from the pr-review canvas' : ''
+  return `**${p.title}**\n\n${p.body}\n\n_${pointLocation(p)} · ${p.kind} · ${p.level}${source}_`
 }
 
 /**

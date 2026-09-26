@@ -67,7 +67,9 @@ describe('buildReviewBody', () => {
       dismissed: { 'fp-3': { at: '2026-09-10T12:00:00.000Z' } },
       posted: [{ commentId: 5001, at: '2026-09-10T12:00:00.000Z' }],
     })
-    expect(buildReviewBody({ artifact, state, comments: COMMENTS, headSha: HEAD_SHA })).toBe(
+    expect(
+      buildReviewBody({ artifact, state, comments: COMMENTS, headSha: HEAD_SHA, mentionCanvas: true })
+    ).toBe(
       [
         'Reviewed 1 of 1 layer on `aaaaaaa`.',
         '',
@@ -101,22 +103,40 @@ describe('buildReviewBody', () => {
       state: emptyState('x'),
       comments: COMMENTS,
       headSha: HEAD_SHA,
+      mentionCanvas: true,
     })
     expect(body.split('\n')[0]).toBe('Reviewed 0 of 2 layers on `aaaaaaa`.')
   })
 
   it('keeps the head line and the footer when nothing was reviewed', () => {
     const artifact = syntheticArtifact()
-    expect(buildReviewBody({ artifact, state: emptyState('x'), comments: COMMENTS, headSha: HEAD_SHA })).toBe(
-      `Reviewed 0 of 1 layer on \`aaaaaaa\`.\n\n${REVIEW_BODY_FOOTER}\n`
-    )
+    expect(
+      buildReviewBody({
+        artifact,
+        state: emptyState('x'),
+        comments: COMMENTS,
+        headSha: HEAD_SHA,
+        mentionCanvas: true,
+      })
+    ).toBe(`Reviewed 0 of 1 layer on \`aaaaaaa\`.\n\n${REVIEW_BODY_FOOTER}\n`)
+  })
+
+  it('leaves the body empty for the reviewer to write when mentionCanvas is off', () => {
+    const artifact = syntheticArtifact()
+    const state = stateWith({
+      reviewed: { 'layer:run-path': true },
+      posted: [{ commentId: 5001, at: '2026-09-10T12:00:00.000Z' }],
+    })
+    expect(
+      buildReviewBody({ artifact, state, comments: COMMENTS, headSha: HEAD_SHA, mentionCanvas: false })
+    ).toBe('')
   })
 
   it('names a posted comment by its id when its url is not cached', () => {
     const artifact = syntheticArtifact()
     const state = stateWith({ posted: [{ commentId: 9999, at: '2026-09-10T12:00:00.000Z' }] })
-    expect(buildReviewBody({ artifact, state, comments: COMMENTS, headSha: HEAD_SHA })).toContain(
-      '- comment 9999'
-    )
+    expect(
+      buildReviewBody({ artifact, state, comments: COMMENTS, headSha: HEAD_SHA, mentionCanvas: true })
+    ).toContain('- comment 9999')
   })
 })

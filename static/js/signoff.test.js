@@ -134,6 +134,15 @@ describe('the sign-off dialog', () => {
     expect(dialog.querySelector('[data-act="signoff-post"]')?.hasAttribute('disabled')).toBe(false)
   })
 
+  it('asks the reviewer to write the body when the server suggests none', () => {
+    const dialog = openSignoffDialog(root(), { event: 'COMMENT' })
+    fillSignoffDialog(dialog, { headSha: 'b'.repeat(40), body: '', unreviewed: [], pending: 0 })
+    const area = dialog.querySelector('textarea')
+    expect(area?.placeholder).toBe('write your review')
+    fillSignoffDialog(dialog, { headSha: 'b'.repeat(40), body: 'Reviewed.', unreviewed: [], pending: 0 })
+    expect(area?.placeholder).toBe('')
+  })
+
   it('builds a link only for an http address', () => {
     expect(externalLink('javascript:alert(1)', 'x').hasAttribute('href')).toBe(false)
     const ok = externalLink('https://github.com/x', 'x')

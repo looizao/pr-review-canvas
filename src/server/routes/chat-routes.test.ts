@@ -251,6 +251,8 @@ describe('the settings routes', () => {
       checkoutEnabled: true,
       checkoutIdleDays: 7,
       checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     expect(body.overrides).toEqual({ chatAgent: 'codex' })
     expect(body.file).toContain('settings.yml')
@@ -294,6 +296,8 @@ describe('the settings routes', () => {
       checkoutEnabled: true,
       checkoutIdleDays: 7,
       checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     const again = await app.request('/api/settings', { headers: LOCAL })
     expect((await json<SettingsResponse>(again)).settings.chatAgent).toBe('codex')

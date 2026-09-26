@@ -496,6 +496,26 @@ describe('createApp', () => {
       expect(bundle.warnings).toEqual(['bad layers'])
       expect(bundle.chat).toEqual({ enabled: false, acpx: false })
     })
+
+    it('tells the page whether to mention the canvas, the personal file winning over the project', async () => {
+      const { DEFAULT_PROJECT_CONFIG } = await import('../project-config.js')
+      t = await makeTestContext({
+        git: gitFor42(),
+        gh: ghFor42(),
+        projectConfig: {
+          config: { ...DEFAULT_PROJECT_CONFIG, sharing: { canvasComment: true, mentionCanvas: false } },
+          warnings: [],
+          source: null,
+        },
+      })
+      const read = async () =>
+        (await json<PrBundle>(await createApp(t.ctx).request('/api/prs/42', { headers: LOCAL })))
+          .mentionCanvas
+      expect(await read()).toBe(false)
+      const readSettings = t.ctx.settings.read
+      t.ctx.settings.read = async () => ({ ...(await readSettings()), mentionCanvas: true })
+      expect(await read()).toBe(true)
+    })
   })
 
   describe('/api/prs/:n/patches, /comments, /context', () => {
