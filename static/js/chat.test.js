@@ -15,6 +15,7 @@ import {
   CHAT_WIDTH_MAX,
   CHAT_WIDTH_MIN,
   checkoutActivityText,
+  checkoutWarningHtml,
   clampWidth,
   proposedCommentHtml,
   QUICK_QUESTIONS,
@@ -1545,6 +1546,12 @@ it('shows a saved fallback warning again when the thread is reopened', async () 
   await flush()
   expect(el(root, '.turn.a .chat-warning').textContent).toContain('AI Chat read your checkout on main')
   chat.stop()
+})
+
+describe('checkoutWarningHtml', () => {
+  it('names no branch when the reader checkout is on a detached HEAD', () => {
+    expect(checkoutWarningHtml({ message: 'x', branch: null })).toContain('AI Chat read your checkout.')
+  })
 })
 
 describe('checkoutActivityText', () => {

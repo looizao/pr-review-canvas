@@ -194,9 +194,13 @@ describe('applySettings', () => {
 
 describe('the review checkout settings', () => {
   it('gives a file written before them the keys with their template comments', () => {
-    const { text, settings } = applySettings('chatAgent: claude\n', { checkoutIdleDays: -1 })
-    expect(settings.checkoutIdleDays).toBe(-1)
-    expect(text).toContain('checkoutEnabled: true')
+    const { text, settings } = applySettings('chatAgent: claude\n', {
+      checkoutIdleDays: -1,
+      checkoutEnabled: false,
+      checkoutSweepMinutes: 30,
+    })
+    expect(settings).toMatchObject({ checkoutIdleDays: -1, checkoutEnabled: false, checkoutSweepMinutes: 30 })
+    expect(text).toContain('checkoutEnabled: false')
     expect(text).toContain('# Days without a chat turn before a review checkout is removed.')
     expect(text).toContain('checkoutIdleDays: -1')
     expect(text).toContain('# How often, in minutes, pr-review serve looks for idle review checkouts.')

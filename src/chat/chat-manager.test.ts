@@ -661,6 +661,29 @@ describe('the review checkout a turn reads', () => {
     await again.release()
   })
 
+  it('keeps a thread from before review checkouts on its session in the reader checkout', async () => {
+    await settings.write({ checkoutEnabled: false })
+    await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))
+    // A state file written before threads recorded their folder.
+    await state.update(42, current => ({
+      ...current,
+      chat: {
+        ...current.chat,
+        threads: current.chat.threads.map(({ seededCwd: _cwd, ...thread }) => thread),
+      },
+    }))
+    await collect(manager.send(target(), { message: 'two', context: { kind: 'pr' } }))
+    expect(runner.ensured).toEqual([T1])
+    expect(runner.runs[1]?.prompt).not.toContain('SEED for')
+    // Turning review checkouts on moves it to a new session in the checkout, once.
+    await settings.write({ checkoutEnabled: true })
+    await collect(manager.send(target(), { message: 'three', context: { kind: 'pr' } }))
+    await collect(manager.send(target(), { message: 'four', context: { kind: 'pr' } }))
+    expect(runner.ensured).toEqual([T1, T1])
+    expect(runner.runs[2]?.prompt).toContain('SEED for')
+    expect(runner.runs[3]?.prompt).not.toContain('SEED for')
+  })
+
   it('starts a new session and seeds again when the thread last ran in another folder', async () => {
     await settings.write({ checkoutEnabled: false })
     await collect(manager.send(target(), { message: 'one', context: { kind: 'pr' } }))

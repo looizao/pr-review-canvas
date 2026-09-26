@@ -546,6 +546,26 @@ describe('the settings tabs', () => {
     reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
     expect(visiblePanels(dialog)).toEqual(['settings-panel-project'])
     expect(document.activeElement?.id).toBe('settings-tab-project')
+    const project = el(dialog, '#settings-tab-project')
+    project.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+    // Other keys, and arrows outside the tab list, leave the tab where it is.
+    reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    el(dialog, '#set-fold-level').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+    )
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+  })
+
+  it('says so when the checkouts cannot be listed', async () => {
+    const dialog = await open({
+      fetchCheckouts: async () => {
+        throw new Error('gone')
+      },
+    })
+    el(dialog, '#settings-tab-checkouts').click()
+    await flush()
+    expect(el(dialog, '.checkout-list').textContent).toBe('could not list the checkouts: gone')
   })
 
   it('lists the checkouts only once their tab is shown', async () => {
@@ -578,8 +598,14 @@ describe('the settings tabs', () => {
     expect(list).toContain('5 MB')
   })
 
-  it('reads the checkout fields into the saved settings', async () => {
-    const dialog = await open()
+  it('shows the saved checkout settings, and reads the fields into the saved settings', async () => {
+    const dialog = await open({
+      fetchSettings: async () => ({
+        ...SETTINGS,
+        settings: { ...SETTINGS.settings, checkoutEnabled: false },
+      }),
+    })
+    expect(/** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled')).checked).toBe(false)
     const enabled = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled'))
     const idle = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-idle'))
     const sweep = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-sweep'))

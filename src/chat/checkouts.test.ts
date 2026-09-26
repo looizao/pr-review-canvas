@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
-import { readFile, rename, rm, utimes, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { envWithoutRepo } from '../git/environment.mjs'
+import { GitError } from '../git/git.js'
 import { createFakeCheckoutGit, makeTempDir } from '../testing/fakes.js'
 import {
   CheckoutBusyError,
@@ -68,6 +69,18 @@ describe('a lease', () => {
     await lease.release()
   })
 
+  it('runs no git command when the checkout is already at the commit', async () => {
+    const git = createFakeCheckoutGit()
+    const own = createReviewCheckouts({ root: path.join(tmp, 'own'), git, now: () => now })
+    const first = await own.lease(42)
+    await first.moveTo('a'.repeat(40))
+    await first.release()
+    const second = await own.lease(42)
+    await second.moveTo('a'.repeat(40))
+    await second.release()
+    expect(git.calls.map(c => c[0])).toEqual(['add'])
+  })
+
   it('reports the commit the checkout is on, and none before it exists', async () => {
     const first = await checkouts.lease(42)
     expect(first.head).toBeNull()
@@ -90,11 +103,25 @@ describe('the idle sweep', () => {
     expect((await checkouts.list()).map(c => c.key)).toEqual(['branch'])
   })
 
+  it('ignores files in the checkouts folder that name no review', async () => {
+    await use(42, 'a'.repeat(40))
+    await writeFile(path.join(tmp, 'checkouts', 'notes.json'), '{}')
+    expect((await checkouts.list()).map(c => c.key)).toEqual([42])
+  })
+
   it('lists what it would remove on a dry run, and removes nothing', async () => {
     await use(42, 'a'.repeat(40))
     const result = await checkouts.sweep({ all: true, dryRun: true })
     expect(result.removed.map(c => c.key)).toEqual([42])
     expect(await checkouts.list()).toHaveLength(1)
+  })
+
+  it('lists a checkout a turn is holding as skipped on a dry run', async () => {
+    await use(42, 'a'.repeat(40))
+    const held = await checkouts.lease(42)
+    const result = await checkouts.sweep({ all: true, dryRun: true })
+    expect(result).toMatchObject({ removed: [], skipped: [{ key: 42, locked: true }] })
+    await held.release()
   })
 
   it('leaves a checkout a turn is holding', async () => {
@@ -135,6 +162,7 @@ describe('createCheckoutGit', () => {
       now: () => now,
     })
     const lease = await real.lease(7)
+    await expect(lease.moveTo('f'.repeat(40))).rejects.toThrow(GitError)
     await lease.moveTo(first)
     expect(await readFile(path.join(lease.dir, 'a.txt'), 'utf8')).toBe('one\n')
     await lease.moveTo(second)
@@ -146,6 +174,8 @@ describe('createCheckoutGit', () => {
     const reopened = await real.lease(7)
     expect(reopened.head).toBe(second)
     await reopened.release()
+    // A symlink is not counted: it is not a file of its own.
+    await symlink('a.txt', path.join(lease.dir, 'link.txt'))
     expect(await real.size(lease.dir)).toBe('two\n'.length)
 
     await real.sweep({ all: true })

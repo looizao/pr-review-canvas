@@ -574,8 +574,10 @@ describe('clean', () => {
     expect(await t.ctx.checkouts.list()).toEqual([])
   })
 
-  it('refuses --all together with --older-than', async () => {
+  it('refuses --all together with --older-than, and a day count that is not a whole number', async () => {
     t = await makeTestContext()
     await expect(runClean(t.ctx, ['--all', '--older-than', '3'], fakeIo())).rejects.toThrow(UsageError)
+    await expect(runClean(t.ctx, ['--older-than', '1.5'], fakeIo())).rejects.toThrow(UsageError)
+    await expect(runClean(t.ctx, ['--older-than=-2'], fakeIo())).rejects.toThrow(UsageError)
   })
 })

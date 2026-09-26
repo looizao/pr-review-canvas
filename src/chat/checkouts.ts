@@ -136,12 +136,10 @@ export function createReviewCheckouts(opts: {
   const metaOf = (key: ReviewKey): string => `${dirOf(key)}.json`
   const lockOf = (key: ReviewKey): string => `${dirOf(key)}.lock`
 
+  /** The metadata this module wrote, or null when the checkout has none (or it was cut short). */
   const readMeta = async (key: ReviewKey): Promise<CheckoutMeta | null> => {
     try {
-      const raw = JSON.parse(await readFile(metaOf(key), 'utf8')) as Partial<CheckoutMeta>
-      return typeof raw.sha === 'string' && typeof raw.lastUsedAt === 'string'
-        ? { sha: raw.sha, lastUsedAt: raw.lastUsedAt }
-        : null
+      return JSON.parse(await readFile(metaOf(key), 'utf8')) as CheckoutMeta
     } catch {
       return null
     }
@@ -233,7 +231,7 @@ export function createReviewCheckouts(opts: {
         if (entry.isDirectory()) {
           await walk(full)
         } else if (entry.isFile()) {
-          total += (await lstat(full).catch(() => ({ size: 0 }))).size
+          total += (await lstat(full)).size
         }
       }
     }
@@ -255,7 +253,6 @@ export function createReviewCheckouts(opts: {
         await unlock(key)
         throw err
       }
-      let released = false
       return {
         dir,
         head,
@@ -270,13 +267,7 @@ export function createReviewCheckouts(opts: {
           head = sha
           await writeFile(metaOf(key), JSON.stringify({ sha, lastUsedAt: now().toISOString() }))
         },
-        async release() {
-          if (released) {
-            return
-          }
-          released = true
-          await unlock(key)
-        },
+        release: () => unlock(key),
       }
     },
     list,

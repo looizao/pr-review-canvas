@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { type Document, isMap, isScalar, parseDocument } from 'yaml'
+import { type Document, isMap, isScalar, type Pair, parseDocument, type Scalar, type YAMLMap } from 'yaml'
 import { DEFAULT_SETTINGS, type Settings, type SettingsInput, SettingsSchema } from '../contract/settings.js'
 import { readText, writeTextAtomic } from './atomic-json.js'
 
@@ -146,14 +146,13 @@ function withChatKeys(raw: object): object {
   return out
 }
 
-/** The comment the template puts above `key`, or null when it has none. */
-function templateComment(key: string): string | null {
-  const template = parseDocument(SETTINGS_TEMPLATE).contents
-  const found = isMap(template)
-    ? template.items.find(p => isScalar(p.key) && p.key.value === key)?.key
-    : undefined
-  return isScalar(found) ? (found.commentBefore ?? null) : null
-}
+/** The comment the template puts above each key; the template is a mapping of plain keys. */
+const TEMPLATE_COMMENTS = new Map(
+  (parseDocument(SETTINGS_TEMPLATE).contents as YAMLMap<Scalar<string>, unknown>).items.map(p => [
+    p.key.value,
+    p.key.commentBefore ?? null,
+  ])
+)
 
 /**
  * Renames a legacy chat key where it stands, so its position survives, and gives it the template's
@@ -171,7 +170,7 @@ function renameLegacyKeys(doc: Document): void {
     const found = doc.contents.items.find(p => isScalar(p.key) && p.key.value === legacy)?.key
     if (isScalar(found)) {
       found.value = key
-      found.commentBefore = templateComment(key)
+      found.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
     }
   }
 }
@@ -200,17 +199,15 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
  * written before the key existed explains it the same way a new file does.
  */
 function setKey(doc: Document, key: string, value: unknown): void {
-  if (doc.has(key) || !isMap(doc.contents)) {
+  if (doc.has(key)) {
     doc.set(key, value)
     return
   }
-  const pair = doc.createPair(key, value)
-  const comment = templateComment(key)
-  if (isScalar(pair.key) && comment !== null) {
-    pair.key.commentBefore = comment
-    pair.key.spaceBefore = true
-  }
-  doc.contents.items.push(pair)
+  const pair = doc.createPair(key, value) as Pair<Scalar<string>, unknown>
+  pair.key.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
+  pair.key.spaceBefore = true
+  // applySettings starts over from the template whenever the file is not a mapping.
+  ;(doc.contents as YAMLMap).items.push(pair)
 }
 
 function stripUndefined(input: SettingsInput): Partial<Settings> {

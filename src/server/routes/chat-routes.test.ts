@@ -120,7 +120,7 @@ describe('POST /api/prs/:n/chat', () => {
     t = await context({ runner: createFakeRunner({ delayMs: 20 }) })
     await warmDerived()
     const first = sendChat({ message: 'one', context: { kind: 'pr' } })
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await expect.poll(() => t.ctx.chat.busy(42)).toBe(true)
     const second = await sendChat({ message: 'two', context: { kind: 'pr' } })
     expect(second.status).toBe(409)
     const envelope = await json<ErrorEnvelope>(second)

@@ -144,8 +144,8 @@ export function checkoutListHtml(data) {
   }
   const rows = data.checkouts
     .map(c => {
-      const review =
-        c.key === 'branch' ? 'Branch review' : c.key === 'uncommitted' ? 'Uncommitted work' : `#${c.key}`
+      // The uncommitted review reads the working tree and never has a checkout.
+      const review = c.key === 'branch' ? 'Branch review' : `#${c.key}`
       const used = c.lastUsedAt.slice(0, 16).replace('T', ' ')
       return (
         `<tr><td>${esc(review)}${c.locked ? ' <span class="muted">(in use)</span>' : ''}</td>` +
@@ -357,14 +357,12 @@ export function wireSettingsDialog(dialog, api, onSaved) {
   let checkoutsLoaded = false
   /** The checkout list walks every checkout on disk, so it loads only once its tab is shown. */
   const loadCheckouts = () => {
-    const list = dialog.querySelector('.checkout-list')
-    if (
-      checkoutsLoaded ||
-      list === null ||
-      dialog.querySelector('#settings-panel-checkouts')?.hasAttribute('hidden')
-    ) {
+    // With chat off there is no Checkouts tab.
+    const panel = dialog.querySelector('#settings-panel-checkouts')
+    if (checkoutsLoaded || !(panel instanceof HTMLElement) || panel.hidden) {
       return
     }
+    const list = /** @type {HTMLElement} */ (panel.querySelector('.checkout-list'))
     checkoutsLoaded = true
     void (async () => {
       try {
@@ -374,37 +372,35 @@ export function wireSettingsDialog(dialog, api, onSaved) {
       }
     })()
   }
-  /** @param {string} id */
-  const selectTab = id => {
+  /**
+   * Shows one tab's panel. The markup gives every tab a `data-tab` and a panel it controls.
+   * @param {HTMLElement} chosen
+   */
+  const selectTab = chosen => {
     for (const tab of dialog.querySelectorAll('[role="tab"]')) {
-      const selected = tab.getAttribute('data-tab') === id
+      const selected = tab === chosen
       tab.setAttribute('aria-selected', String(selected))
       tab.setAttribute('tabindex', selected ? '0' : '-1')
-      const panel = dialog.querySelector(`#${tab.getAttribute('aria-controls')}`)
-      if (panel instanceof HTMLElement) {
-        panel.hidden = !selected
-      }
+      const panel = /** @type {HTMLElement} */ (dialog.querySelector(`#${tab.getAttribute('aria-controls')}`))
+      panel.hidden = !selected
     }
-    const tab = SETTINGS_TABS.find(t => t.id === id)
-    if (tab !== undefined) {
-      rememberTab(tab.id)
-    }
+    rememberTab(/** @type {SettingsTab} */ (chosen.dataset['tab']))
     loadCheckouts()
   }
   loadCheckouts()
   dialog.addEventListener('keydown', event => {
-    const current = event.target instanceof HTMLElement ? event.target.closest('[role="tab"]') : null
-    if (!(current instanceof HTMLElement) || (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft')) {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key]
+    const current = /** @type {Element} */ (event.target).closest('[role="tab"]')
+    if (step === undefined || current === null) {
       return
     }
-    const tabs = [...dialog.querySelectorAll('[role="tab"]')]
-    const next =
-      tabs[(tabs.indexOf(current) + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]
-    if (next instanceof HTMLElement) {
-      event.preventDefault()
-      selectTab(next.getAttribute('data-tab') ?? '')
-      next.focus()
-    }
+    const tabs = /** @type {HTMLElement[]} */ ([...dialog.querySelectorAll('[role="tab"]')])
+    const next = /** @type {HTMLElement} */ (
+      tabs[(tabs.indexOf(/** @type {HTMLElement} */ (current)) + step + tabs.length) % tabs.length]
+    )
+    event.preventDefault()
+    selectTab(next)
+    next.focus()
   })
   dialog.addEventListener('change', event => {
     if (event.target instanceof HTMLSelectElement && event.target.id === CHAT_AGENT_ID) {
@@ -421,7 +417,7 @@ export function wireSettingsDialog(dialog, api, onSaved) {
     }
     const act = el.getAttribute('data-act')
     if (act === 'settings-tab') {
-      selectTab(el.getAttribute('data-tab') ?? '')
+      selectTab(el)
       return
     }
     if (act === 'settings-close') {
