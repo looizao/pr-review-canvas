@@ -50,6 +50,42 @@ test('warns above an outdated canvas and clears the warning after refresh', asyn
   await page.locator('#refresh').click()
   await expect(page.locator('section.layer').first()).toBeVisible()
   await expect(warning).toHaveCount(0)
+  await expect(page.locator('html')).toHaveCSS('scroll-padding-top', 'auto')
+})
+
+test('a rail link stops the layer under the outdated bar, which hides what scrolls under it', async ({
+  page,
+  reviewUrl,
+}) => {
+  await page.route(/\/api\/prs\/42(?:\?.*)?$/, async route => {
+    const response = await route.fetch()
+    const bundle = await response.json()
+    bundle.status = 'stale'
+    bundle.stale = {
+      canvasHeadSha: bundle.pr.headSha,
+      currentHeadSha: 'b'.repeat(40),
+      relation: 'ancestor',
+      commitsBehind: 1,
+    }
+    await route.fulfill({ response, json: bundle })
+  })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto(reviewUrl)
+  await page.locator('#view-stale').click()
+  const warning = page.locator('#main > .outdated-bar')
+  await expect(warning).toBeVisible()
+  await page.locator('nav.rail a[href="#layer-run-path"]').click()
+  const title = page.locator('#layer-run-path > .layer-h')
+  await expect
+    .poll(async () => {
+      const bar = await warning.boundingBox()
+      const head = await title.boundingBox()
+      return bar === null || head === null ? -1 : Math.round(head.y - (bar.y + bar.height))
+    })
+    .toBeGreaterThanOrEqual(0)
+  // The dark tint is see-through on its own, so the bar paints the page color under it.
+  await expect(warning).toHaveCSS('background-image', /linear-gradient/)
+  await expect(warning).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 })
 
 test('spans the reading column like the overview on a wide screen', async ({ page, reviewUrl }) => {
@@ -67,4 +103,77 @@ test('spans the reading column like the overview on a wide screen', async ({ pag
   expect(overview.width).toBeGreaterThan(1100)
   expect(Math.abs(note.x - overview.x)).toBeLessThan(1)
   expect(Math.abs(note.width - overview.width)).toBeLessThan(1)
+})
+
+test('dismisses the outdated bar for its pair of commits, and shows it again for a newer head', async ({
+  page,
+  reviewUrl,
+}) => {
+  let head = 'b'.repeat(40)
+  await page.route(/\/api\/prs\/42(?:\?.*)?$/, async route => {
+    const response = await route.fetch()
+    const bundle = await response.json()
+    bundle.status = 'stale'
+    bundle.stale = {
+      canvasHeadSha: bundle.pr.headSha,
+      currentHeadSha: head,
+      relation: 'ancestor',
+      commitsBehind: 1,
+    }
+    await route.fulfill({ response, json: bundle })
+  })
+  await page.goto(reviewUrl)
+  await page.locator('#view-stale').click()
+  const warning = page.locator('#main > .outdated-bar')
+  await expect(warning).toBeVisible()
+  await warning.getByRole('button', { name: 'dismiss' }).click()
+  await expect(warning).toHaveCount(0)
+  // Nothing sticks to the top any more, so a jump stops at the top of the screen again.
+  await expect(page.locator('html')).toHaveCSS('scroll-padding-top', /^(0px|auto)$/)
+  await page.locator('nav.rail a[href="#layer-run-path"]').click()
+  await expect
+    .poll(async () => Math.round((await page.locator('#layer-run-path > .layer-h').boundingBox())?.y ?? -1))
+    .toBeLessThan(8)
+
+  await page.reload()
+  await page.locator('#view-stale').click()
+  await expect(page.locator('section.layer').first()).toBeVisible()
+  await expect(warning).toHaveCount(0)
+  // The regenerate command stays in the header.
+  await expect(page.locator('#regenerate')).toBeEnabled()
+
+  head = 'd'.repeat(40)
+  await page.reload()
+  await page.locator('#view-stale').click()
+  await expect(warning).toBeVisible()
+  await expect(warning).toContainText('ddddddd')
+})
+
+test('dismisses each carried-over note on its own, and keeps it dismissed after a reload', async ({
+  page,
+  reviewUrl,
+}) => {
+  await page.route(/\/api\/prs\/42(?:\?.*)?$/, async route => {
+    const response = await route.fetch()
+    const bundle = await response.json()
+    bundle.carriedOver = { canvasHeadSha: 'c'.repeat(40), currentHeadSha: bundle.pr.headSha }
+    bundle.marksCarriedFrom = 'c'.repeat(40)
+    await route.fulfill({ response, json: bundle })
+  })
+  await page.goto(reviewUrl)
+  const applies = page.locator('#main > .carried-over-bar', { hasText: 'Canvas still applies.' })
+  const marks = page.locator('#main > .carried-over-bar', { hasText: 'Review progress carried over.' })
+  await expect(applies).toBeVisible()
+  await expect(marks).toBeVisible()
+  await applies.getByRole('button', { name: 'dismiss' }).click()
+  await expect(applies).toHaveCount(0)
+  await expect(marks).toBeVisible()
+
+  await page.reload()
+  await expect(page.locator('section.layer').first()).toBeVisible()
+  await expect(applies).toHaveCount(0)
+  await expect(marks).toBeVisible()
+  await marks.getByRole('button', { name: 'dismiss' }).click()
+  await expect(marks).toHaveCount(0)
+  await expect(page.locator('#main > :first-child')).toHaveAttribute('id', 'overview')
 })
