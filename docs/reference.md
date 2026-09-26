@@ -608,6 +608,12 @@ same rule, so the CLI never calls a canvas stale that the page shows as current.
 AI Chat also answers on an outdated canvas: it quotes the diff of the canvas's own commit, the
 one on screen.
 
+Each bar above the canvas has a **dismiss** command: **Canvas is outdated**, **Canvas still
+applies**, and **Review progress carried over**. The browser remembers a dismissed bar by the
+commits it names, so it stays closed after a reload and shows again when the head or the canvas
+moves. The stale screen still says the canvas is outdated before it opens the older canvas, posting
+from it stays disabled, and **regenerate** stays in the header.
+
 ## Incremental canvases
 
 When a canvas is regenerated for a new head, `pr-review prepare` starts from the **basis canvas**:

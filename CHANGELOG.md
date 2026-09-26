@@ -43,6 +43,9 @@
   under it stays hidden in dark themes.
 - The bars above the overview span the full reading column, so they no longer stop short when AI
   Chat is minimized.
+- **Canvas is outdated**, **Canvas still applies**, and **Review progress carried over** each have
+  a **dismiss** command. A dismissed bar stays closed after a reload, and shows again when the
+  commits it names change.
 
 ### Server
 

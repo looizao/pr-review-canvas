@@ -142,6 +142,7 @@ page. See [Incremental canvases](docs/reference.md#incremental-canvases).
 When the saved canvas describes a different PR head, **Canvas is outdated** appears at
 the top. You can still read the older canvas, with its commit and distance shown; posting
 from that view is disabled. Click **refresh** to check GitHub or GitLab for changes and a newer canvas.
+Click **dismiss** to close the bar until the head moves again.
 
 A head whose diff is identical to the canvas's does not outdate it: after **Update branch**
 merged `main` in without touching the changed files, for example, the canvas still applies
