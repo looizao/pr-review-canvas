@@ -27,16 +27,15 @@
   by the generator in HTML with a kit of layout classes and Lucide icons. Scenes run in a frame
   that allows no script and loads nothing. A folded corner marks the card's back, which `i` turns
   to: the context, each side's justification and snippet, and the code the card is anchored to.
-- `/pr-review-canvas` and `/pr-self-review` now default to Opus instead of Sonnet, for every
-  change rather than only ones touching authentication, access policy, or PHI. A project's
-  `generation.models` still picks another model for the canvas.
-  `/pr-self-review-fix` stays on Sonnet and deals its next deck through `/pr-self-review`.
+- `/pr-self-review` runs on Opus. `/pr-self-review-fix` stays on Sonnet and deals its next deck
+  through `/pr-self-review`.
 
 ### Canvas generation
 
 - `generation.models` in `pr-review.config.yml` sets the model each agent generates canvases with,
-  keyed by agent id (`claude: opus`). `prepare` prints it as `models`. An agent with no entry uses the
-  skill's default, Opus.
+  keyed by agent id (`claude: opus`). `prepare` prints it as `models`. Claude generates with Opus
+  unless the project names another model; any other agent with no entry keeps the session's model.
+  The skill no longer pins Sonnet.
 - The settings dialog lists the project's canvas generation models under **Canvas generation** in
   the read-only project config, and shows the chat fields as **Chat agent** and **Chat model**
   under an **AI Chat** heading. The header's generator pill reads
@@ -50,7 +49,8 @@
 ### CLI
 
 - `pr-review` and `pr-review --help` list each command in its own block, wrapped to the terminal,
-  so a flag no longer breaks in the middle of a word.
+  so a flag no longer breaks in the middle of a word. `pr-review <command> --help` prints that
+  command's block and the shared flags.
 - `pr-review doctor` prints a checklist, with `ok` or `failed` on each check, for a person or an
   agent. `--json` prints the same report as one JSON line, now with a `cli` field naming `gh` or
   `glab`.
@@ -64,11 +64,16 @@
   `k` step through the layers, and a link into a layer shows that layer. A review mark does not
   move on to the next layer. The default, `all`, keeps the canvas as one page.
 - Collapse toggles draw a chevron icon in place of the `>` character.
-- Click a file's name to collapse or open its card.
+- Click a file's name to collapse or open its card. A double or triple click that selects the name
+  leaves the card as it was.
 - The **Canvas still applies** note scrolls away with the page. Only the **Canvas is outdated**
-  warning stays pinned to the top.
+  warning stays pinned to the top. A rail or canvas link stops the layer under it, and what scrolls
+  under it stays hidden in dark themes.
 - The bars above the overview span the full reading column, so they no longer stop short when AI
   Chat is minimized.
+- **Canvas is outdated**, **Canvas still applies**, and **Review progress carried over** each have
+  a **dismiss** command. A dismissed bar stays closed after a reload, and shows again when the
+  commits it names change.
 
 ### Server
 
