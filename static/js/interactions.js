@@ -334,6 +334,7 @@ export function wireReview(root, session, opts = {}) {
     }
     refreshPendingBar(root, state, session.headSha)
     refreshComposerCommands(root, state.pending.length > 0)
+    opts.chat?.()?.refreshProposed()
     applyCapabilityGating(root, session.capabilities)
   }
   const unsubscribe = session.subscribe(onState)
@@ -1336,13 +1337,12 @@ export function wireReview(root, session, opts = {}) {
           ? {}
           : { startLine: comment.startLine }),
       }
+      // The card draws its commands from the state these change: see `refreshProposed`.
       if (what === 'queue') {
         void runCommand(
           el,
           async () => {
             await session.addPending(target)
-            el.closest('.tbtns')?.querySelector('[data-act="proposed-post"]')?.remove()
-            el.outerHTML = '<span class="pill pending queued">in your review</span>'
             toast(root, 'comment added to your review')
           },
           { pendingLabel: 'adding…' }
@@ -1352,9 +1352,7 @@ export function wireReview(root, session, opts = {}) {
       void runCommand(
         el,
         async () => {
-          const answer = await postComment({ kind: /** @type {const} */ ('inline'), ...target })
-          el.closest('.tbtns')?.querySelector('[data-act="proposed-queue"]')?.remove()
-          replacePostButton(el, answer.comment.url)
+          await postComment({ kind: /** @type {const} */ ('inline'), ...target })
           toast(root, 'comment posted to github')
         },
         { pendingLabel: 'posting…' }

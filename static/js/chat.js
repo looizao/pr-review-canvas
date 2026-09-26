@@ -19,12 +19,11 @@ import {
   unseenLabel,
 } from './chat-scroll.js'
 import { runCommand, runControl, showCommandError } from './commands.js'
-import { isQueuedComment, postedCommentUrl, viewCommentHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, sendCommandsHtml } from './comment-link.js'
 import { esc, qs } from './dom.js'
 import { getRenderContext } from './layers.js'
 import { renderMarkdown } from './markdown.js'
 import { pendingComments } from './pending.js'
-import { postToLabel } from './host.js'
 import { splitChatAnswer, targetsFromFiles } from './proposed-comment.js'
 
 export const CHAT_WIDTH_KEY = 'pr-review.chat-width'
@@ -190,36 +189,35 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
   )
 }
 
+/** @typedef {{ postedUrl?: string | undefined, queued?: boolean }} SendState */
+
 /**
- * What a card offers for getting its comment onto the forge: the link to the comment it was posted
- * as, the note that it is waiting in the review, or the two ways to send it. Like an attention
- * point, it keeps both ways while a review is open: its text is written in advance. Adding it to
- * the review leads, as it does on a diff-line comment.
- * @param {string} id
- * @param {{ postedUrl?: string | undefined, queued?: boolean }} opts
+ * The commands under a card. `add to review` leads, as it does on a diff-line comment, and both
+ * ways of sending go through the same paths as every other post and draft, so capability gating
+ * and the pending state apply here too. `data-send` names what the send commands show, so a
+ * change of state redraws only the cards it changed.
+ * @param {ProposedComment} comment
+ * @param {string} id the key the pane stores this card's comment under
+ * @param {SendState} send
  */
-function proposedSendHtml(id, opts) {
-  if (opts.postedUrl !== undefined) {
-    return viewCommentHtml(opts.postedUrl, true)
-  }
-  if (opts.queued === true) {
-    return '<span class="pill pending queued">in your review</span>'
-  }
+function proposedCommandsHtml(comment, id, send) {
+  const shown = send.postedUrl !== undefined ? 'posted' : send.queued === true ? 'queued' : 'open'
   return (
-    `<button class="cmd fill" type="button" data-act="proposed-queue" data-proposed="${esc(id)}">add to review</button>` +
-    `<button class="cmd" type="button" data-act="proposed-post" data-proposed="${esc(id)}" data-needs-post>${postToLabel()}</button>`
+    `<span class="tbtns" data-send="${shown}">` +
+    sendCommandsHtml({ kind: 'proposed', id, ...send, leadWithQueue: true }) +
+    `<button class="cmd" type="button" data-act="proposed-edit" data-proposed="${esc(id)}" data-needs-post>edit</button>` +
+    `<button class="cmd" type="button" data-copy="${esc(comment.body)}">copy</button>` +
+    '</span>'
   )
 }
 
 /**
- * The card a proposed comment renders as. `post to github` and `add to review` go through the
- * same paths as every other post and draft, so capability gating and the pending state apply here
- * too.
+ * The card a proposed comment renders as.
  * @param {ProposedComment} comment
  * @param {string} id the key the pane stores this card's comment under
- * @param {{ postedUrl?: string | undefined, queued?: boolean }} [opts]
+ * @param {SendState} [send]
  */
-export function proposedCommentHtml(comment, id, opts = {}) {
+export function proposedCommentHtml(comment, id, send = {}) {
   const range = comment.startLine === undefined ? `${comment.line}` : `${comment.startLine}–${comment.line}`
   const side = comment.side === 'old' ? ' (old side)' : ''
   return (
@@ -227,12 +225,20 @@ export function proposedCommentHtml(comment, id, opts = {}) {
     `<div class="proposed-h"><span class="lbl">proposed comment</span>` +
     `<span class="mono">${esc(comment.path)}:${esc(range)}${side}</span></div>` +
     `<div class="prose">${renderMarkdown(comment.body)}</div>` +
-    '<span class="tbtns">' +
-    proposedSendHtml(id, opts) +
-    `<button class="cmd" type="button" data-act="proposed-edit" data-proposed="${esc(id)}" data-needs-post>edit</button>` +
-    `<button class="cmd" type="button" data-copy="${esc(comment.body)}">copy</button>` +
-    '</span></div>'
+    proposedCommandsHtml(comment, id, send) +
+    '</div>'
   )
+}
+
+/**
+ * Where a proposed comment stands against the posted comments and the pending review.
+ * @param {ProposedComment} comment
+ * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
+ * @returns {SendState}
+ */
+function sendStateOf(comment, posted, pending) {
+  return { postedUrl: postedCommentUrl(comment, posted), queued: isQueuedComment(comment, pending) }
 }
 
 /**
@@ -259,10 +265,7 @@ export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted 
         const id = `${turnKey}-${index}`
         index += 1
         sink.set(id, segment.comment)
-        return proposedCommentHtml(segment.comment, id, {
-          postedUrl: postedCommentUrl(segment.comment, posted),
-          queued: isQueuedComment(segment.comment, pending),
-        })
+        return proposedCommentHtml(segment.comment, id, sendStateOf(segment.comment, posted, pending))
       }
       return `<pre class="proposed-invalid"><code>${esc(segment.text)}</code></pre><p class="muted small">${esc(segment.reason)}</p>`
     })
@@ -843,6 +846,29 @@ export function wireChat(options) {
     ask(next) {
       setContext(next)
       panel.open()
+    },
+    /**
+     * Draws each card's commands again when its comment was just posted, joined the review, or
+     * left it. The page calls this after every change of the local state, once the comments it
+     * draws from are up to date.
+     */
+    refreshProposed() {
+      const posted = postedComments()
+      const pending = pendingComments(session.state)
+      for (const card of Array.from(log.querySelectorAll('.proposed[data-proposed]'))) {
+        const id = card.getAttribute('data-proposed') ?? ''
+        const comment = proposed.get(id)
+        const tbtns = card.querySelector(':scope > .tbtns')
+        if (comment === undefined || tbtns === null) {
+          continue
+        }
+        const template = document.createElement('template')
+        template.innerHTML = proposedCommandsHtml(comment, id, sendStateOf(comment, posted, pending))
+        const next = template.content.firstElementChild
+        if (next !== null && next.getAttribute('data-send') !== tbtns.getAttribute('data-send')) {
+          tbtns.replaceWith(next)
+        }
+      }
     },
     /**
      * Sends one of the quick questions about a target.
