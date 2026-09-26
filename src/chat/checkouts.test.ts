@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
-import { readFile, rename, rm, symlink, utimes, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, rename, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { envWithoutRepo } from '../git/environment.mjs'
 import { GitError } from '../git/git.js'
 import { createFakeCheckoutGit, makeTempDir } from '../testing/fakes.js'
@@ -13,6 +13,12 @@ import {
   type ReviewCheckouts,
   STALE_LOCK_MS,
 } from './checkouts.js'
+
+// `lstat` stays real; one test makes it fail the way a file deleted mid-walk does.
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, lstat: vi.fn(actual.lstat) }
+})
 
 let tmp: string
 let now: Date
@@ -89,6 +95,27 @@ describe('a lease', () => {
     const second = await checkouts.lease(42)
     expect(second.head).toBe('a'.repeat(40))
     await second.release()
+  })
+})
+
+describe('size', () => {
+  it('counts a file deleted between listing the folder and reading its size as empty', async () => {
+    const dir = path.join(tmp, 'walk')
+    await mkdir(dir)
+    await writeFile(path.join(dir, 'kept.txt'), '12345')
+    await writeFile(path.join(dir, 'gone.txt'), 'abc')
+    const real = vi.mocked(lstat).getMockImplementation()
+    vi.mocked(lstat).mockImplementation(async (file, ...rest) => {
+      if (String(file).endsWith('gone.txt')) {
+        throw Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+      }
+      return real!(file, ...rest)
+    })
+    try {
+      expect(await checkouts.size(dir)).toBe(5)
+    } finally {
+      vi.mocked(lstat).mockImplementation(real!)
+    }
   })
 })
 

@@ -1,6 +1,6 @@
 // The idle sweep `serve` runs: at startup, then every `checkoutSweepMinutes`. The settings are read
 // again on each run, so a change in the dialog applies from the next one without a restart.
-import { CHECKOUT_IDLE_NEVER, type Settings } from '../contract/settings.js'
+import { CHECKOUT_IDLE_NEVER, DEFAULT_SETTINGS, type Settings } from '../contract/settings.js'
 import type { ReviewCheckouts, SweepResult } from './checkouts.js'
 
 export interface CheckoutSweeper {
@@ -28,16 +28,24 @@ export function startCheckoutSweep(opts: {
     return result
   }
 
+  const logFailure = (err: unknown): void => {
+    opts.log(`review checkout sweep failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
   const schedule = async (): Promise<void> => {
-    // The settings store answers the defaults for a missing or broken file; it does not throw.
-    const settings = await opts.readSettings()
-    await sweepWith(settings).catch((err: unknown) => {
-      opts.log(`review checkout sweep failed: ${err instanceof Error ? err.message : String(err)}`)
+    // An unreadable settings file (a folder, no permission) skips this sweep, not the server.
+    const settings = await opts.readSettings().catch((err: unknown) => {
+      logFailure(err)
+      return null
     })
+    if (settings !== null) {
+      await sweepWith(settings).catch(logFailure)
+    }
     if (stopped) {
       return
     }
-    timer = setTimeout(() => void schedule(), settings.checkoutSweepMinutes * 60 * 1000)
+    const minutes = (settings ?? DEFAULT_SETTINGS).checkoutSweepMinutes
+    timer = setTimeout(() => void schedule(), minutes * 60 * 1000)
     // A pending sweep never keeps the process alive on its own.
     timer.unref()
   }

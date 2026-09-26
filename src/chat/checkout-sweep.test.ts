@@ -73,6 +73,29 @@ describe('startCheckoutSweep', () => {
     sweeper.stop()
   })
 
+  it('logs a settings file it cannot read and sweeps again on the default schedule', async () => {
+    const checkouts = fakeCheckouts()
+    const lines: string[] = []
+    let readable = false
+    const sweeper = startCheckoutSweep({
+      checkouts,
+      readSettings: async () => {
+        if (!readable) {
+          throw new Error('EISDIR: illegal operation on a directory, read')
+        }
+        return DEFAULT_SETTINGS
+      },
+      log: l => lines.push(l),
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(lines).toEqual(['review checkout sweep failed: EISDIR: illegal operation on a directory, read'])
+    expect(checkouts.sweeps).toEqual([])
+    readable = true
+    await vi.advanceTimersByTimeAsync(DEFAULT_SETTINGS.checkoutSweepMinutes * 60 * 1000)
+    expect(checkouts.sweeps).toEqual([{ olderThanDays: DEFAULT_SETTINGS.checkoutIdleDays }])
+    sweeper.stop()
+  })
+
   it('removes nothing while idle cleanup is off, and does not reschedule once stopped', async () => {
     const checkouts = fakeCheckouts()
     const sweeper = startCheckoutSweep({

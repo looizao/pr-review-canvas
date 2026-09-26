@@ -231,7 +231,8 @@ export function createReviewCheckouts(opts: {
         if (entry.isDirectory()) {
           await walk(full)
         } else if (entry.isFile()) {
-          total += (await lstat(full)).size
+          // A running turn's `git checkout`, or a sweep, can delete a file between readdir and here.
+          total += (await lstat(full).catch(() => ({ size: 0 }))).size
         }
       }
     }
