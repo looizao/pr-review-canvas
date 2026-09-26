@@ -677,8 +677,9 @@ chat pane shows **Creating the review checkout** or **Checking out** while that 
   sits in your main checkout (`.pr-review/`, ignored by git). Tools that respect `.gitignore`, such
   as ripgrep and `git status`, skip them. Tools that do not may index them as duplicate sources:
   some IDE indexers, a Jest module map, or a `tsc` run without `include`. Exclude `.pr-review/`
-  in those tools, or set `--data-dir` / `PR_REVIEW_DATA_DIR` to a folder outside the checkout.
-  They also appear in `git worktree list`.
+  in those tools, or set `PR_REVIEW_DATA_DIR` (or `--data-dir` on every command) to a folder
+  outside the checkout. That moves all pr-review data, not only checkouts: settings, canvases,
+  review progress, and chat history go with it. They also appear in `git worktree list`.
 - If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
   carries a warning naming your branch, also when the thread is reopened later.
 - Every worktree of one clone shares the checkouts. While one `pr-review serve` answers about a
