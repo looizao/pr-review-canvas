@@ -583,7 +583,31 @@ describe('answerHtml', () => {
     expect(document.querySelector('.proposed .tbtns a')?.getAttribute('href')).toBe(posted.url)
     expect(document.querySelector('[data-act="proposed-post"]')).toBeNull()
   })
-  it('renders a proposed comment as a card with its three commands', () => {
+  it('renders a queued proposal as in your review when the answer is drawn again', () => {
+    const queued = {
+      id: 'p1',
+      path: 'src/app.ts',
+      line: 3,
+      side: /** @type {const} */ ('new'),
+      body: 'Rename this.',
+      headSha: '',
+      createdAt: '',
+      updatedAt: '',
+    }
+    document.body.innerHTML = answerHtml(
+      '```comment\n{"path":"src/app.ts","line":3,"body":"Rename this."}\n```',
+      targets,
+      new Map(),
+      paths,
+      'history-0',
+      [],
+      [queued]
+    )
+    expect(document.querySelector('.proposed .tbtns .pill')?.textContent).toBe('in your review')
+    expect(document.querySelector('[data-act="proposed-post"]')).toBeNull()
+    expect(document.querySelector('[data-act="proposed-queue"]')).toBeNull()
+  })
+  it('renders a proposed comment as a card with its four commands', () => {
     /** @type {Map<string, import('./proposed-comment.js').ProposedComment>} */
     const sink = new Map()
     const html = answerHtml(
@@ -595,6 +619,7 @@ describe('answerHtml', () => {
     expect(sink.size).toBe(1)
     expect(html).toContain('proposed comment')
     expect(html).toContain('data-act="proposed-post"')
+    expect(html).toContain('data-act="proposed-queue"')
     expect(html).toContain('data-act="proposed-edit"')
     expect(html).toContain('data-copy="Rename this."')
     expect(html).toContain('src/app.ts:3')
@@ -647,9 +672,11 @@ describe('the proposed-comment commands', () => {
     el(root, '#chat-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flush()
     el(root, '[data-act="proposed-post"]').click()
+    el(root, '[data-act="proposed-queue"]').click()
     el(root, '[data-act="proposed-edit"]').click()
     expect(seen).toEqual([
       ['post', 'Rename.'],
+      ['queue', 'Rename.'],
       ['edit', 'Rename.'],
     ])
   })

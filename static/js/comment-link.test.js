@@ -2,7 +2,7 @@
 // @vitest-environment happy-dom
 import { mapReviewComment } from '../../src/github/comments.js'
 import { GH_REVIEW_COMMENTS } from '../../src/testing/synthetic.js'
-import { postedCommentUrl, replacePostButton, viewCommentHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, replacePostButton, viewCommentHtml } from './comment-link.js'
 
 const proposed = {
   path: 'src/app.ts',
@@ -17,7 +17,7 @@ afterEach(() => document.body.replaceChildren())
 
 it('replaces a focused posting button with a focused comment link', () => {
   const button = document.createElement('button')
-  button.className = 'cmd fill'
+  button.className = 'cmd'
   button.textContent = 'post to github'
   document.body.appendChild(button)
   button.focus()
@@ -25,7 +25,7 @@ it('replaces a focused posting button with a focused comment link', () => {
   const link = document.querySelector('a')
   expect(link?.textContent).toBe('view comment')
   expect(link?.getAttribute('href')).toBe(posted.url)
-  expect(link?.className).toBe('cmd fill')
+  expect(link?.className).toBe('cmd')
   expect(link?.target).toBe('_blank')
   expect(link?.rel).toBe('noopener noreferrer')
   expect(document.activeElement).toBe(link)
@@ -50,4 +50,30 @@ it.each([
   { inReplyToId: 1001 },
 ])('does not match a different posted comment: %j', changes => {
   expect(postedCommentUrl(proposed, [{ ...posted, ...changes }])).toBeUndefined()
+})
+
+const queued = {
+  id: 'p1',
+  path: proposed.path,
+  line: proposed.line,
+  startLine: 3,
+  side: proposed.side,
+  body: proposed.body,
+  headSha: '',
+  createdAt: '',
+  updatedAt: '',
+}
+
+it('finds a queued proposal by its body and complete diff location', () => {
+  expect(isQueuedComment(proposed, [queued])).toBe(true)
+})
+
+it.each([
+  { path: 'different.ts' },
+  { line: 5 },
+  { side: /** @type {const} */ ('old') },
+  { startLine: 2 },
+  { body: 'A different comment.' },
+])('does not match a different draft: %j', changes => {
+  expect(isQueuedComment(proposed, [{ ...queued, ...changes }])).toBe(false)
 })

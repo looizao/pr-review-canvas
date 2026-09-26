@@ -16,7 +16,8 @@ import { wireFoldReveal } from './code-folds.js'
 import { renderDiff } from './diff-renderer.js'
 import { renderHeader } from './header.js'
 import { carriedOverBarHtml } from './empty-state.js'
-import { askTargetFor, nextUnreviewedTarget, toast, wireReview } from './interactions.js'
+import { askTargetFor, nextUnreviewedTarget, padUnderStickyBar, toast, wireReview } from './interactions.js'
+import { renderChatShell, wireChat } from './chat.js'
 import {
   cardOf,
   defineLayerElements,
@@ -390,6 +391,41 @@ describe('card toggles', () => {
     click(root, 'article.file#file-src_app_ts .file-h .chev')
     expect(body?.hasAttribute('hidden')).toBe(true)
     window.getSelection()?.removeAllRanges()
+  })
+
+  it('leaves the card as it was after a double or triple click selects the file name', () => {
+    const { root } = setup()
+    const body = root.querySelector('article.file#file-src_app_ts > .file-body')
+    const title = root.querySelector('article.file#file-src_app_ts .file-h .path')
+    if (!(title instanceof HTMLElement) || title.firstChild === null) {
+      throw new Error('file title has no text')
+    }
+    const text = title.firstChild
+    /** The clicks a browser sends for one press sequence; from the second on, the name is selected. */
+    const clicks = (/** @type {number} */ count) => {
+      for (let detail = 1; detail <= count; detail++) {
+        if (detail === 2) {
+          window.getSelection()?.setBaseAndExtent(text, 0, text, 3)
+        }
+        title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }))
+      }
+      window.getSelection()?.removeAllRanges()
+    }
+    clicks(2)
+    expect(body?.hasAttribute('hidden')).toBe(false)
+    clicks(3)
+    expect(body?.hasAttribute('hidden')).toBe(false)
+    clicks(1)
+    expect(body?.hasAttribute('hidden')).toBe(true)
+    clicks(2)
+    expect(body?.hasAttribute('hidden')).toBe(true)
+
+    // A click that ended a drag flipped nothing, so a second click right after it undoes nothing.
+    window.getSelection()?.setBaseAndExtent(text, 0, text, 3)
+    title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }))
+    window.getSelection()?.removeAllRanges()
+    expect(body?.hasAttribute('hidden')).toBe(true)
   })
 
   it('collapses a layer section from its own chevron', () => {
@@ -1296,8 +1332,8 @@ describe('keyboard', () => {
       key('n')
       const focused = root.querySelector('.is-focused')
       expect(focused?.id).toBe('file-src_new_name_ts')
-      // The card scrolls to just under the bar, which would cover its heading otherwise.
-      expect(focused instanceof HTMLElement ? focused.style.scrollMarginTop : '').toBe('48px')
+      // The page's scroll padding clears the bar; the card keeps a small gap under it.
+      expect(focused instanceof HTMLElement ? focused.style.scrollMarginTop : '').toBe('8px')
       // The focused card is on screen, so p steps from it.
       key('p')
       expect(root.querySelector('.is-focused')?.id).toBe('file-src_app_ts')
@@ -1530,6 +1566,45 @@ describe('capability gating and sign-off', () => {
   })
 })
 
+describe('padUnderStickyBar', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    document.documentElement.style.removeProperty('scroll-padding-top')
+  })
+
+  it('keeps the page scroll padding at the bar height as it wraps, and clears it on stop', () => {
+    /** @type {() => void} */
+    let resized = () => {}
+    const disconnect = vi.fn()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(/** @type {() => void} */ callback) {
+          resized = callback
+        }
+        observe() {}
+        disconnect = disconnect
+      }
+    )
+    let height = 40
+    const bar = document.createElement('div')
+    vi.spyOn(bar, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 100, height))
+    const stop = padUnderStickyBar(document, bar)
+    expect(document.documentElement.style.scrollPaddingTop).toBe('40px')
+    height = 72
+    resized()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('72px')
+    stop()
+    expect(disconnect).toHaveBeenCalledOnce()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('')
+  })
+
+  it('leaves the page alone with no bar', () => {
+    padUnderStickyBar(document, null)()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('')
+  })
+})
+
 describe('toast', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => {
@@ -1744,6 +1819,7 @@ describe('the AI Chat commands', () => {
         /** @param {unknown} context */
         ask: context => calls.push(['ask', context]),
         focusInput: () => calls.push(['focus', null]),
+        refreshProposed: () => undefined,
       },
     }
   }
@@ -1810,41 +1886,86 @@ describe('the AI Chat commands', () => {
     expect(opened).toEqual(['settings'])
   })
 
-  it('posts a proposed comment at the line it names', async () => {
-    const { root, wiring, calls } = setup()
-    const card = document.createElement('div')
-    card.className = 'proposed'
-    card.innerHTML = '<span class="tbtns"><button id="post">post to github</button></span>'
-    root.appendChild(card)
-    const button = card.querySelector('#post')
-    if (!(button instanceof HTMLElement)) {
-      throw new Error('no button')
+  /**
+   * The page and the real AI Chat pane on one root, with an answer that proposes one comment.
+   * @param {string} comment the JSON inside the answer's comment block
+   */
+  async function setupWithChat(comment) {
+    setChatEnabled(true)
+    /** @type {import('./interactions.js').ChatHandle | null} */
+    let chat = null
+    const page = setup({ chat: () => chat })
+    page.root.querySelector('.layout')?.insertAdjacentHTML('beforeend', renderChatShell({ enabled: true }))
+    chat = wireChat({
+      root: page.root,
+      prNumber: 42,
+      session: page.session,
+      storage: null,
+      reducedMotion: true,
+      api: {
+        fetchThreads: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        createThread: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        fetchThreadHistory: async () => ({ name: 't', turns: [] }),
+        cancelChat: async () => ({ cancelled: true }),
+        streamChat: async (_pr, _input, opts) => {
+          opts.onEvent({ event: 'chunk', data: { text: `\`\`\`comment\n${comment}\n\`\`\`\n` } })
+        },
+      },
+      onProposed: (what, proposed, el) => page.wiring.onProposedComment(what, proposed, el),
+    })
+    const box = page.root.querySelector('#msg')
+    if (!(box instanceof HTMLTextAreaElement)) {
+      throw new Error('no chat box')
     }
-    wiring.onProposedComment(
-      'post',
-      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
-      button
+    box.value = 'x'
+    page.root
+      .querySelector('#chat-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flush()
+    const handle = chat
+    wirings.push({ stop: () => handle?.stop() })
+    return page
+  }
+
+  /** @param {ParentNode} root */
+  const cardCommands = root =>
+    Array.from(root.querySelectorAll('.proposed .tbtns > *')).map(el => el.textContent)
+
+  it('draws a proposed card from the review: queued, then back when the draft is deleted', async () => {
+    const { root, calls } = await setupWithChat(
+      '{"path":"src/app.ts","line":3,"startLine":2,"body":"Rename."}'
     )
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    click(root, '[data-act="proposed-queue"]')
+    await flush()
+    expect(calls).toEqual([
+      [
+        'pending-add',
+        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+      ],
+    ])
+    expect(cardCommands(root)).toEqual(['in your review', 'edit', 'copy'])
+    click(root, '[data-act="pending-delete"][data-pending-id="p1"]')
+    await flush()
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    setChatEnabled(false)
+  })
+
+  it('draws a proposed card as posted once it goes out on its own', async () => {
+    const { root, calls } = await setupWithChat('{"path":"src/app.ts","line":3,"body":"One line."}')
+    click(root, '[data-act="proposed-post"]')
     await flush()
     expect(calls).toEqual([
       [
         'comment',
-        {
-          kind: 'inline',
-          path: 'src/app.ts',
-          line: 3,
-          startLine: 2,
-          side: 'new',
-          body: 'Rename.',
-          headSha: HEAD,
-        },
+        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
       ],
     ])
-    expect(card.querySelector('.tbtns a')?.textContent).toBe('view comment')
-    expect(card.querySelector('.tbtns a')?.getAttribute('href')).toBe(
+    expect(cardCommands(root)).toEqual(['view comment', 'edit', 'copy'])
+    expect(root.querySelector('.proposed .tbtns a')?.getAttribute('href')).toBe(
       'https://github.com/acme/widgets/pull/42#discussion_r5001'
     )
-    expect(card.querySelector('#post')).toBeNull()
+    setChatEnabled(false)
   })
 
   it('opens the composer prefilled when the reader edits a proposed comment', () => {
@@ -1907,22 +2028,6 @@ describe('askTargetFor', () => {
     expect(askTargetFor(null, null)).toEqual({ kind: 'pr' })
     expect(askTargetFor(root.querySelector('#overview'), null)).toEqual({ kind: 'pr' })
     setChatEnabled(false)
-  })
-})
-
-describe('posting a proposed comment on one line', () => {
-  it('sends no range when the comment names a single line', async () => {
-    const { root, wiring, calls } = setup()
-    const button = document.createElement('button')
-    root.appendChild(button)
-    wiring.onProposedComment('post', { path: 'src/app.ts', line: 3, side: 'new', body: 'One line.' }, button)
-    await flush()
-    expect(calls).toEqual([
-      [
-        'comment',
-        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
-      ],
-    ])
   })
 })
 
