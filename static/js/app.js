@@ -13,6 +13,7 @@ import {
   saveAppearance,
 } from './api.js'
 import { setChatEnabled } from './ask.js'
+import { setMentionCanvas } from './points.js'
 import { wireBarDismissal } from './bar-dismissal.js'
 import { readChatMinimized, readChatWidth, renderChatShell, wireChat } from './chat.js'
 import { runCommand, wireCopyCommands } from './commands.js'
@@ -231,6 +232,7 @@ export class PrAppElement extends HTMLElement {
     const chatMinimized = chatEnabled && readChatMinimized(storage)
     // The renderers read this while they build the cards, so it is set before the first one.
     setChatEnabled(chatEnabled)
+    setMentionCanvas(bundle.mentionCanvas)
     const showsCanvas = bundle.artifact !== undefined && (bundle.status === 'ready' || this.viewStale)
     if (bundle.artifact && showsCanvas) {
       const { artifact } = bundle

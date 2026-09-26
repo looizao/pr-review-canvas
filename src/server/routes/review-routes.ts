@@ -5,6 +5,7 @@ import type { ReviewBodyResponse, StateResponse } from '../../contract/api.js'
 import { PostCommentInputSchema, type PostCommentResult } from '../../contract/comments.js'
 import { AddPendingInputSchema, EditPendingInputSchema, type PendingComment } from '../../contract/pending.js'
 import type { Pr, ReviewArtifact } from '../../contract/review-artifact.js'
+import { resolveSharing } from '../../contract/settings.js'
 import type { PrState } from '../../contract/state.js'
 import { checkInlineTarget } from '../../git/patch-lines.js'
 import { PostReviewInputSchema } from '../../contract/reviews.js'
@@ -201,6 +202,9 @@ export function postedFromPending(
 export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
   const api = new Hono()
 
+  const mentionCanvas = async (): Promise<boolean> =>
+    resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read()).mentionCanvas
+
   /** Posting is refused here as well as in the UI, so a stale page cannot post either. */
   const requirePosting = async (): Promise<void> => {
     const caps = await ctx.capabilities.get()
@@ -344,7 +348,13 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
     const comments = (await ctx.prs.readComments(number)) ?? (await loader.refreshComments(number)).comments
     const body: ReviewBodyResponse = {
       headSha: pr.headSha,
-      body: buildReviewBody({ artifact, state, comments, headSha: pr.headSha }),
+      body: buildReviewBody({
+        artifact,
+        state,
+        comments,
+        headSha: pr.headSha,
+        mentionCanvas: await mentionCanvas(),
+      }),
       unreviewed: unreviewedLayers(artifact, state).map(l => l.title),
       pending: state.pending.length,
     }
@@ -370,7 +380,15 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
       }
     }
     const comments = (await ctx.prs.readComments(number)) ?? (await loader.refreshComments(number)).comments
-    const body = input.body ?? buildReviewBody({ artifact, state, comments, headSha: pr.headSha })
+    const body =
+      input.body ??
+      buildReviewBody({
+        artifact,
+        state,
+        comments,
+        headSha: pr.headSha,
+        mentionCanvas: await mentionCanvas(),
+      })
     // The drafts read here are the ones that go out. A draft written after this read stays in the
     // pending review instead of being dropped by the clear below.
     const pending = input.includePending ? (await ctx.state.read(number)).pending : []

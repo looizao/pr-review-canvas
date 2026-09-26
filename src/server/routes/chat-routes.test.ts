@@ -223,6 +223,8 @@ describe('the settings routes', () => {
       chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     expect(body.overrides).toEqual({ chatAgent: 'codex' })
     expect(body.file).toContain('settings.yml')
@@ -263,6 +265,8 @@ describe('the settings routes', () => {
       chatModel: 'gpt-5.2',
       chatTimeoutSec: 300,
       maxTurns: 4,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     const again = await app.request('/api/settings', { headers: LOCAL })
     expect((await json<SettingsResponse>(again)).settings.chatAgent).toBe('codex')

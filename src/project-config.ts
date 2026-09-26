@@ -23,6 +23,14 @@ export type GenerationModels = z.infer<typeof GenerationModelsSchema>
 export const HighRiskRuleSchema = z.object({ pattern: z.string().min(1), label: z.string().min(1) })
 export type HighRiskRule = z.infer<typeof HighRiskRuleSchema>
 
+export const SharingSchema = z.object({
+  /** Publish posts the canvas as a PR/MR comment. False keeps the canvas on this machine. */
+  canvasComment: z.boolean(),
+  /** What the review page posts names the canvas. False drops every mention and credit. */
+  mentionCanvas: z.boolean(),
+})
+export type Sharing = z.infer<typeof SharingSchema>
+
 const cap = () => z.number().int().positive().optional()
 
 /** One optional override per text cap. `satisfies` fails the build when TEXT_CAPS gains a key. */
@@ -91,6 +99,8 @@ export const ProjectConfigSchema = z.object({
      */
     incremental: z.boolean(),
   }),
+  /** What publish and the review page put on the PR/MR. `.pr-review/settings.yml` can override both. */
+  sharing: SharingSchema,
 })
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>
 
@@ -116,6 +126,9 @@ const PartialProjectConfigSchema = z.object({
   canvas: z
     .object({ keepForIdenticalDiff: z.boolean().optional(), incremental: z.boolean().optional() })
     .optional(),
+  sharing: z
+    .object({ canvasComment: z.boolean().optional(), mentionCanvas: z.boolean().optional() })
+    .optional(),
 })
 
 export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
@@ -132,6 +145,7 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   tests: { patterns: [...DEFAULT_TEST_PATTERNS] },
   chat: { enabled: true },
   canvas: { keepForIdenticalDiff: true, incremental: true },
+  sharing: { canvasComment: true, mentionCanvas: true },
 }
 
 export interface LoadedProjectConfig {
@@ -178,6 +192,10 @@ export function mergeProjectConfig(raw: unknown): { config: ProjectConfig; warni
       keepForIdenticalDiff:
         user.canvas?.keepForIdenticalDiff ?? DEFAULT_PROJECT_CONFIG.canvas.keepForIdenticalDiff,
       incremental: user.canvas?.incremental ?? DEFAULT_PROJECT_CONFIG.canvas.incremental,
+    },
+    sharing: {
+      canvasComment: user.sharing?.canvasComment ?? DEFAULT_PROJECT_CONFIG.sharing.canvasComment,
+      mentionCanvas: user.sharing?.mentionCanvas ?? DEFAULT_PROJECT_CONFIG.sharing.mentionCanvas,
     },
   }
   if (user.rulebook !== undefined) {

@@ -22,6 +22,8 @@ const SETTINGS = {
     chatModel: null,
     chatTimeoutSec: 600,
     maxTurns: null,
+    canvasComment: null,
+    mentionCanvas: null,
   },
   overrides: {},
   file: '/repo/.pr-review/settings.yml',

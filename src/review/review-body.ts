@@ -51,14 +51,20 @@ export interface ReviewBodyInput {
   state: PrState
   comments: CommentsPayload
   headSha: string
+  /** False leaves the body empty, for projects whose PRs must not name the tool: the reviewer writes it. */
+  mentionCanvas: boolean
 }
 
 /**
  * The body of the review the canvas posts: what was read, what was set aside, and what was said
- * on the diff. The user sees it in the dialog and may edit it before it is sent.
+ * on the diff. The user sees it in the dialog and may edit it before it is sent. Empty when
+ * `mentionCanvas` is off, since every line of it describes the canvas.
  */
 export function buildReviewBody(input: ReviewBodyInput): string {
-  const { artifact, state, comments, headSha } = input
+  const { artifact, state, comments, headSha, mentionCanvas } = input
+  if (!mentionCanvas) {
+    return ''
+  }
   const layers = artifact.layers.filter(l => l.kind !== 'other')
   const reviewed = layers.filter(l => layerProgress(l, state) === 'done')
   const dismissed = artifact.points.filter(p => state.dismissed[p.fingerprint] !== undefined)

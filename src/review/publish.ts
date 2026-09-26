@@ -5,6 +5,7 @@ import { buildCanvasZipFor, exportCanvas } from '../canvas/export.js'
 import { appendFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { CanvasManifest } from '../contract/canvas-manifest.js'
+import { resolveSharing } from '../contract/settings.js'
 import { type GenerationContext, GenerationContextSchema } from '../contract/generation-context.js'
 import type { Generator, ReviewArtifact } from '../contract/review-artifact.js'
 import { UNCOMMITTED_STATE, resolveLocalHead } from '../git/local-target.js'
@@ -32,6 +33,8 @@ export interface PublishResult {
     | { status: 'shared'; url: string }
     | { status: 'failed'; warning: string; zipPath: string }
     | { status: 'local' }
+    /** A PR/MR run whose config turns the canvas comment off: nothing was posted. */
+    | { status: 'off' }
   /** Where the canvas shows once the server runs; absent only for a `--base/--head` change set. */
   reviewUrl?: string
 }
@@ -255,6 +258,11 @@ export async function publish(
   }
   if (context.target.kind === 'pr') {
     published.reviewUrl = `http://localhost:${ctx.config.port}/review/${context.target.number}`
+    const sharing = resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read())
+    if (!sharing.canvasComment) {
+      published.sharing = { status: 'off' }
+      return published
+    }
     try {
       const zip = await buildCanvasZipFor(ctx, context.headSha, context.target.number)
       const body = buildCanvasComment(zip, ctx.config.host.canvasCommentLimit)

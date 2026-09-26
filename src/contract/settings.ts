@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { GenerationModels } from '../project-config.js'
+import type { GenerationModels, Sharing } from '../project-config.js'
 import { DEFAULT_FOLD_LEVEL, FOLD_LEVELS } from '../../static/js/fold-levels.js'
 import { DEFAULT_LAYER_VIEW, LAYER_VIEWS } from '../../static/js/layer-views.js'
 import { DEFAULT_SKIN, isSkin, SKINS, type Skin } from '../../static/js/skin.js'
@@ -39,6 +39,10 @@ export const SettingsSchema = z.object({
   chatModel: z.string().min(1).nullable(),
   chatTimeoutSec: z.number().int().min(CHAT_TIMEOUT_MIN_SEC).max(CHAT_TIMEOUT_MAX_SEC),
   maxTurns: z.number().int().positive().max(100).nullable(),
+  /** Overrides `sharing.canvasComment` in pr-review.config.yml; null follows the project. */
+  canvasComment: z.boolean().nullable(),
+  /** Overrides `sharing.mentionCanvas` in pr-review.config.yml; null follows the project. */
+  mentionCanvas: z.boolean().nullable(),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -52,6 +56,16 @@ export const DEFAULT_SETTINGS: Settings = {
   chatModel: null,
   chatTimeoutSec: 600,
   maxTurns: null,
+  canvasComment: null,
+  mentionCanvas: null,
+}
+
+/** The project's sharing rules with this user's overrides applied: a set personal key wins. */
+export function resolveSharing(project: Sharing, settings: Settings): Sharing {
+  return {
+    canvasComment: settings.canvasComment ?? project.canvasComment,
+    mentionCanvas: settings.mentionCanvas ?? project.mentionCanvas,
+  }
 }
 
 /**

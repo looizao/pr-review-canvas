@@ -50,6 +50,7 @@ function bundle(over = {}) {
     capabilities: UNKNOWN_CAPABILITIES,
     chat: { enabled: true },
     largePr: false,
+    mentionCanvas: true,
     warnings: [],
     ...over,
   })

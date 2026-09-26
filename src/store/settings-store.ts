@@ -38,6 +38,14 @@ chatTimeoutSec: 600
 
 # Cap on agent turns per message, or null for the agent's own default.
 maxTurns: null
+
+# Whether publish posts the canvas as a PR/MR comment. null follows sharing.canvasComment in
+# pr-review.config.yml; true or false wins over it for you.
+canvasComment: null
+
+# Whether what the review page posts names the canvas. null follows sharing.mentionCanvas
+# in pr-review.config.yml; true or false wins over it for you.
+mentionCanvas: null
 `
 
 export interface SettingsStore {
@@ -181,6 +189,8 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
   doc.set('chatModel', settings.chatModel)
   doc.set('chatTimeoutSec', settings.chatTimeoutSec)
   doc.set('maxTurns', settings.maxTurns)
+  doc.set('canvasComment', settings.canvasComment)
+  doc.set('mentionCanvas', settings.mentionCanvas)
   return { text: String(doc), settings }
 }
 
