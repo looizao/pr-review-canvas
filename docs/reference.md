@@ -376,17 +376,20 @@ placed in Other while its source is in a regular layer.
 
 The data directory's `settings.yml` accepts these keys and values:
 
-| Key              | Default  | Accepted values                                       |
-| ---------------- | -------- | ----------------------------------------------------- |
-| `version`        | `1`      | `1`                                                   |
-| `skin`           | `github` | `terminal`, `github`                                  |
-| `theme`          | `auto`   | `auto`, `light`, `dark`                               |
-| `foldLevel`      | `light`  | `light`, `moderate`, `aggressive`                     |
-| `layerView`      | `all`    | `all`, `one`                                          |
-| `chatAgent`      | `claude` | `claude`, `codex` (2)                                 |
-| `chatModel`      | `null`   | A model ID, or `null` for the agent's default (1) (2) |
-| `chatTimeoutSec` | `600`    | Integer seconds, 30–3600                              |
-| `maxTurns`       | `null`   | Integer 1–100, or `null` for the agent's default      |
+| Key                    | Default  | Accepted values                                                                  |
+| ---------------------- | -------- | -------------------------------------------------------------------------------- |
+| `version`              | `1`      | `1`                                                                              |
+| `skin`                 | `github` | `terminal`, `github`                                                             |
+| `theme`                | `auto`   | `auto`, `light`, `dark`                                                          |
+| `foldLevel`            | `light`  | `light`, `moderate`, `aggressive`                                                |
+| `layerView`            | `all`    | `all`, `one`                                                                     |
+| `chatAgent`            | `claude` | `claude`, `codex` (2)                                                            |
+| `chatModel`            | `null`   | A model ID, or `null` for the agent's default (1) (2)                            |
+| `chatTimeoutSec`       | `600`    | Integer seconds, 30–3600                                                         |
+| `maxTurns`             | `null`   | Integer 1–100, or `null` for the agent's default                                 |
+| `checkoutEnabled`      | `true`   | `true` reads a [review checkout](#review-checkouts); `false` reads your checkout |
+| `checkoutIdleDays`     | `7`      | Integer 1–365, or `-1` to never remove an idle checkout                          |
+| `checkoutSweepMinutes` | `60`     | Integer minutes, 5–1440, between `serve`'s idle sweeps                           |
 
 (1) A model ID names a family; see [Model families](#model-families).
 (2) AI Chat only. Canvas generation reads `generation.models` in the project config instead. A
@@ -652,6 +655,38 @@ or copy it. A proposal outside the current diff remains text with an explanation
 
 Use **stop** to interrupt a reply. Only one chat turn can run per PR at a time. A timeout or
 incomplete answer can be retried; increase `chatTimeoutSec` if replies need more time.
+
+### Review checkouts
+
+AI Chat reads code from a review checkout: a detached `git worktree` of the whole repository at
+the reviewed commit, kept under the data directory (`repos/<owner>__<repo>/checkouts/<key>`) and
+apart from your own checkout. Your branch and your uncommitted edits are never touched. The first
+chat turn of a review creates it, and each turn moves it to the commit the chat talks about. The
+chat pane shows **Creating the review checkout** or **Checking out** while that runs, and marks
+each answer with the commit it read.
+
+- A pull request and the branch review each get one. The branch review reads the branch's last
+  commit, without your uncommitted edits.
+- The uncommitted review has none: the agent reads your working tree, which is the work under
+  review.
+- A review checkout holds tracked files only. The agent reads installed dependencies from your
+  checkout and is told they may not match a pull request that changes them.
+- If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
+  carries a warning naming your branch.
+- Every worktree of one clone shares the checkouts. A turn from a second `pr-review serve` on the
+  same review waits for the first to finish (`CHAT_BUSY`).
+
+`serve` removes checkouts with no chat turn for `checkoutIdleDays`, at startup and every
+`checkoutSweepMinutes`. `pr-review clean` does the same on demand:
+
+```text
+pr-review clean [--all | --older-than <days>] [--dry-run]
+```
+
+With `checkoutIdleDays: -1`, neither removes anything unless you pass `--all` or `--older-than`.
+Cleanup never touches canvases or review state. The **Checkouts** tab of the settings dialog
+lists the current checkouts and edits these settings. Set `checkoutEnabled: false` to read your
+own checkout, as before review checkouts existed.
 
 ## Network access and permissions
 

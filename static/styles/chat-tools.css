@@ -143,8 +143,54 @@ dialog.settings .panel-ro h3 {
 dialog.settings .notice .flag {
   white-space: nowrap;
 }
-dialog.settings #settings-chat-h {
+dialog.settings .settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+dialog.settings .settings-tab {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+dialog.settings .settings-tab[aria-selected='true'] {
+  border-color: var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-weight: 600;
+}
+dialog.settings .settings-tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+/* Every panel keeps one height, so switching tabs does not make the dialog jump. */
+dialog.settings .settings-panel {
+  min-height: 220px;
+  padding-top: 6px;
+}
+dialog.settings .field-check input {
+  justify-self: start;
+}
+dialog.settings .settings-panel h3 {
   margin: 14px 0 4px;
+}
+dialog.settings .checkout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+dialog.settings .checkout-table th,
+dialog.settings .checkout-table td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
 }
 dialog.settings .panel-ro h4 {
   margin: 8px 0 4px;

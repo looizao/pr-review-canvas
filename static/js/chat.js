@@ -184,6 +184,46 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
 }
 
 /**
+ * What the activity line says while a review checkout is created or moved.
+ * @param {{ sha: string, creating: boolean }} event
+ */
+export function checkoutActivityText(event) {
+  const sha = event.sha.slice(0, 7)
+  return event.creating ? `Creating the review checkout at ${sha}` : `Checking out ${sha}`
+}
+
+/**
+ * The chip on an answer that names the code the agent read: the review checkout at a commit, or
+ * the reader's own checkout, which for uncommitted work is the work under review.
+ * @param {{ source: 'checkout' | 'working-tree', sha: string }} event
+ * @param {import('./contract-types.js').ReviewKey} key
+ */
+export function checkoutChipHtml(event, key) {
+  if (event.source === 'checkout') {
+    const sha = esc(event.sha.slice(0, 7))
+    return `<span class="chat-source" title="AI Chat read the review checkout at ${sha}">review checkout <span class="mono">${sha}</span></span>`
+  }
+  return key === 'uncommitted'
+    ? '<span class="chat-source" title="AI Chat read your working tree, the work under review">your working tree</span>'
+    : '<span class="chat-source warn" title="Review checkouts are off, so AI Chat read your own checkout, which may be on another branch">your checkout</span>'
+}
+
+/**
+ * The warning a turn shows when its review checkout failed and it read the reader's checkout.
+ * @param {{ message: string, branch: string | null }} event
+ */
+export function checkoutWarningHtml(event) {
+  const where =
+    event.branch === null
+      ? 'your checkout'
+      : `your checkout on <span class="mono">${esc(event.branch)}</span>`
+  return (
+    `<p class="chat-warning small" role="status">The review checkout could not be updated, so AI Chat read ${where}. ` +
+    `Answers may describe another version of the code. <span class="muted">${esc(event.message)}</span></p>`
+  )
+}
+
+/**
  * The card a proposed comment renders as. `post to github` goes through the same path as every
  * other post, so capability gating and the pending state apply here too.
  * @param {ProposedComment} comment
@@ -542,9 +582,11 @@ export function wireChat(options) {
     activity.setAttribute('aria-live', 'off')
     answer.turn.append(activity)
     const started = Date.now()
+    /** What the turn is waiting on: the answer, or a review checkout first. */
+    let phase = 'Preparing answer'
     const updateActivity = () => {
       const elapsed = Date.now() - started
-      activity.textContent = `Preparing answer${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
+      activity.textContent = `${phase}${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
     }
     updateActivity()
     const timer = setInterval(updateActivity, 400)
@@ -571,6 +613,28 @@ export function wireChat(options) {
             if (event.event === 'turn' && typeof thread === 'string') {
               activeThread = thread
               void refreshThreads()
+              return
+            }
+            if (event.event === 'checkout') {
+              const checkout = /** @type {import('./contract-types.js').ChatCheckoutEvent} */ ({
+                event: 'checkout',
+                ...data,
+              })
+              const role = answer.turn.querySelector('.role')
+              if (checkout.status === 'preparing') {
+                phase = checkoutActivityText(checkout)
+                activity.classList.add('checking-out')
+              } else {
+                phase = 'Preparing answer'
+                activity.classList.remove('checking-out')
+                role?.insertAdjacentHTML(
+                  'afterend',
+                  checkout.status === 'ready'
+                    ? checkoutChipHtml(checkout, prNumber)
+                    : checkoutWarningHtml(checkout)
+                )
+              }
+              updateActivity()
               return
             }
             if (event.event === 'tool') {

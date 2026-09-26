@@ -117,6 +117,28 @@ textarea:disabled {
 .turn.a .role {
   color: var(--accent);
 }
+/* The code an answer was read from: the review checkout's commit, or the reader's checkout. */
+.chat-source {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--fg-muted);
+}
+.chat-source.warn {
+  border-color: var(--warn);
+}
+.chat-warning {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-bg);
+}
+.chat-activity.checking-out {
+  color: var(--accent);
+}
 .snip {
   border: 1px solid var(--ink);
   background: var(--panel-2);

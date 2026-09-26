@@ -1,11 +1,12 @@
 // In-memory fakes for the two process boundaries (git, gh) and a test AppContext over a temp
 // data dir. Tests build real stores on the real filesystem; only the processes are faked.
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { Writable } from 'node:stream'
 import { stripVTControlCharacters } from 'node:util'
 import type { AgentRunner } from '../acpx/acpx.js'
+import { type CheckoutGit, CheckoutError } from '../chat/checkouts.js'
 import type { RuntimeConfig } from '../config.js'
 import { GITHUB_HOST, type Host } from '../host/host.js'
 import type { ReviewArtifact } from '../contract/review-artifact.js'
@@ -323,6 +324,51 @@ export function createFakeGh(options: FakeGhOptions = {}): FakeGh {
 
 export const TEST_REPO = { owner: 'acme', name: 'widgets' }
 
+export interface FakeCheckoutGit extends CheckoutGit {
+  calls: string[][]
+}
+
+/**
+ * Review checkouts without git: a checkout is a folder holding a `HEAD` file with its commit.
+ * `fail` makes every add and move throw, as a full disk would; `delayMs` makes them take a while,
+ * as a large repository does.
+ */
+export function createFakeCheckoutGit(options: { fail?: string; delayMs?: number } = {}): FakeCheckoutGit {
+  const calls: string[][] = []
+  const write = async (dir: string, sha: string): Promise<void> => {
+    if (options.delayMs !== undefined) {
+      await new Promise(resolve => setTimeout(resolve, options.delayMs))
+    }
+    if (options.fail !== undefined) {
+      throw new CheckoutError(options.fail)
+    }
+    await mkdir(dir, { recursive: true })
+    await writeFile(path.join(dir, 'HEAD'), sha)
+  }
+  return {
+    calls,
+    add: async (dir, sha) => {
+      calls.push(['add', dir, sha])
+      await write(dir, sha)
+    },
+    move: async (dir, sha) => {
+      calls.push(['move', dir, sha])
+      await write(dir, sha)
+    },
+    head: async dir => {
+      try {
+        return (await readFile(path.join(dir, 'HEAD'), 'utf8')).trim()
+      } catch {
+        return null
+      }
+    },
+    remove: async dir => {
+      calls.push(['remove', dir])
+      await rm(dir, { recursive: true, force: true })
+    },
+  }
+}
+
 /** A test that does not expect an outbound request fails loudly instead of reaching the network. */
 const notFetched: typeof fetch = input => {
   throw new Error(`unexpected fetch: ${String(input)}`)
@@ -338,6 +384,8 @@ export interface TestContextOptions {
   fixtureArtifact?: ReviewArtifact | null
   projectConfig?: LoadedProjectConfig
   runner?: AgentRunner
+  /** The git behind review checkouts; a fake that makes folders by default. */
+  checkoutGit?: CheckoutGit
   /** `serve --agent/--model` for this context. */
   chatOverrides?: RuntimeConfig['chatOverrides']
   now?: () => Date
@@ -382,13 +430,10 @@ export async function makeTestContext(opts: TestContextOptions = {}): Promise<Te
       opts.capabilities ?? createCapabilityProbe(() => config.host.probeCapabilities(gh, TEST_REPO), now),
     fetch: opts.fetch ?? notFetched,
     ...stores,
-    ...createChatSet(
-      config,
-      opts.runner ?? createFakeRunner(),
-      stores,
-      now,
-      opts.projectConfig?.config.prompts
-    ),
+    ...createChatSet(config, opts.runner ?? createFakeRunner(), stores, now, git, {
+      prompts: opts.projectConfig?.config.prompts,
+      checkoutGit: opts.checkoutGit ?? createFakeCheckoutGit(),
+    }),
     now,
     version: '0.0.0-test',
     staticDir: STATIC_DIR,

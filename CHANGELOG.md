@@ -14,11 +14,22 @@
 
 ### AI Chat
 
+- AI Chat reads code from a review checkout: a detached git worktree of the whole repository at
+  the reviewed commit, kept in the data directory. Files the pull request did not change now come
+  from the pull request's base instead of whatever branch you have checked out. The uncommitted
+  review still reads your working tree. The chat pane shows the checkout while it runs, marks
+  each answer with the commit it read, and warns when a failed checkout made it read your own.
+- `checkoutEnabled`, `checkoutIdleDays` (`-1` never removes), and `checkoutSweepMinutes` in
+  `.pr-review/settings.yml`. `serve` removes idle checkouts on that schedule.
+- Threads started before this version begin a new agent session on their next turn.
+- The settings dialog is split into **Reading**, **AI Chat**, **Checkouts**, and **Project** tabs,
+  and remembers the last one. **Checkouts** lists the current review checkouts.
 - The chat keys in `.pr-review/settings.yml` are now `chatAgent` and `chatModel`. A file with the
   old `agent` and `model` keys still reads the same, and the next save renames them in place.
 
 ### CLI
 
+- `pr-review clean [--all | --older-than <days>] [--dry-run]` removes idle review checkouts.
 - `pr-review` and `pr-review --help` list each command in its own block, wrapped to the terminal,
   so a flag no longer breaks in the middle of a word.
 - `pr-review doctor` prints a checklist, with `ok` or `failed` on each check, for a person or an

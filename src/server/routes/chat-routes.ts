@@ -8,7 +8,7 @@ import { isThreadNameFor } from '../../chat/threads.js'
 import type { ChatEvent, ChatHistoryResponse } from '../../contract/chat.js'
 import { ChatSendSchema } from '../../contract/chat.js'
 import type { Pr, ReviewArtifact } from '../../contract/review-artifact.js'
-import type { SettingsResponse } from '../../contract/settings.js'
+import type { CheckoutsResponse, SettingsResponse } from '../../contract/settings.js'
 import { isChatAgent, SettingsInputSchema } from '../../contract/settings.js'
 import { lookupCanvas } from '../../review/carry-over.js'
 import type { Derived } from '../../store/derived-store.js'
@@ -133,6 +133,7 @@ function withDiff(artifact: ReviewArtifact, headSha: string, derived: Derived | 
 export const CHAT_ROUTE_PATTERNS = [
   '/settings/agents',
   '/settings/agents/*',
+  '/checkouts',
   '/prs/:n/chat',
   '/prs/:n/chat/*',
 ] as const
@@ -181,6 +182,23 @@ export function chatRoutes(ctx: AppContext, loader: PrLoader): Hono {
       throw new AppError('BAD_REQUEST', `not an agent this tool knows: ${id}`, 400)
     }
     return c.json(await ctx.agents.probe(id, { refresh: c.req.query('refresh') === '1' }))
+  })
+
+  api.get('/checkouts', async c => {
+    const listed = await ctx.checkouts.list()
+    const body: CheckoutsResponse = {
+      root: ctx.checkouts.root,
+      checkouts: await Promise.all(
+        listed.map(async ({ key, sha, lastUsedAt, locked, dir }) => ({
+          key,
+          sha,
+          lastUsedAt,
+          locked,
+          bytes: await ctx.checkouts.size(dir),
+        }))
+      ),
+    }
+    return c.json(body)
   })
 
   api.get('/prs/:n/chat/threads', async c => c.json(await ctx.chat.threads(parseTargetKey(c.req.param('n')))))

@@ -63,11 +63,32 @@ export interface ChatHistoryResponse {
 }
 
 /** The SSE frames the chat route writes, named the same on both sides. */
-export const CHAT_EVENTS = ['turn', 'chunk', 'thought', 'tool', 'done', 'error', 'cancelled'] as const
+export const CHAT_EVENTS = [
+  'turn',
+  'checkout',
+  'chunk',
+  'thought',
+  'tool',
+  'done',
+  'error',
+  'cancelled',
+] as const
 export type ChatEventName = (typeof CHAT_EVENTS)[number]
+
+/**
+ * Where the agent reads code for one turn. `preparing` comes before a review checkout is created
+ * (`creating`) or moved; `ready` says what the agent reads: the review checkout at `sha`, or the
+ * reader's own checkout (`working-tree`) for uncommitted work or with checkouts turned off;
+ * `fallback` says the checkout failed and the reader's checkout, on `branch`, is read instead.
+ */
+export type ChatCheckoutEvent =
+  | { event: 'checkout'; status: 'preparing'; sha: string; creating: boolean }
+  | { event: 'checkout'; status: 'ready'; source: 'checkout' | 'working-tree'; sha: string }
+  | { event: 'checkout'; status: 'fallback'; message: string; branch: string | null }
 
 export type ChatEvent =
   | { event: 'turn'; thread: string; agent: string; seeded: boolean }
+  | ChatCheckoutEvent
   | { event: 'chunk'; text: string }
   | { event: 'thought'; text: string }
   | { event: 'tool'; id: string; title: string; status: string }
