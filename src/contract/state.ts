@@ -8,6 +8,11 @@ export const ChatThreadSchema = z.object({
   title: z.string(),
   createdAt: z.string(),
   seededHeadSha: z.string(),
+  /**
+   * The folder the thread's acpx session runs in, which is also its scope. Threads from before
+   * review checkouts ran in the reader's checkout and have none.
+   */
+  seededCwd: z.string().optional(),
 })
 
 export type ChatThread = z.infer<typeof ChatThreadSchema>

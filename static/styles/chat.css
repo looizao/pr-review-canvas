@@ -117,6 +117,15 @@ textarea:disabled {
 .turn.a .role {
   color: var(--accent);
 }
+.chat-warning {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-bg);
+}
+.chat-activity.checking-out {
+  color: var(--accent);
+}
 .snip {
   border: 1px solid var(--ink);
   background: var(--panel-2);

@@ -93,6 +93,18 @@ const COMMANDS: CommandHelp[] = [
     flags: [{ form: '--pr <n>' }, { form: '--force' }],
   },
   {
+    name: 'clean',
+    summary: 'Remove idle review checkouts.',
+    flags: [
+      { form: '--all', detail: 'every review checkout, idle or not' },
+      { form: '--older-than <days>', detail: 'instead of checkoutIdleDays' },
+      { form: '--dry-run', detail: 'list what would go, remove nothing' },
+    ],
+    notes: [
+      'A review checkout is the copy of the repository AI Chat reads code from. Without flags, clean removes the ones with no chat turn for checkoutIdleDays in .pr-review/settings.yml; with checkoutIdleDays: -1 it removes nothing. serve runs the same cleanup every checkoutSweepMinutes. Canvases and review state stay.',
+    ],
+  },
+  {
     name: 'doctor',
     summary: 'Check git, the host CLI, the data directory, and the skill.',
     flags: [

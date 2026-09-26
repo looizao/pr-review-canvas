@@ -176,6 +176,11 @@ agent's default. A chat model ID runs as the newest model of its family (`claude
 [Model families](docs/reference.md#model-families). You can also adjust the reply timeout and
 maximum turns. Click **Test agent** to check the connection, then **save**.
 
+AI Chat reads code from a review checkout: a copy of the repository at the reviewed commit,
+separate from your own checkout, so answers describe the pull request's code whatever branch you
+are on. The **Checkouts** tab of the settings dialog controls it, and `pr-review clean` removes
+idle ones. See [Review checkouts](docs/reference.md#review-checkouts).
+
 Switching chat agents starts a new thread and keeps earlier threads. Server flags `--chat-agent`
 and `--chat-model` override your saved chat preferences for that run.
 

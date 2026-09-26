@@ -10,6 +10,7 @@ import {
   printErrorEnvelope,
   reportFailure,
   runDoctor,
+  runClean,
   runExport,
   runImport,
   runInstallSkill,
@@ -42,6 +43,7 @@ const SUBCOMMANDS = [
   'install-skill',
   'doctor',
   'upgrade',
+  'clean',
 ] as const
 
 const io: CliIo = {
@@ -233,6 +235,8 @@ export async function main(argv: string[]): Promise<number> {
             return await runExport(ctx, own, io)
           case 'import':
             return await runImport(ctx, own, io)
+          case 'clean':
+            return await runClean(ctx, own, io)
           default:
             return await runPublish(ctx, own, io)
         }

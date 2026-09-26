@@ -376,17 +376,20 @@ placed in Other while its source is in a regular layer.
 
 The data directory's `settings.yml` accepts these keys and values:
 
-| Key              | Default  | Accepted values                                       |
-| ---------------- | -------- | ----------------------------------------------------- |
-| `version`        | `1`      | `1`                                                   |
-| `skin`           | `github` | `terminal`, `github`                                  |
-| `theme`          | `auto`   | `auto`, `light`, `dark`                               |
-| `foldLevel`      | `light`  | `light`, `moderate`, `aggressive`                     |
-| `layerView`      | `all`    | `all`, `one`                                          |
-| `chatAgent`      | `claude` | `claude`, `codex` (2)                                 |
-| `chatModel`      | `null`   | A model ID, or `null` for the agent's default (1) (2) |
-| `chatTimeoutSec` | `600`    | Integer seconds, 30–3600                              |
-| `maxTurns`       | `null`   | Integer 1–100, or `null` for the agent's default      |
+| Key                    | Default  | Accepted values                                                                  |
+| ---------------------- | -------- | -------------------------------------------------------------------------------- |
+| `version`              | `1`      | `1`                                                                              |
+| `skin`                 | `github` | `terminal`, `github`                                                             |
+| `theme`                | `auto`   | `auto`, `light`, `dark`                                                          |
+| `foldLevel`            | `light`  | `light`, `moderate`, `aggressive`                                                |
+| `layerView`            | `all`    | `all`, `one`                                                                     |
+| `chatAgent`            | `claude` | `claude`, `codex` (2)                                                            |
+| `chatModel`            | `null`   | A model ID, or `null` for the agent's default (1) (2)                            |
+| `chatTimeoutSec`       | `600`    | Integer seconds, 30–3600                                                         |
+| `maxTurns`             | `null`   | Integer 1–100, or `null` for the agent's default                                 |
+| `checkoutEnabled`      | `true`   | `true` reads a [review checkout](#review-checkouts); `false` reads your checkout |
+| `checkoutIdleDays`     | `7`      | Integer 1–365, or `-1` to never remove an idle checkout                          |
+| `checkoutSweepMinutes` | `60`     | Integer minutes, 5–1440, between `serve`'s idle sweeps                           |
 
 (1) A model ID names a family; see [Model families](#model-families).
 (2) AI Chat only. Canvas generation reads `generation.models` in the project config instead. A
@@ -661,6 +664,48 @@ or copy it. A proposal outside the current diff remains text with an explanation
 Use **stop** to interrupt a reply. Only one chat turn can run per PR at a time. A timeout or
 incomplete answer can be retried; increase `chatTimeoutSec` if replies need more time.
 
+### Review checkouts
+
+AI Chat reads code from a review checkout: a detached `git worktree` of the repository at
+the reviewed commit, kept under the data directory (`repos/<owner>__<repo>/checkouts/<key>`) and
+apart from your own checkout. Your branch and your uncommitted edits are never touched. The first
+chat turn of a review creates it, and each turn moves it to the commit the chat talks about. The
+chat pane shows **Creating the review checkout** or **Checking out** while that runs.
+
+- A pull request and the branch review each get one. The branch review reads the branch's last
+  commit, without your uncommitted edits.
+- The uncommitted review has none: the agent reads your working tree, which is the work under
+  review.
+- A review checkout holds tracked files only, and no submodules. The agent reads installed
+  dependencies from your checkout and is told they may not match a pull request that changes them.
+- In a repository that uses Git LFS, creating or moving a review checkout downloads its LFS files,
+  like any checkout does. On a large LFS repository the first chat turn of a review can take a
+  while and use network and disk; the chat pane shows the checkout while it runs.
+- Review checkouts are full copies of the repository inside the data directory, which by default
+  sits in your main checkout (`.pr-review/`, ignored by git). Tools that respect `.gitignore`, such
+  as ripgrep and `git status`, skip them. Tools that do not may index them as duplicate sources:
+  some IDE indexers, a Jest module map, or a `tsc` run without `include`. Exclude `.pr-review/`
+  in those tools, or set `PR_REVIEW_DATA_DIR` (or `--data-dir` on every command) to a folder
+  outside the checkout. That moves all pr-review data, not only checkouts: settings, canvases,
+  review progress, and chat history go with it. They also appear in `git worktree list`.
+- If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
+  carries a warning naming your branch, also when the thread is reopened later.
+- Every worktree of one clone shares the checkouts. While one `pr-review serve` answers about a
+  review, a turn on the same review from another is refused with `CHAT_BUSY`; ask again once the
+  first answer is done.
+
+`serve` removes checkouts with no chat turn for `checkoutIdleDays`, at startup and every
+`checkoutSweepMinutes`. `pr-review clean` does the same on demand:
+
+```text
+pr-review clean [--all | --older-than <days>] [--dry-run]
+```
+
+With `checkoutIdleDays: -1`, neither removes anything unless you pass `--all` or `--older-than`.
+Cleanup never touches canvases or review state. The **Checkouts** tab of the settings dialog
+lists the current checkouts and edits these settings. Set `checkoutEnabled: false` to read your
+own checkout, as before review checkouts existed.
+
 ## Network access and permissions
 
 The server binds to `127.0.0.1` and rejects browser writes from other origins. It is intended for
@@ -694,7 +739,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `CANVAS_STALE`                          | The PR head moved; prepare again for the current commit                                                                                               |
 | `MODEL_INVALID`                         | Fix the reported problems in `model.json`, validate, then publish again                                                                               |
 | `SKILL_DIR_EXISTS`                      | The destination contains a customized directory; preserve it elsewhere before replacing it with `--force`                                             |
-| `CHAT_BUSY`                             | Wait for the running reply or press **stop**                                                                                                          |
+| `CHAT_BUSY`                             | Wait for the running reply or press **stop**; when another `pr-review serve` holds the review checkout, ask again once its answer is done             |
 | `AGENT_AUTH_REQUIRED`                   | Sign in through the selected agent's CLI, then retry                                                                                                  |
 | `AGENT_MISSING` or missing chat pane    | Check `chat.enabled` and confirm the server can find `acpx` and the selected agent; run `pr-review doctor --all-checks`                               |
 | `AGENT_INCOMPLETE`                      | Retry the message or increase the chat timeout                                                                                                        |

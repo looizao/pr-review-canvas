@@ -57,11 +57,4 @@ Defend code that is already good. Do not invent problems to look useful. When th
 
 ## Where the code is
 
-The pull request's files are materialized on disk, so you can read either side without git:
-
-- head (the pull request's version): `{{HEAD_DIR}}`
-- base (the merge base): `{{BASE_DIR}}`
-- per-file patches: `{{PATCH_DIR}}`
-
-The working tree at `{{REPO_ROOT}}` is the reader's own checkout, which may be on another branch.
-Prefer the materialized head when you want the pull request's version of a file.
+{{CODE_LOCATION}}
