@@ -17,6 +17,7 @@ import { renderDiff } from './diff-renderer.js'
 import { renderHeader } from './header.js'
 import { carriedOverBarHtml } from './empty-state.js'
 import { askTargetFor, nextUnreviewedTarget, padUnderStickyBar, toast, wireReview } from './interactions.js'
+import { renderChatShell, wireChat } from './chat.js'
 import {
   cardOf,
   defineLayerElements,
@@ -1818,6 +1819,7 @@ describe('the AI Chat commands', () => {
         /** @param {unknown} context */
         ask: context => calls.push(['ask', context]),
         focusInput: () => calls.push(['focus', null]),
+        refreshProposed: () => undefined,
       },
     }
   }
@@ -1884,41 +1886,86 @@ describe('the AI Chat commands', () => {
     expect(opened).toEqual(['settings'])
   })
 
-  it('posts a proposed comment at the line it names', async () => {
-    const { root, wiring, calls } = setup()
-    const card = document.createElement('div')
-    card.className = 'proposed'
-    card.innerHTML = '<span class="tbtns"><button id="post">post to github</button></span>'
-    root.appendChild(card)
-    const button = card.querySelector('#post')
-    if (!(button instanceof HTMLElement)) {
-      throw new Error('no button')
+  /**
+   * The page and the real AI Chat pane on one root, with an answer that proposes one comment.
+   * @param {string} comment the JSON inside the answer's comment block
+   */
+  async function setupWithChat(comment) {
+    setChatEnabled(true)
+    /** @type {import('./interactions.js').ChatHandle | null} */
+    let chat = null
+    const page = setup({ chat: () => chat })
+    page.root.querySelector('.layout')?.insertAdjacentHTML('beforeend', renderChatShell({ enabled: true }))
+    chat = wireChat({
+      root: page.root,
+      prNumber: 42,
+      session: page.session,
+      storage: null,
+      reducedMotion: true,
+      api: {
+        fetchThreads: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        createThread: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        fetchThreadHistory: async () => ({ name: 't', turns: [] }),
+        cancelChat: async () => ({ cancelled: true }),
+        streamChat: async (_pr, _input, opts) => {
+          opts.onEvent({ event: 'chunk', data: { text: `\`\`\`comment\n${comment}\n\`\`\`\n` } })
+        },
+      },
+      onProposed: (what, proposed, el) => page.wiring.onProposedComment(what, proposed, el),
+    })
+    const box = page.root.querySelector('#msg')
+    if (!(box instanceof HTMLTextAreaElement)) {
+      throw new Error('no chat box')
     }
-    wiring.onProposedComment(
-      'post',
-      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
-      button
+    box.value = 'x'
+    page.root
+      .querySelector('#chat-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flush()
+    const handle = chat
+    wirings.push({ stop: () => handle?.stop() })
+    return page
+  }
+
+  /** @param {ParentNode} root */
+  const cardCommands = root =>
+    Array.from(root.querySelectorAll('.proposed .tbtns > *')).map(el => el.textContent)
+
+  it('draws a proposed card from the review: queued, then back when the draft is deleted', async () => {
+    const { root, calls } = await setupWithChat(
+      '{"path":"src/app.ts","line":3,"startLine":2,"body":"Rename."}'
     )
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    click(root, '[data-act="proposed-queue"]')
+    await flush()
+    expect(calls).toEqual([
+      [
+        'pending-add',
+        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+      ],
+    ])
+    expect(cardCommands(root)).toEqual(['in your review', 'edit', 'copy'])
+    click(root, '[data-act="pending-delete"][data-pending-id="p1"]')
+    await flush()
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    setChatEnabled(false)
+  })
+
+  it('draws a proposed card as posted once it goes out on its own', async () => {
+    const { root, calls } = await setupWithChat('{"path":"src/app.ts","line":3,"body":"One line."}')
+    click(root, '[data-act="proposed-post"]')
     await flush()
     expect(calls).toEqual([
       [
         'comment',
-        {
-          kind: 'inline',
-          path: 'src/app.ts',
-          line: 3,
-          startLine: 2,
-          side: 'new',
-          body: 'Rename.',
-          headSha: HEAD,
-        },
+        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
       ],
     ])
-    expect(card.querySelector('.tbtns a')?.textContent).toBe('view comment')
-    expect(card.querySelector('.tbtns a')?.getAttribute('href')).toBe(
+    expect(cardCommands(root)).toEqual(['view comment', 'edit', 'copy'])
+    expect(root.querySelector('.proposed .tbtns a')?.getAttribute('href')).toBe(
       'https://github.com/acme/widgets/pull/42#discussion_r5001'
     )
-    expect(card.querySelector('#post')).toBeNull()
+    setChatEnabled(false)
   })
 
   it('opens the composer prefilled when the reader edits a proposed comment', () => {
@@ -1981,22 +2028,6 @@ describe('askTargetFor', () => {
     expect(askTargetFor(null, null)).toEqual({ kind: 'pr' })
     expect(askTargetFor(root.querySelector('#overview'), null)).toEqual({ kind: 'pr' })
     setChatEnabled(false)
-  })
-})
-
-describe('posting a proposed comment on one line', () => {
-  it('sends no range when the comment names a single line', async () => {
-    const { root, wiring, calls } = setup()
-    const button = document.createElement('button')
-    root.appendChild(button)
-    wiring.onProposedComment('post', { path: 'src/app.ts', line: 3, side: 'new', body: 'One line.' }, button)
-    await flush()
-    expect(calls).toEqual([
-      [
-        'comment',
-        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
-      ],
-    ])
   })
 })
 
