@@ -42,6 +42,12 @@ pr-review validate <model.json|review.json> --canvas <dir> [--human] [--fix]
 pr-review publish <canvasDir> --agent <id> [--model <id>] --harness claude-code|codex|other [--allow-stale]
 ```
 
+`validate` and `publish` use the data directory that holds their canvas dir (`--canvas` and
+`<canvasDir>`), so a canvas prepared with `--data-dir <dir>` is validated and published there
+without the flag, and nothing is written outside it. For `publish`, a `--data-dir` or
+`PR_REVIEW_DATA_DIR` that names another data directory fails with `CANVAS_ELSEWHERE` instead of
+writing to it.
+
 `prepare` returns `canvasDir`, `headSha`, `mergeBaseSha`, `promptPath`, `contextPath`, `models` (the project's `generation.models`), and `status`.
 A status of `exists` means that head already has a canvas. With `--force`, preparation clears the
 previous generation's working files while keeping the published canvas available until a new
@@ -765,6 +771,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `CANVAS_PR_MISMATCH`                    | The ZIP was exported for another pull request; import the canvas of this PR, or import that ZIP without `--pr` to store it under its own              |
 | `CANVAS_TOO_LARGE`                      | The archive exceeds the 20 MiB import limit                                                                                                           |
 | `CANVAS_STALE`                          | The PR head moved; prepare again for the current commit                                                                                               |
+| `CANVAS_ELSEWHERE`                      | `publish` got a canvas dir outside its data dir; publish the `canvasDir` prepare printed, with the `--data-dir` prepare used or none                  |
 | `MODEL_INVALID`                         | Fix the reported problems in `model.json`, validate, then publish again                                                                               |
 | `SKILL_DIR_EXISTS`                      | The destination contains a customized directory; preserve it elsewhere before replacing it with `--force`                                             |
 | `CHAT_BUSY`                             | Wait for the running reply or press **stop**; when another `pr-review serve` holds the review checkout, ask again once its answer is done             |
