@@ -97,14 +97,16 @@ export function jumpTo(href, root = document) {
     return false
   }
   const id = linkTargetId(link, keyFromPath)
-  if (link.kind !== 'layer') {
+  if (link.kind === 'hunk' || link.kind === 'line') {
+    drawCardsOf(root, link.path)
+  } else if (link.kind === 'file') {
     drawCardOf(root, link.path)
   }
   const el = root.querySelector(`#${cssEscape(id)}`)
   if (!(el instanceof HTMLElement)) {
     return false
   }
-  scrollIntoViewSafe(el)
+  scrollIntoViewSafe(el, link.kind === 'file' || link.kind === 'layer' ? 'start' : 'center')
   flash(el)
   return true
 }
@@ -130,7 +132,23 @@ export function fileCardOf(root, path, layerId) {
  * @param {string} [layerId] the layer whose card of the file to draw; the file's first card otherwise
  */
 export function drawCardOf(root, path, layerId) {
-  const card = fileCardOf(root, path, layerId)?.closest('pr-file')
+  drawCard(fileCardOf(root, path, layerId))
+}
+
+/** Draw every layer's part of a file before looking up a line or hunk.
+ * @param {ParentNode} root
+ * @param {string} path
+ */
+export function drawCardsOf(root, path) {
+  const selector = `#${cssEscape(fileAnchorId(keyFromPath(path)))}, article.file[data-path="${cssEscape(path)}"]`
+  for (const card of root.querySelectorAll(selector)) {
+    drawCard(card)
+  }
+}
+
+/** @param {Element | null} element */
+function drawCard(element) {
+  const card = element?.closest('pr-file')
   const draw = /** @type {{ renderNow?: (force?: boolean) => boolean }} */ (card)?.renderNow
   if (typeof draw === 'function' && card !== null && card !== undefined) {
     // Force, so a card holding a huge patch behind `[ show diff ]` still has the row to land on.

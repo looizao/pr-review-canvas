@@ -148,7 +148,7 @@ export function initOneLayer(root, opts) {
   win.addEventListener(
     'hashchange',
     () => {
-      const el = elementForHash(root, win.location.hash)
+      const el = elementForHash(root, win.location.hash || '#overview')
       const section = sectionOf(root, el)
       if (el !== null && section?.hidden === true) {
         scrollIntoViewSafe(el, 'start')

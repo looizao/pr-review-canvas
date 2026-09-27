@@ -296,6 +296,7 @@ export async function openSettingsDialog(root, opener, opts = {}) {
   if (!(dialog instanceof HTMLDialogElement)) {
     return null
   }
+  dialog.addEventListener('close', () => opener.focus({ preventScroll: true }), { once: true })
   wireSettingsDialog(dialog, api, opts.onSaved)
   if (typeof dialog.showModal === 'function') {
     dialog.showModal()
