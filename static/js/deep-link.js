@@ -4,9 +4,9 @@
 // so `…/review/278#line:path/to/file.ts:40` opens the page on that line and a click on a link
 // leaves a URL the reader can share. The jump itself is `jumpTo` in anchors.js; this module
 // decides when it runs.
-import { cssEscape, drawCardOf, jumpTo, keyFromPath, nearestRow } from './anchors.js'
+import { drawCardsOf, jumpTo, keyFromPath, nearestRow } from './anchors.js'
 import { flash, scrollIntoViewSafe } from './dom.js'
-import { fileAnchorId, layerAnchorId } from './keys.js'
+import { layerAnchorId } from './keys.js'
 import { parseLink } from './links.js'
 import { markRailCurrent } from './scroll-spy.js'
 
@@ -75,9 +75,8 @@ function jumpToTarget(target, root) {
  */
 function jumpToLine(root, link) {
   const key = keyFromPath(link.path)
-  drawCardOf(root, link.path)
-  const card = root.querySelector(`#${cssEscape(fileAnchorId(key))}`)
-  const near = nearestRow(card ?? root, key, link.side, link.start)
+  drawCardsOf(root, link.path)
+  const near = nearestRow(root, key, link.side, link.start)
   if (near === null) {
     return false
   }
@@ -132,13 +131,16 @@ export function initDeepLinks(root, opts = {}) {
         return
       }
       event.preventDefault()
-      followLink(href, root)
-      // The URL stays shareable, and no second jump follows: replaceState fires no hashchange.
+      // Push before scrolling so Back restores the position we are leaving.
+      // pushState fires no hashchange; followLink performs the jump below.
       try {
-        view.history.replaceState(null, '', href)
+        if (view.location.hash !== href) {
+          view.history.pushState(null, '', href)
+        }
       } catch {
-        // A view without session history keeps the URL it had; the jump already happened.
+        // A view without session history can still follow the link.
       }
+      followLink(href, root)
     },
     { signal: listeners.signal }
   )

@@ -216,6 +216,27 @@ export class PrAppElement extends HTMLElement {
     if (!boot) {
       return
     }
+    const showsCanvas = bundle.artifact !== undefined && (bundle.status === 'ready' || this.viewStale)
+    const staleSha = bundle.status === 'stale' ? bundle.stale?.canvasHeadSha : undefined
+    const patches = showsCanvas
+      ? await settlePatches(
+          boot.prNumber,
+          patchesPromise ??
+            fetchPatches(boot.prNumber, staleSha === undefined ? {} : { headSha: staleSha }).then(
+              r => r.patches,
+              () => null
+            ),
+          staleSha
+        )
+      : {}
+    // Check after the requests finish, before tearing down the current screen: the reader may
+    // have kept typing while the refresh was loading.
+    const hasUnfinishedText = [...this.querySelectorAll('.composer-box textarea, #msg')].some(
+      el => el instanceof HTMLTextAreaElement && el.value !== el.defaultValue
+    )
+    if (hasUnfinishedText && !window.confirm('Discard unfinished text and update the review?')) {
+      return
+    }
     this.stopPolling()
     this.diagrams?.stop()
     this.diagrams = null
@@ -234,24 +255,13 @@ export class PrAppElement extends HTMLElement {
     // The renderers read this while they build the cards, so it is set before the first one.
     setChatEnabled(chatEnabled)
     setMentionCanvas(bundle.mentionCanvas)
-    const showsCanvas = bundle.artifact !== undefined && (bundle.status === 'ready' || this.viewStale)
     if (bundle.artifact && showsCanvas) {
       const { artifact } = bundle
       // Only the author settles, and only on the canvas of the current head.
       setSelfReview(bundle.selfReview && bundle.status === 'ready', artifact.settled, bundle.canvasComment)
       // A stale canvas describes its own commit, so its files and diffs come from that sha.
-      const staleSha = bundle.status === 'stale' ? bundle.stale?.canvasHeadSha : undefined
       const files = staleSha === undefined ? bundle.files : artifact.files
       const paths = pathSet(files)
-      const patches = await settlePatches(
-        boot.prNumber,
-        patchesPromise ??
-          fetchPatches(boot.prNumber, staleSha === undefined ? {} : { headSha: staleSha }).then(
-            r => r.patches,
-            () => null
-          ),
-        staleSha
-      )
       // The context is set before any <pr-file> connects, so each card renders once, when visible.
       const headSha = staleSha ?? bundle.pr.headSha
       setRenderContext({
