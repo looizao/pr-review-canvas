@@ -1,6 +1,7 @@
 // `pr-review deck prepare`: resolve the local review's head, collect its diff, carry the decisions
 // settled in the previous deck, and write the prompt the generator reads. Nothing here writes a
 // deck; `deck publish` does, after validation.
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import {
   DECK_CAPS,
@@ -21,6 +22,8 @@ import type { AppContext } from '../server/context.js'
 import { readText, writeJsonAtomic, writeTextAtomic } from '../store/atomic-json.js'
 
 export const DECK_MODEL_FILE = 'deck-model.json'
+/** Where the generator may write scenes as files, beside the model: `<card key>.<side>.html`. */
+export const DECK_SCENES_DIR = 'scenes'
 export const DECK_PROMPT_FILE = 'self-review-deck.md'
 
 export interface PrepareDeckResult {
@@ -32,6 +35,7 @@ export interface PrepareDeckResult {
   uncommitted: boolean
   promptPath: string
   modelPath: string
+  scenesDir: string
   maxCards: number
   /** Decisions carried from the previous deck, which the generator must not ask again. */
   settled: number
@@ -125,6 +129,7 @@ export async function prepareDeck(
   const workDir = ctx.decks.workDir(input.review)
   const promptPath = path.join(workDir, 'prompt.md')
   const modelPath = path.join(workDir, DECK_MODEL_FILE)
+  const scenesDir = path.join(workDir, DECK_SCENES_DIR)
   const previous = await ctx.decks.readDeck(input.review)
   const { picks } = await ctx.decks.readPicks(input.review)
   const settled = settledFrom(previous, picks)
@@ -136,6 +141,7 @@ export async function prepareDeck(
     uncommitted: pr.state === UNCOMMITTED_STATE,
     promptPath,
     modelPath,
+    scenesDir,
     settled: settled.length,
   }
   if (!input.force && previous !== null && previous.headSha === pr.headSha) {
@@ -192,6 +198,7 @@ export async function prepareDeck(
     HEAD_SHA: pr.headSha,
     REVIEW_FLAG: isLocalKey(input.review) ? `--${input.review}` : `--pr ${keyToString(input.review)}`,
     MODEL_PATH: modelPath,
+    SCENES_DIR: scenesDir,
     MAX_CARDS: String(maxCards),
     CHANGED_LINES: String(changedLines),
     SNIPPET_MAX_LINES: String(SNIPPET_MAX_LINES),
@@ -209,6 +216,7 @@ export async function prepareDeck(
   }
   const prompt = template.replace(/\{\{([A-Z_]+)\}\}/g, (whole, name: string) => tokens[name] ?? whole)
   await ctx.decks.clearWork(input.review)
+  await mkdir(scenesDir, { recursive: true })
   await writeTextAtomic(promptPath, prompt)
   await writeJsonAtomic(path.join(workDir, 'context.json'), context)
   return { ...result, status: 'prepared', maxCards }

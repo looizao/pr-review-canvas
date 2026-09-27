@@ -2,7 +2,7 @@
 // It reports instead of throwing, so a broken setup still answers. The CLI prints one checklist
 // a person or an agent can read. `--json` prints the same report as one JSON line.
 import { randomBytes } from 'node:crypto'
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { ORIGIN_HINT } from '../config.js'
 import type { Git } from '../git/git.js'
@@ -82,7 +82,10 @@ export interface SkillCopy {
   dir: string
   /** `<dir>/<skill>`, relative to the repository. */
   path: string
-  /** True when the copy's body or recorded hash differs from the bundled skill, or it cannot be read. */
+  /**
+   * True when the copy's body or recorded hash differs from the bundled skill, a file the skill
+   * ships beside its SKILL.md is missing or differs, or the copy cannot be read.
+   */
   stale: boolean
   /** Why the copy could not be read, when it could not. */
   error?: string
@@ -90,6 +93,26 @@ export interface SkillCopy {
 
 async function bundledHash(name: string): Promise<string> {
   return skillContent(await readFile(path.join(skillSourceDir(name), 'SKILL.md'), 'utf8')).hash
+}
+
+/** The files a bundled skill ships beside its SKILL.md, by path within the skill. */
+async function bundledExtras(name: string): Promise<Map<string, string>> {
+  const dir = skillSourceDir(name)
+  const extras = new Map<string, string>()
+  for (const entry of await readdir(dir, { recursive: true, withFileTypes: true })) {
+    const rel = path.relative(dir, path.join(entry.parentPath, entry.name))
+    if (entry.isFile() && rel !== 'SKILL.md') extras.set(rel, await readFile(path.join(dir, rel), 'utf8'))
+  }
+  return extras
+}
+
+/** True when the copy at `target` has every file of `extras`, unchanged but for line endings. */
+async function extrasMatch(target: string, extras: ReadonlyMap<string, string>, readSkill: ReadSkill) {
+  for (const [rel, text] of extras) {
+    const copy = await readSkill(path.join(target, rel)).catch(() => null)
+    if (copy?.replace(/\r\n/g, '\n') !== text.replace(/\r\n/g, '\n')) return false
+  }
+  return true
 }
 
 /**
@@ -101,9 +124,9 @@ export async function findSkillCopies(
   repoRoot: string,
   readSkill: ReadSkill = readSkillFile
 ): Promise<SkillCopy[]> {
-  const expected = new Map<string, string>()
+  const expected = new Map<string, { hash: string; extras: Map<string, string> }>()
   for (const name of [SKILL_NAME, ...COMPANION_SKILLS]) {
-    expected.set(name, await bundledHash(name))
+    expected.set(name, { hash: await bundledHash(name), extras: await bundledExtras(name) })
   }
   const copies: SkillCopy[] = []
   for (const [kind, skillsDir] of [
@@ -114,7 +137,7 @@ export async function findSkillCopies(
     for (const skill of [SKILL_NAME, ...COMPANION_SKILLS]) {
       const target = path.join(dir, skill)
       const rel = path.relative(repoRoot, target)
-      const hash = expected.get(skill)
+      const bundled = expected.get(skill)
       try {
         const text = await readSkill(path.join(target, 'SKILL.md'))
         if (text === null) {
@@ -123,8 +146,11 @@ export async function findSkillCopies(
           continue
         }
         const content = skillContent(text)
+        const hash = bundled?.hash
         const matches =
-          content.hash === hash && content.frontmatter.getIn(['metadata', 'body-sha256']) === hash
+          content.hash === hash &&
+          content.frontmatter.getIn(['metadata', 'body-sha256']) === hash &&
+          (await extrasMatch(target, bundled?.extras ?? new Map(), readSkill))
         copies.push({ skill, kind, dir, path: rel, stale: !matches })
       } catch (err) {
         const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'

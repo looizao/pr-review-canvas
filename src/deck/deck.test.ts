@@ -2,6 +2,7 @@
 // The self-review deck, from `deck prepare` through the page's API to the fix list and the next
 // deck that carries what was settled.
 import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import {
   type DecisionCard,
   type Deck,
@@ -9,6 +10,7 @@ import {
   deckCardCap,
   type Pick,
   pickNeedsFix,
+  SCENE_MAX_CHARS,
 } from '../contract/deck.js'
 import { DEFAULT_PROJECT_CONFIG } from '../project-config.js'
 import { createApp } from '../server/app.js'
@@ -190,7 +192,11 @@ describe('validateDeckModel', () => {
     const fine =
       '<div class="scene"><div class="box bad"><i data-icon="circle-x"></i> 3 rows lost</div></div>'
     const result = validateDeckModel(
-      { cards: [card({ a: { ...card().a, scene: fine }, b: { ...card().b, scene: '<script>1</script>' } })] },
+      {
+        cards: [
+          card({ a: { ...card().a, scene: fine }, b: { ...card().b, scene: '<p>x</p><iframe></iframe>' } }),
+        ],
+      },
       { files, maxCards: 1 }
     )
     expect(result.ok ? [] : result.problems.map(p => `${p.code} ${p.where}`)).toEqual([
@@ -199,7 +205,7 @@ describe('validateDeckModel', () => {
     const both = card({ a: { ...card().a, scene: fine }, b: { ...card().b, scene: fine } })
     expect(validateDeckModel({ cards: [both] }, { files, maxCards: 1 }).ok).toBe(true)
     // Past the character cap, the schema refuses it before any check runs.
-    const huge = card({ a: { ...card().a, scene: `<p>x</p>${' '.repeat(4000)}` } })
+    const huge = card({ a: { ...card().a, scene: `<p>x</p>${' '.repeat(SCENE_MAX_CHARS)}` } })
     const refused = validateDeckModel({ cards: [huge] }, { files, maxCards: 1 })
     expect(refused.ok ? [] : refused.problems.map(p => [p.code, p.where])).toEqual([
       ['DECK_SCHEMA', 'cards.0.a.scene'],
@@ -420,12 +426,19 @@ describe('a deck from prepare to the fix list', () => {
     expect(frame.status).toBe(200)
     const html = await frame.text()
     expect(html).toContain(`data-side="${side}" data-theme="dark"`)
-    expect(html).toContain('<main class="scene-root"><div class="scene"><svg class="icon lg"')
-    expect(html).toContain(' 3 rows</div></main>')
-    expect(html).not.toContain('data-icon')
-    expect(frame.headers.get('content-security-policy')).toBe(
-      "sandbox allow-same-origin; default-src 'none'; style-src 'self' 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; object-src 'none'"
+    expect(html).toContain(
+      '<main class="scene-root"><div class="scene-fit"><div class="scene"><svg class="icon lg"'
     )
+    expect(html).toContain(' 3 rows</div></div></main>')
+    expect(html).not.toContain('data-icon')
+    // The kit and the runtime are inline, ahead of the scene: the frame loads nothing.
+    expect(html).toContain('.scene-fit {')
+    expect(html).toContain("Object.defineProperty(window, 'scene'")
+    expect(html).not.toMatch(/<link|\ssrc=/)
+    expect(frame.headers.get('content-security-policy')).toBe(
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; object-src 'none'"
+    )
+    expect(frame.headers.get('x-dns-prefetch-control')).toBe('off')
     // Any other theme is the system's.
     expect(
       await (
@@ -434,15 +447,38 @@ describe('a deck from prepare to the fix list', () => {
     ).toContain('data-theme="auto"')
 
     const other = side === 'a' ? 'b' : 'a'
-    for (const path of [
+    for (const url of [
       `/deck-scene/uncommitted/empty-rows/${other}`,
       '/deck-scene/uncommitted/nope/a',
       '/deck-scene/uncommitted/empty-rows/c',
       '/deck-scene/branch/empty-rows/a',
       '/deck-scene/not-a-review/empty-rows/a',
     ]) {
-      expect((await app.request(path, { headers: LOCAL })).status, path).toBe(404)
+      expect((await app.request(url, { headers: LOCAL })).status, url).toBe(404)
     }
+  })
+
+  it('reads scene files beside the model into their sides, and names files that fit no side', async () => {
+    t = await makeTestContext({ git: gitForLocal() })
+    const prepared = await prepareAndWrite([card({ b: { ...card().b, scene: '<p>inline</p>' } })])
+    const scene = '<div class="scene"><p>3 rows lost</p><script>const q = "</div>"</script></div>'
+    await writeTextAtomic(path.join(prepared.scenesDir, 'empty-rows.a.html'), scene)
+    await publishDeck(t.ctx, 'uncommitted', { agent: 'claude', allowStale: false })
+    const cardOut = (await t.ctx.decks.readDeck('uncommitted'))?.cards[0]
+    expect([cardOut?.a.scene, cardOut?.b.scene].sort()).toEqual(['<p>inline</p>', scene].sort())
+
+    await writeTextAtomic(path.join(prepared.scenesDir, 'empty-rows.b.html'), '<p>twice</p>')
+    await writeTextAtomic(path.join(prepared.scenesDir, 'no-such-card.a.html'), '<p>x</p>')
+    await writeTextAtomic(path.join(prepared.scenesDir, 'notes.txt'), 'x')
+    const failed = await publishDeck(t.ctx, 'uncommitted', { agent: 'claude', allowStale: false }).catch(
+      e => e
+    )
+    expect(failed).toBeInstanceOf(DeckInvalidError)
+    expect((failed as DeckInvalidError).problems.map(p => `${p.code} ${p.message}`)).toEqual([
+      'SCENE_INVALID card:empty-rows.b.scene: is in deck-model.json and in scenes/empty-rows.b.html; keep one',
+      'SCENE_INVALID scenes/no-such-card.a.html: names no card side; name a scene file <card key>.a.html or <card key>.b.html',
+      'SCENE_INVALID scenes/notes.txt: names no card side; name a scene file <card key>.a.html or <card key>.b.html',
+    ])
   })
 
   it('serves the deck with its excerpts, saves picks, undoes them, and writes the fix list', async () => {

@@ -49,8 +49,9 @@ function inline(text) {
 
 /**
  * One side on the card's front: its label, its consequence in a line or two, and its scene. A
- * scene is generated HTML, so it is shown in a frame that runs no script and loads nothing but
- * the kit's stylesheet; a side without one shows its consequence alone.
+ * scene is generated HTML that may run scripts, so it is shown in a frame with no origin and no
+ * network, `inert` so it takes no clicks or tabs (the deck page takes back any focus its script
+ * grabs); a side without one shows its consequence alone.
  * @param {DecisionCard} card
  * @param {CardSide} side
  * @param {CardView} view
@@ -63,7 +64,7 @@ function sideFrontHtml(card, side, view) {
   const scene =
     content.scene === undefined
       ? ''
-      : `<div class="deck-visual" data-visual="${side}"><iframe class="deck-scene" data-scene="${side}" sandbox="allow-same-origin" src="${esc(src)}" title="Scene of side ${letter}" referrerpolicy="no-referrer" tabindex="-1" aria-hidden="true"></iframe></div>`
+      : `<div class="deck-visual" data-visual="${side}"><iframe class="deck-scene" data-scene="${side}" sandbox="allow-scripts" src="${esc(src)}" title="Scene of side ${letter}" referrerpolicy="no-referrer" tabindex="-1" aria-hidden="true" inert></iframe></div>`
   return `<section class="deck-side deck-side-${side}" data-side="${side}"${content.scene === undefined ? ' data-plain' : ''} aria-label="Side ${letter}: ${esc(content.label)}">
 <header class="deck-side-h"><span class="deck-letter" aria-hidden="true">${letter}</span><h3>${esc(content.label)}</h3>${now}</header>
 <div class="deck-gist">${inline(content.consequence)}</div>

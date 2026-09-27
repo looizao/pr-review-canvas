@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { Hono } from 'hono'
 import { type Appearance, type AppearanceQuery, appearanceForRequest } from '../../contract/settings.js'
 import type { AppContext } from '../context.js'
@@ -124,7 +126,11 @@ export function pageRoutes(ctx: AppContext): Hono<AppEnv> {
     }
     const raw = c.req.query('theme')
     const theme = raw === 'dark' || raw === 'light' ? raw : 'auto'
-    return c.html(sceneFrame({ scene: inlineIcons(scene), side, theme }))
+    const [kit, runtime] = await Promise.all([
+      readFile(path.join(ctx.staticDir, 'styles', 'scene.css'), 'utf8'),
+      readFile(path.join(ctx.staticDir, 'js', 'scene-runtime.js'), 'utf8'),
+    ])
+    return c.html(sceneFrame({ scene: inlineIcons(scene), side, theme, kit, runtime }))
   })
 
   return app

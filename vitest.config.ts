@@ -29,6 +29,8 @@ export default defineConfig({
         // The two page boots: each fetches, wires the DOM, and animates; the browser specs cover them.
         'static/js/app.js',
         'static/js/deck.js',
+        // The scene frame's runtime runs inside a sandboxed frame; the browser specs cover it too.
+        'static/js/scene-runtime.js',
         'static/vendor/**',
         'src/**/*.test.ts',
         'static/js/**/*.test.js',

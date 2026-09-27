@@ -37,8 +37,11 @@ export const DECK_CAPS = {
 /** Lines of code a side may show; more than that belongs in the diff drawer. */
 export const SNIPPET_MAX_LINES = 8
 
-/** Characters a side's scene may have: a small HTML fragment, laid out by the kit's classes. */
-export const SCENE_MAX_CHARS = 4000
+/**
+ * Characters a side's scene may have: an HTML fragment laid out by the kit's classes, with room for
+ * its own styles and a script that draws or animates what markup cannot.
+ */
+export const SCENE_MAX_CHARS = 12000
 
 /** Card keys name a card across re-decks, so they are short, stable slugs. */
 export const CARD_KEY_RE = /^[a-z0-9][a-z0-9-]{0,47}$/
@@ -61,9 +64,10 @@ export const CardSideSchema = z.object({
   consequence: text(DECK_CAPS.consequence),
   snippet: SnippetSchema.optional(),
   /**
-   * An HTML fragment picturing this side's consequence with the scene kit's classes and icons.
-   * The deck page shows it in a frame that runs no script and reaches no network; without one, the
-   * side shows its consequence alone.
+   * An HTML fragment picturing this side's consequence with the scene kit's classes and icons, and
+   * optionally its own styles and scripts. The deck page shows it in a frame with no origin and no
+   * network; without one, the side shows its consequence alone. The generator may write it as a
+   * file instead, `scenes/<card key>.<side>.html` beside the model, which publish reads in.
    */
   scene: z.string().min(1).max(SCENE_MAX_CHARS).optional(),
   /** The one-line justification the author accepts by picking this side, or edits first. */

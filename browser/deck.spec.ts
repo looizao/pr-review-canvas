@@ -39,9 +39,10 @@ function card(key: string, title: string, current: 'a' | 'b' | null): DecisionCa
   }
 }
 
-/** A scene for card one's sides: the kit lays it out, and the frame shows it. */
+/** A scene for card one's sides: the kit lays it out, the frame shows it, and its script runs. */
 const SCENE =
-  '<div class="scene"><div class="row"><div class="box bad"><i data-icon="circle-x" class="lg"></i><span class="big">3</span></div><span class="arrow"></span><div class="banner bad">rows lost</div></div></div>'
+  '<div class="scene"><div class="row"><div class="box bad"><i data-icon="circle-x" class="lg"></i><span class="big">3</span></div><span class="arrow"></span><div class="banner bad">rows lost</div></div>' +
+  '<p id="rt">static</p><script>const rt = document.getElementById("rt"); rt.textContent = `${scene.side} ${scene.color("bad")}`; scene.onPick(() => { rt.dataset.picked = "yes" })</script></div>'
 
 /** A scene with far more rows than any frame holds, to be shrunk until it fits. */
 const TALL = `<div class="scene">${Array.from({ length: 8 }, (_, i) => `<div class="box">row ${i + 1}</div>`).join('')}<div class="banner bad">last row</div></div>`
@@ -281,26 +282,62 @@ test('fits a scene that would overflow its frame, so all of it shows', async ({ 
   await expect(page.locator('iframe[data-scene="a"]')).toHaveAttribute('data-zoom', '1')
 })
 
-test('a scene runs no script, even one that slips past validation', async ({ page, deckUrl }) => {
+test('a scene’s script gets the runtime: its side, the theme’s colors, and the pick', async ({
+  page,
+  deckUrl,
+}) => {
+  await page.goto(deckUrl)
+  const scene = page.frameLocator('iframe[data-scene="a"]')
+  await expect(scene.locator('#rt')).toHaveText(/^a rgb\(\d+, \d+, \d+\)$/)
+  await page.evaluate(() =>
+    document
+      .querySelector<HTMLIFrameElement>('iframe[data-scene="a"]')
+      ?.contentWindow?.postMessage({ scene: 'pick' }, '*')
+  )
+  await expect(scene.locator('#rt')).toHaveAttribute('data-picked', 'yes')
+  await expect(scene.locator('html')).toHaveClass(/picked/)
+})
+
+test('a scene’s script reaches neither the page, the network, nor the deck’s keys', async ({
+  page,
+  deckUrl,
+}) => {
   // Rewrite the frame's body in flight but keep the server's headers, its policy included, as a
-  // hand-edited deck.json would.
+  // hand-edited deck.json would, past validation.
   await page.route('**/deck-scene/**', async route => {
     const res = await route.fetch()
-    const hostile =
-      "<!doctype html><p id=ok>shown</p><script>parent.document.title = 'owned'; fetch('/api/health?leak=1'); document.getElementById('ok').textContent = 'ran'</script>"
+    const hostile = `<!doctype html><p id=ok>shown</p><div id=grab tabindex=0>focus me</div><script>
+      const tries = [
+        () => { parent.document.title = 'owned' },
+        () => fetch('/api/health?leak=1').catch(() => {}),
+        () => { new Image().src = '/api/health?leak=2' },
+        () => window.open('https://example.com/?leak=3'),
+        () => { top.location.href = 'https://example.com/?leak=4' },
+        () => localStorage.setItem('leak', '5'),
+        () => document.getElementById('grab').focus(),
+      ]
+      for (const attempt of tries) { try { attempt() } catch {} }
+      document.getElementById('ok').textContent = 'ran'
+      // Last, since a blocked navigation leaves the frame an error page.
+      setTimeout(() => { location.href = 'https://example.com/?leak=6' }, 1000)
+    </script>`
     await route.fulfill({ response: res, body: hostile })
   })
+  // The browser reports a request the policy blocked as one that failed; none may get an answer.
   const leaks: string[] = []
-  page.on('request', req => {
-    if (req.url().includes('leak=1')) leaks.push(req.url())
+  page.on('requestfinished', req => {
+    if (req.url().includes('leak=')) leaks.push(req.url())
   })
   await page.goto(deckUrl)
   const title = await page.title()
   const scene = page.frameLocator('iframe[data-scene="a"]')
-  await expect(scene.locator('#ok')).toHaveText('shown')
-  await page.waitForTimeout(300)
+  await expect(scene.locator('#ok')).toHaveText('ran')
+  await page.waitForTimeout(1500)
   expect(await page.title()).toBe(title)
+  expect(page.url()).toBe(deckUrl)
+  expect(page.context().pages()).toHaveLength(1)
   expect(leaks).toEqual([])
+  // The frame never took the focus, so the deck's keys still pick.
   await page.keyboard.press('b')
   await expect(page.locator('.deck-card h2')).toHaveText('Second')
 })

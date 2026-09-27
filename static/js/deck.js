@@ -153,72 +153,49 @@ function showStamp(card, side, strength) {
   card.dataset['lean'] = side ?? ''
 }
 
-/** The smallest a scene is shrunk to fit its frame; below it, text would be too small to read. */
-const SCENE_MIN_ZOOM = 0.55
-
 /** Where the card's sides stack and the page scrolls, as deck.css has it. */
 const STACKED = '(max-width: 900px), (max-height: 700px)'
 
 /**
- * Fits a scene to its frame. On a desktop card, where the frame's room is fixed, a scene that does
- * not fit is shrunk, so nothing is cut off; where the sides stack, the frame takes the scene's own
- * height instead. The frame runs no script, but it shares this page's origin, which is what lets
- * the page measure it.
+ * Tells a scene frame how to fit: into its fixed room on a desktop card, or at its own height
+ * where the sides stack. The frame has no origin, so the page cannot measure it; its runtime
+ * (scene-runtime.js) fits the scene and answers with its size.
  * @param {HTMLIFrameElement} frame
  */
-function fitScene(frame) {
-  const doc = frame.contentDocument
-  const root = /** @type {HTMLElement | null | undefined} */ (doc?.querySelector('.scene-root'))
-  const scene = /** @type {HTMLElement | null | undefined} */ (root?.firstElementChild)
-  if (
-    doc === null ||
-    doc === undefined ||
-    root === null ||
-    root === undefined ||
-    scene === null ||
-    scene === undefined
-  )
-    return
-  scene.style.zoom = ''
-  root.style.alignContent = ''
-  const style = doc.defaultView?.getComputedStyle(root)
-  const padY = Number.parseFloat(style?.paddingTop ?? '0') + Number.parseFloat(style?.paddingBottom ?? '0')
-  if (window.matchMedia?.(STACKED).matches === true) {
-    // Only a changed height is written, so the resize this causes settles on the next call.
-    const height = `${Math.ceil(scene.scrollHeight + padY)}px`
-    if (frame.style.getPropertyValue('--scene-height') !== height)
-      frame.style.setProperty('--scene-height', height)
-    frame.dataset['zoom'] = '1'
-    return
-  }
-  frame.style.removeProperty('--scene-height')
-  const padX = Number.parseFloat(style?.paddingLeft ?? '0') + Number.parseFloat(style?.paddingRight ?? '0')
-  // Two pixels of slack, so rounding never shrinks a scene that fits.
-  const fit = Math.min(
-    1,
-    (root.clientHeight - padY + 2) / Math.max(1, scene.scrollHeight),
-    (root.clientWidth - padX + 2) / Math.max(1, scene.scrollWidth)
-  )
-  const zoom = fit < 1 ? Math.max(SCENE_MIN_ZOOM, fit * 0.97) : 1
-  if (zoom < 1) scene.style.zoom = String(zoom)
-  frame.dataset['zoom'] = String(Math.round(zoom * 100) / 100)
-  // Too big to fit even shrunk: keep its start in view, and say so for whoever wrote it.
-  const cut = fit * 0.97 < SCENE_MIN_ZOOM
-  root.style.alignContent = cut ? 'start' : ''
-  if (cut) console.warn(`scene ${frame.getAttribute('title') ?? ''} is too big for its frame; it is cut off`)
+function sendSceneMode(frame) {
+  const stacked = window.matchMedia?.(STACKED).matches === true
+  if (!stacked) frame.style.removeProperty('--scene-height')
+  frame.contentWindow?.postMessage({ scene: 'mode', stacked }, '*')
+}
+
+/**
+ * Takes a scene frame's answer: how far its scene was shrunk, and where the sides stack, the
+ * height it needs. The frame runs generated scripts, so its word is taken for its own size only.
+ * @param {HTMLIFrameElement} frame
+ * @param {unknown} data
+ */
+function takeSceneSize(frame, data) {
+  const size = /** @type {{ scene?: unknown, zoom?: unknown, height?: unknown } | null} */ (data)
+  if (size?.scene !== 'size' || typeof size.zoom !== 'number' || !Number.isFinite(size.zoom)) return
+  frame.dataset['zoom'] = String(Math.min(1, Math.max(0, size.zoom)))
+  if (typeof size.height !== 'number' || !Number.isFinite(size.height)) return
+  // Only a changed height is written, so the resize this causes settles on the next answer.
+  const height = `${Math.round(Math.min(2000, Math.max(80, size.height)))}px`
+  if (frame.style.getPropertyValue('--scene-height') !== height)
+    frame.style.setProperty('--scene-height', height)
 }
 
 /**
  * Plays the picked side's payoff: its scene's `on-pick` parts come in (the scene's CSS answers the
- * `picked` mark on its root) while the other side dims. Resolves once there was something to
- * watch, so the card flies off after it.
+ * `picked` mark its runtime puts on its root, and its scripts may play their own) while the other
+ * side dims. Resolves once there was something to watch, so the card flies off after it.
  * @param {HTMLElement} card
  * @param {'a' | 'b'} side
  */
 async function payoff(card, side) {
   const scene = /** @type {HTMLIFrameElement | null} */ (card.querySelector(`iframe[data-scene="${side}"]`))
-  // A frame still loading has no root yet; its payoff is then simply skipped.
-  scene?.contentDocument?.documentElement?.classList.add('picked')
+  // A frame still loading has no runtime yet; its payoff is then simply skipped.
+  scene?.contentWindow?.postMessage({ scene: 'pick' }, '*')
   card.dataset['picked'] = side
   if (scene === null || reducedMotion() || card.classList.contains('deck-flipped')) return
   await new Promise(resolve => setTimeout(resolve, PAYOFF_MS))
@@ -288,9 +265,6 @@ export async function bootDeck() {
   let busy = false
   /** @type {'card' | 'note' | 'edit'} */
   let mode = 'card'
-  /** Watches the top card's scene frames, to fit them again when their size changes. */
-  /** @type {ResizeObserver | null} */
-  let sceneSizes = null
   /** How each card left on this page, so an undo brings it back the same way. */
   /** @type {Map<string, PickChoice>} */
   const leftBy = new Map()
@@ -371,21 +345,10 @@ ${deckHelpHtml()}`
     table.innerHTML = `<div class="deck-hand">${stackHtml(state.peek())}${cardHtml(top, { index, total: deck.cards.length }, { ...view, excerpt: excerpts[top.key] })}</div>`
     const card = /** @type {HTMLElement} */ (topCard())
     wireDrag(card)
-    // A frame's width settles after the card is dealt, and text wraps with it: fit on load and
-    // whenever the frame's size changes.
-    sceneSizes?.disconnect()
-    sceneSizes =
-      typeof ResizeObserver === 'function'
-        ? new ResizeObserver(entries => {
-            for (const entry of entries) fitScene(/** @type {HTMLIFrameElement} */ (entry.target))
-          })
-        : null
+    // Each frame refits itself as its size changes; it needs to hear only how to fit.
     for (const frame of card.querySelectorAll('iframe[data-scene]')) {
       const scene = /** @type {HTMLIFrameElement} */ (frame)
-      scene.addEventListener('load', () => {
-        fitScene(scene)
-        sceneSizes?.observe(scene)
-      })
+      scene.addEventListener('load', () => sendSceneMode(scene))
     }
     card.focus({ preventScroll: true })
     await flyIn(card, from)
@@ -717,6 +680,27 @@ ${deckHelpHtml()}`
     else if (act === 'edit') openEditor('why')
     else if (act === 'details') void flip()
     else if (act === 'escape') escape()
+  })
+
+  // A scene frame answers with its size. Only the top card's own frames are heard, each for itself.
+  window.addEventListener('message', event => {
+    for (const frame of topCard()?.querySelectorAll('iframe[data-scene]') ?? []) {
+      const scene = /** @type {HTMLIFrameElement} */ (frame)
+      if (event.source !== null && event.source === scene.contentWindow) takeSceneSize(scene, event.data)
+    }
+  })
+  // A scene frame is inert, so it takes no clicks or tabs, but its script can still focus itself.
+  // The deck's keys need the focus: take it back whenever a scene frame has it.
+  window.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (document.activeElement?.matches('iframe[data-scene]') === true)
+        topCard()?.focus({ preventScroll: true })
+    })
+  })
+  window.matchMedia?.(STACKED).addEventListener?.('change', () => {
+    for (const frame of topCard()?.querySelectorAll('iframe[data-scene]') ?? []) {
+      sendSceneMode(/** @type {HTMLIFrameElement} */ (frame))
+    }
   })
 
   document.addEventListener('keydown', event => {

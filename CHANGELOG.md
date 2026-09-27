@@ -22,11 +22,15 @@
   keeps them off.
 - New commands `pr-review deck prepare|validate|publish|fixes`. `install-skill`, `doctor`, and
   `upgrade` now handle the two new skills alongside `pr-review-canvas`.
-- Each side of a card shows its consequence in a sentence and a **scene**: a small, colorful
-  picture of what happens if you pick it (the counts, the error, the outcome in a banner), written
-  by the generator in HTML with a kit of layout classes and Lucide icons. Scenes run in a frame
-  that allows no script and loads nothing. A folded corner marks the card's back, which `i` turns
-  to: the context, each side's justification and snippet, and the code the card is anchored to.
+- Each side of a card shows its consequence in a sentence and a **scene**: a picture of what
+  happens if you pick it, drawn where the consequence lands: the screen a user sees, the terminal
+  output, the caller's code, a table of rows, bars on one scale, a timeline, a review thread, or an
+  animated diagram. The generator writes scenes as HTML files with a kit of layout classes,
+  artifacts, and Lucide icons, plus its own styles and scripts where markup is not enough; the
+  skill's scene guide (`scenes.md`) gives it a catalog of pictures to pick from. Scenes run in a
+  frame with no origin, no network, and no input. A folded corner marks the card's back, which `i`
+  turns to: the context, each side's justification and snippet, and the code the card is anchored
+  to.
 - `/pr-self-review` runs on Opus. `/pr-self-review-fix` stays on Sonnet and deals its next deck
   through `/pr-self-review`.
 

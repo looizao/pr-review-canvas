@@ -61,7 +61,7 @@ describe('cardHtml', () => {
     expect(root.querySelector('.deck-anchor')?.textContent).toContain(`a"${hostile}.ts:12`)
   })
 
-  it('frames a side’s scene with no permission at all, under its one-line consequence', () => {
+  it('frames a side’s scene with scripts alone, inert, under its one-line consequence', () => {
     const root = render(
       cardHtml(
         card({ key: 'a/b', b: { ...card().b, scene: '<p>x</p><img src=x onerror=alert(1)>' } }),
@@ -73,8 +73,10 @@ describe('cardHtml', () => {
     expect(frames).toHaveLength(1)
     const frame = /** @type {HTMLIFrameElement} */ (frames[0])
     expect(frame.closest('.deck-side-b')).not.toBeNull()
-    // No script, forms, popups, or navigation; only the origin, so the page can fit the scene.
-    expect(frame.getAttribute('sandbox')).toBe('allow-same-origin')
+    // Scripts with no origin, and no forms, popups, or navigation; inert, so it never takes the
+    // focus the deck's keys need.
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts')
+    expect(frame.hasAttribute('inert')).toBe(true)
     expect(frame.getAttribute('src')).toBe('/deck-scene/42/a%2Fb/b?theme=dark')
     expect(root.querySelector('.deck-side-b .deck-gist')?.textContent?.trim()).toBe('Nothing is dropped.')
     // The scene's HTML reaches the page only through the frame.

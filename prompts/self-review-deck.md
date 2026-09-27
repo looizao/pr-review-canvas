@@ -8,7 +8,7 @@ for a coding agent. Picks the author keeps become short justifications that revi
 instead of asking again.
 
 You read and write only. Do not check anything out, run tests, or write anywhere except
-`{{MODEL_PATH}}`.
+`{{MODEL_PATH}}` and the scenes directory `{{SCENES_DIR}}`.
 
 ## What earns a card
 
@@ -95,7 +95,7 @@ a valid deck. When more real decisions remain than fit, drop the ones with the l
     that show this side: the change's own code for the current side, an outline of the other.
     `lang` is a highlight.js language name; leave it out to use the anchor file's. Snippets show
     on the card's back, next to the chunk of the diff the card is anchored to.
-  - `scene`: this side's consequence as a small picture. See **The scene**.
+  - `scene` (or a scene file): this side's consequence as a picture. See **The scene**.
   - `why`: the one-line justification the author accepts by picking this side. Write it in the
     author's voice ("Empty rows are exports from the old tool; skipping them is expected.").
   - `record`: where that justification belongs once picked. Ask who needs the reason, and when:
@@ -110,71 +110,17 @@ a valid deck. When more real decisions remain than fit, drop the ones with the l
 ## The scene
 
 The front of a card shows the title and, per side, its label, its one-line `consequence`, and its
-`scene`: a small HTML fragment that pictures what happens when the author picks that side. The
-reasons and the code are one key away, on the card's back, and most authors decide from the front
-alone. So the scene carries the side: at a glance, it shows **what happens, to whom, and what it
-costs**.
+`scene`: a picture of what happens when the author picks that side. The reasons and the code are
+one key away, on the card's back, and most authors decide from the front alone. So the scene
+carries the side: at a glance, it shows **what happens, to whom, and what it costs**, with the real
+names and numbers of this change.
 
-- **Concrete beats abstract.** Name the real thing: the error code, the file, the command, the
-  count, the person. `3 drafts → CANVAS_STALE, nothing posted` beats "some drafts may be stale".
-- **Same scene on both sides.** Draw both sides of a card with the same actors in the same order,
-  so the eye goes straight to what differs: the count, the color, the banner.
-- **One outcome.** End with a `banner` that states the side's consequence, cost included, in a few
-  words, toned `good`, `bad`, or `warn`.
-- **Few things, big.** Two or three boxes and an arrow or two, a big number where a count matters.
-  The frame is about 600 × 440 pixels on a desktop; a scene that needs more reads as clutter.
-- **Complementary to the consequence line**, which sits right above the scene: the line says it in
-  a sentence, the scene shows the end state with the numbers. Do not repeat the sentence.
-
-A scene is written with the kit's classes, and the browser lays it out: write structure, never
-coordinates. The frame wraps your fragment in its root, so start with `<div class="scene">`.
-
-- Layout: `scene` (the column everything sits in), `row` (items side by side; `row spread` pushes
-  them apart), `col`, `grid` (`style="--cols: 3"`), `stack` (items tight on top of each other).
-- Things: `box` (a rounded panel; a `label` inside it is its caption; `box ghost` dashed and
-  empty, `box solid` filled), `chip` (a small pill), `banner` (a full-width bar: the outcome),
-  `big` (a large number or word), `label` (small caps), `small`, `code` (inline code), `strike`,
-  `fade`.
-- Tones, on any element: `ink` (this side's color), `good`, `bad`, `warn`, `muted`. A toned `box`,
-  `chip`, `banner`, `big`, `label`, or `small` colors itself; inside a filled `chip`, `banner`, or
-  `box solid`, text and icons turn to the paper color on their own.
-- Icons: `<i data-icon="database" class="lg"></i>`, by [Lucide](https://lucide.dev/icons) name:
-  `user`, `users`, `message-square`, `git-pull-request`, `git-commit-horizontal`, `file-code`,
-  `database`, `server`, `cloud`, `hard-drive`, `lock`, `lock-open`, `key-round`, `shield-check`,
-  `shield-alert`, `clock`, `timer`, `hourglass`, `triangle-alert`, `circle-x`, `circle-check`,
-  `ban`, `refresh-cw`, `repeat`, `copy`, `trash-2`, `eye`, `eye-off`, `send`, `inbox`,
-  `list-checks`, `bug`, `zap`, `package`, `settings`, `terminal`, `history`, `undo-2`, `split`,
-  `merge`, `layers`, `link`, and any other Lucide name. Sizes: none (text size), `lg`, `xl`; leave
-  the size off inside a `chip`.
-- Arrows: `<span class="arrow"></span>` points right, `arrow down` points down, `style="--len:
-  4rem"` sets its length, `data-say="retry"` writes a word on it, `arrow flow` animates things
-  moving along it, `arrow blocked` crosses it out.
-- Motion: `pulse`, `bob`, `shake` (a failure), `blink`, `spin` loop; `enter` on a parent deals its
-  children in one by one. `on-pick` shows an element only once the author picks this side (a stamp,
-  a check); keep it for decoration, since the scene must read before the pick. `off-pick` fades an
-  element then.
-- Inline `<svg>` is allowed for a shape the kit lacks, and `style` attributes for sizes and colors
-  (use the tones' variables: `var(--good)`, `var(--bad)`, `var(--warn)`, `var(--ink)`).
-- Not allowed, and refused by validation: `<script>`, `<img>`, `<style>`, forms and inputs,
-  frames, event handler attributes, `url(...)`, and links anywhere. At most 4000 characters. The
-  frame runs no script and loads nothing, so anything else would silently not show.
-- No secrets, credentials, or protected health information, even as sample data.
-
-Validation checks what a scene may contain and that its icons exist; it cannot see the layout.
-Keep scenes as small as the rules above ask and they fit.
-
-For the example card below, side A (skip empty rows):
-
-```html
-<div class="scene">
-  <div class="row">
-    <div class="box"><i data-icon="file-code" class="lg"></i><span class="label">export.csv</span><span class="big">120</span><span class="small">rows, 3 blank</span></div>
-    <span class="arrow flow" style="--len: 3rem" data-say="import"></span>
-    <div class="box good"><i data-icon="database" class="lg"></i><span class="label">imported</span><span class="big">117</span></div>
-  </div>
-  <div class="banner warn"><i data-icon="eye-off"></i> A blank row in the middle goes unnoticed</div>
-</div>
-```
+A scene is HTML laid out by a kit of classes, and it may bring its own styles and scripts to draw,
+chart, or animate what markup cannot. Draw it as the skill's scene guide, `scenes.md` beside its
+`SKILL.md`, says: it has the rules, a catalog of pictures, the frame, and the kit. Write each scene
+as its own file, `{{SCENES_DIR}}/<card key>.a.html` or `.b.html`, or as the side's `scene` string
+in the JSON, not both. No secrets, credentials, or protected health information, even as sample
+data.
 
 ## Length caps
 
@@ -202,14 +148,12 @@ Write `{{MODEL_PATH}}` as JSON only, no prose and no fence:
         "label": "Skip them silently",
         "consequence": "Old exports import cleanly; an accidental blank row in the middle goes unnoticed.",
         "snippet": { "code": "if (row.every(cell => cell === '')) continue" },
-        "scene": "<div class=\"scene\"><div class=\"row\">…</div><div class=\"banner warn\">…</div></div>",
         "why": "Empty rows only come from the old export tool, which pads its files.",
         "record": "pr-comment"
       },
       "b": {
         "label": "Fail with the row number",
         "consequence": "Nothing is ever dropped quietly, but every old export needs cleaning first.",
-        "scene": "<div class=\"scene\"><div class=\"row\">…</div><div class=\"banner bad\">…</div></div>",
         "why": "An import should never drop data without saying so.",
         "record": "none"
       }
@@ -218,7 +162,8 @@ Write `{{MODEL_PATH}}` as JSON only, no prose and no fence:
 }
 ```
 
-Then run `pr-review deck validate {{REVIEW_FLAG}} --human` and fix every problem it names.
+Its scenes are the files `{{SCENES_DIR}}/csv-empty-rows.a.html` and `csv-empty-rows.b.html`. Then
+run `pr-review deck validate {{REVIEW_FLAG}} --human` and fix every problem it names.
 
 ## The change
 

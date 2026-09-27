@@ -115,17 +115,20 @@ export function deckPage(page: DeckBootstrap, nonce: string, appearance: Appeara
 
 /**
  * The page one side's scene is drawn in. The scene is generated HTML, placed as written with its
- * icons inlined; the page's policy (`sceneFramePolicy`) lets none of it run or load anything. The
- * deck page fits the scene to the frame and marks the root `picked` to play the payoff.
+ * icons inlined, after the kit's stylesheet and the scene runtime, both inline so the frame loads
+ * nothing. Its policy (`sceneFramePolicy`) runs its scripts with no origin and no network. The
+ * runtime fits the scene into `.scene-fit` and plays the payoff when the deck page says so.
  */
 export function sceneFrame(opts: {
   scene: string
   side: 'a' | 'b'
   theme: 'light' | 'dark' | 'auto'
+  kit: string
+  runtime: string
 }): string {
   return `<!doctype html><html lang="en" data-side="${opts.side}" data-theme="${opts.theme}"><head><meta charset="utf-8"><title>scene</title>
-<link rel="stylesheet" href="/static/styles/scene.css"></head>
-<body><main class="scene-root">${opts.scene}</main></body></html>`
+<style>${opts.kit}</style><script>${opts.runtime}</script></head>
+<body><main class="scene-root"><div class="scene-fit">${opts.scene}</div></main></body></html>`
 }
 
 export function homePage(

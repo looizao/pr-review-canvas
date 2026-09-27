@@ -70,7 +70,7 @@ One choice in a self-review deck that a reasonable engineer could make either wa
 _Avoid_: Review item, approval, rejection
 
 **Scene**:
-A small picture of what picking one side of a decision card leads to, written by the deck generator and shown on the card's front under the side's consequence. It is drawn from a kit of layout classes and icons, never run as code.
+A picture of what picking one side of a decision card leads to, drawn where the consequence lands, written by the deck generator and shown on the card's front under the side's consequence. It is built from a kit of layout classes, artifacts, and icons, and may carry its own styles and scripts, which run in a frame that reaches nothing outside it.
 _Avoid_: Diagram, sketch, illustration
 
 **Settled decision**:

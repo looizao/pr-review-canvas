@@ -50,38 +50,70 @@ describe('sceneProblems', () => {
     expect(sceneIcons(ok)).toEqual(['circle-x'])
   })
 
-  it('passes the example the deck prompt teaches with', async () => {
-    const prompt = await readFile(path.join(PACKAGE_ROOT, 'prompts', 'self-review-deck.md'), 'utf8')
-    const example = /```html\n([\s\S]*?)```/.exec(prompt)?.[1]
-    expect(example).toContain('class="scene"')
-    expect(sceneProblems(example as string)).toEqual([])
+  it('passes its own styles, a canvas, and inline scripts, whose code is not read as markup', () => {
+    const scene =
+      '<div class="scene"><canvas class="q"></canvas><p>3 queued</p>' +
+      '<style>.q { fill: url(#g); background: url(data:image/png;base64,AA) }</style>' +
+      '<script>const onPick = () => 1; el.innerHTML = \'<b onclick="x">\'; document.querySelector(".q")</script></div>'
+    expect(sceneProblems(scene)).toEqual([])
   })
 
-  it('names what runs, loads, or leaves the frame', () => {
+  it('passes every example the scene guide teaches with, using only classes it can style', async () => {
+    const guide = await readFile(path.join(PACKAGE_ROOT, 'skills', 'pr-self-review', 'scenes.md'), 'utf8')
+    const kit = await readFile(path.join(PACKAGE_ROOT, 'static', 'styles', 'scene.css'), 'utf8')
+    const examples = [...guide.matchAll(/```html\n([\s\S]*?)```/g)].map(m => m[1] as string)
+    expect(examples.length).toBeGreaterThanOrEqual(5)
+    for (const example of examples) {
+      expect(example).toContain('class="scene"')
+      expect(sceneProblems(example)).toEqual([])
+      // A class the kit does not define is one the example styles or scripts itself.
+      const own = [...example.matchAll(/<(?:style|script)\b[^>]*>([\s\S]*?)<\//g)].map(m => m[1]).join('\n')
+      const classes = [...example.matchAll(/\sclass="([^"]*)"/g)].flatMap(m => (m[1] as string).split(/\s+/))
+      const unknown = classes.filter(c => c !== '' && !kit.includes(`.${c}`) && !own.includes(c))
+      expect(unknown).toEqual([])
+    }
+  })
+
+  it('names what loads, takes input, or leaves the frame', () => {
     expect(
-      sceneProblems('<p>x</p><script>1</script><IMG src="a.png"><style>p{}</style><p onclick="go()">y</p>')
+      sceneProblems(
+        '<p>x</p><iframe></iframe><IMG src="a.png"><input><p onclick="go()">y</p><script src="https://x.example/a.js"></script>'
+      )
     ).toEqual([
-      "uses <script>, <img>, <style>; a scene is text, the kit's classes, icons, and inline SVG",
-      'has an event handler attribute; the frame runs no script',
-      'links to a.png; a scene links nowhere',
+      "uses <iframe>, <img>, <input>; a scene is text, the kit's classes, icons, SVG, canvas, and inline styles and scripts, and it takes no input",
+      'has an event handler attribute; put code in a <script>, and the scene takes no clicks or keys',
+      'links to a.png, https://x.example/a.js; a scene links nowhere, and its scripts are inline',
     ])
     expect(sceneProblems('<p style="background: url(https://x.example/t.png)">x</p>')).toEqual([
-      'loads something (url(), @import, or javascript:); the frame loads nothing',
+      'loads something (url() of a file, @import, or javascript:); the frame loads nothing, so url() takes only #ids and data:',
     ])
     expect(sceneProblems('<a href="https://x.example">go</a>')).toEqual([
-      'links to https://x.example; a scene links nowhere',
+      'links to https://x.example; a scene links nowhere, and its scripts are inline',
     ])
   })
 
-  it('names icons that do not exist, and a scene with no words', () => {
+  it('names what a script would find blocked: the network, storage, eval, and workers', () => {
+    const script = (code: string) => sceneProblems(`<p>x</p><script>${code}</script>`)
+    expect(script("fetch('/api/x'); new WebSocket('ws://x'); navigator.sendBeacon('/x')")).toEqual([
+      'its script uses fetch, WebSocket, sendBeacon; the frame has no network, storage, eval, or workers, and blocks them',
+    ])
+    expect(script('new RTCPeerConnection(); localStorage.x = 1; eval("1"); new Worker("w.js")')).toEqual([
+      'its script uses RTCPeerConnection, workers, eval, storage; the frame has no network, storage, eval, or workers, and blocks them',
+    ])
+    // Words that only contain those names are fine.
+    expect(script('const prefetched = myFunction(1); node.parentElement')).toEqual([])
+  })
+
+  it('names icons that do not exist, and a scene with no words in its markup', () => {
     expect(sceneProblems('<p><i data-icon="made-up"></i>x</p>')).toEqual([
       'names icons that do not exist: made-up (Lucide names, such as database or circle-x)',
     ])
-    expect(sceneProblems('<div><i data-icon="user"></i></div>')).toEqual([
-      'shows no text; a scene says what happens, with words the reader can take in',
-    ])
-    expect(sceneProblems('just words')).toEqual([
-      'shows no text; a scene says what happens, with words the reader can take in',
+    const wordless =
+      'shows no text in its markup; a scene says what happens with words the page lays out, not only ones a script draws'
+    expect(sceneProblems('<div><i data-icon="user"></i></div>')).toEqual([wordless])
+    expect(sceneProblems('just words')).toEqual([wordless])
+    expect(sceneProblems('<canvas></canvas><script>ctx.fillText("3 rows lost", 0, 0)</script>')).toEqual([
+      wordless,
     ])
   })
 })

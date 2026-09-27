@@ -1,6 +1,8 @@
-// `pr-review deck validate` and `pr-review deck publish`: check the generated deck-model.json
-// against the context `deck prepare` wrote, and publish it as the review's deck.
+// `pr-review deck validate` and `pr-review deck publish`: check the generated deck-model.json, with
+// the scene files beside it, against the context `deck prepare` wrote, and publish it as the
+// review's deck.
 import { createHash } from 'node:crypto'
+import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { type Deck, type DeckContext, DeckContextSchema, type DecisionCard } from '../contract/deck.js'
 import { isLocalKey, keyLabel, type ReviewKey } from '../contract/review-key.js'
@@ -8,6 +10,7 @@ import { resolveLocalHead } from '../git/local-target.js'
 import type { AppContext } from '../server/context.js'
 import { AppError } from '../server/errors.js'
 import { readJson, readText } from '../store/atomic-json.js'
+import { DECK_SCENES_DIR } from './prepare-deck.js'
 import { type DeckProblem, validateDeckModel } from './validate-deck.js'
 
 export class DeckInvalidError extends Error {
@@ -57,8 +60,72 @@ export async function checkDeckModel(
       problems: [{ code: 'DECK_SCHEMA', where: '(root)', message: `not valid JSON: ${reason}` }],
     }
   }
+  const scenes = await readSceneFiles(path.join(path.dirname(context.modelPath), DECK_SCENES_DIR))
+  const placed = placeSceneFiles(raw, scenes)
   const result = validateDeckModel(raw, { files: context.files, maxCards: context.maxCards })
-  return result.ok ? { ok: true, cards: result.model.cards } : result
+  if (result.ok && placed.length === 0) return { ok: true, cards: result.model.cards }
+  return { ok: false, problems: [...placed, ...(result.ok ? [] : result.problems)] }
+}
+
+/** A scene file's name: the card's key and the side. */
+const SCENE_FILE_RE = /^([a-z0-9][a-z0-9-]{0,47})\.(a|b)\.html$/
+
+/** The files of the scenes directory by name; none when it does not exist. */
+async function readSceneFiles(dir: string): Promise<Map<string, string>> {
+  let names: string[]
+  try {
+    names = await readdir(dir)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return new Map()
+    throw err
+  }
+  const files = new Map<string, string>()
+  for (const name of names.sort()) {
+    files.set(name, (await readText(path.join(dir, name))) ?? '')
+  }
+  return files
+}
+
+/**
+ * Puts each scene file into the side it names, in the parsed model, before it is validated. A
+ * side with a scene in both places, and a file that names no side, are problems: either would
+ * leave the author a scene other than the one the generator meant.
+ */
+function placeSceneFiles(raw: unknown, files: ReadonlyMap<string, string>): DeckProblem[] {
+  const problems: DeckProblem[] = []
+  const cards = (raw as { cards?: unknown } | null)?.cards
+  const sides = new Map<string, Record<string, unknown>>()
+  for (const card of Array.isArray(cards) ? (cards as unknown[]) : []) {
+    const c = card as Record<string, unknown> | null
+    for (const side of ['a', 'b'] as const) {
+      const content = c?.[side]
+      if (typeof c?.['key'] === 'string' && typeof content === 'object' && content !== null) {
+        sides.set(`${c['key']}.${side}.html`, content as Record<string, unknown>)
+      }
+    }
+  }
+  for (const [name, html] of files) {
+    const match = SCENE_FILE_RE.exec(name)
+    const side = sides.get(name)
+    const where = `${DECK_SCENES_DIR}/${name}`
+    if (match === null || side === undefined) {
+      problems.push({
+        code: 'SCENE_INVALID',
+        where,
+        message: `${where}: names no card side; name a scene file <card key>.a.html or <card key>.b.html`,
+      })
+    } else if (side['scene'] !== undefined) {
+      const scene = `card:${match[1]}.${match[2]}.scene`
+      problems.push({
+        code: 'SCENE_INVALID',
+        where: scene,
+        message: `${scene}: is in deck-model.json and in ${where}; keep one`,
+      })
+    } else {
+      side['scene'] = html
+    }
+  }
+  return problems
 }
 
 /**

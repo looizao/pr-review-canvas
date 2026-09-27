@@ -28,7 +28,8 @@ checks out a branch or writes outside the deck's work directory.
 Use the most capable model, such as Opus, to write the deck. The deck is at most ten cards, and
 each one has to be a real trade-off, anchored on the right line, with both sides argued fairly;
 a weaker model tends to deal checklist items or strawman one side. When delegating to another
-agent, pass it the prepared prompt path and have it run on that model. Honor an explicit user
+agent, pass it the prepared prompt path and the path of this skill's `scenes.md`, and have it run on
+that model. Honor an explicit user
 model choice. If the host cannot select models, keep its selected model. Never copy PHI,
 secrets, or credentials into a card, even as an example.
 
@@ -42,8 +43,8 @@ pr-review deck prepare --uncommitted [--base <ref>] [--force]
 
 A pull request is compared against its own base branch, so `--pr` takes no `--base`.
 
-The last stdout line is JSON with `promptPath`, `modelPath`, `maxCards`, `settled`, `base`,
-`headRef`, `uncommitted`, and `status`.
+The last stdout line is JSON with `promptPath`, `modelPath`, `scenesDir`, `maxCards`, `settled`,
+`base`, `headRef`, `uncommitted`, and `status`.
 
 - `status: "exists"` means the deck already stands for this head. Tell the user to open it, or to
   run again with `--force` for a fresh deck.
@@ -64,10 +65,12 @@ A good card is concrete: both sides are real options for this code, each with it
 `why` of each side is a sentence the author could say as their own. Mark `current` truthfully:
 it is what the code does now, and it decides whether a pick becomes a fix.
 
-Give every side a `scene`, as the prompt's **The scene** section describes: most authors decide
-from the card's front, so each scene has to show its side's consequence and cost at a glance,
-with real names and numbers. You cannot see a scene rendered; keep it as small as the section
-asks, and validation names what the frame would drop.
+Give every side a `scene`, a picture of what picking it does. Read [`scenes.md`](scenes.md), beside
+this file, in full before drawing the first one: it has what every scene must do, a catalog of
+pictures to pick from by where the consequence lands, techniques with SVG, canvas, and scripts, the
+frame's rules, the kit, and worked examples. Write each scene as its own file in `scenesDir`,
+`<card key>.a.html` or `<card key>.b.html`. Most authors decide from the card's front, so spend
+your invention there, and let validation name what the frame would block.
 
 ## 3. Validate, then publish
 
@@ -85,6 +88,12 @@ pr-review deck publish (--pr <n> | --branch | --uncommitted) --agent <your agent
 `DECK_STALE` means the pull request, the branch, or the working tree changed while you worked: offer to prepare
 again rather than passing `--allow-stale`. `DECK_INVALID` prints one line per problem; fix them and
 publish again, at most three times.
+
+When you can open a browser page and see it (a browser or screenshot tool), look at the deck
+before handing it over: start `pr-review serve` if it is not running, open the `deckUrl` at about
+1920 × 1080, and read every card's front, pressing `s` to move to the next card. Fix any scene
+that is cut off, overlapping, or slower to read than its consequence line, then publish again,
+even when nothing changed: publishing clears the skips you made while looking.
 
 ## 4. Hand over
 

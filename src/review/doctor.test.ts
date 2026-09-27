@@ -31,9 +31,14 @@ const stamped = new Map<string, string>(
   )
 )
 
-/** The installed copy of whichever bundled skill `file` is the SKILL.md of. */
+/** The scene guide the deck skill ships beside its SKILL.md. */
+const SCENES = await readFile(path.join(skillSourceDir('pr-self-review'), 'scenes.md'), 'utf8')
+
+/** The installed copy of `file`: a bundled skill's SKILL.md, or the deck skill's scene guide. */
 function installedCopy(file: string): string | null {
-  return stamped.get(path.basename(path.dirname(file))) ?? null
+  const skill = path.basename(path.dirname(file))
+  if (path.basename(file) === 'scenes.md') return skill === 'pr-self-review' ? SCENES : null
+  return stamped.get(skill) ?? null
 }
 
 function deps(over: Partial<DoctorDeps> = {}): DoctorDeps {
@@ -69,6 +74,24 @@ describe('runDoctorChecks', () => {
     expect(report.checks.skill.ok).toBe(false)
     expect(report.checks.skill.detail).toContain(CODEX_SKILLS_DIR)
     expect(report.checks.skill.hint).toBe('run `pr-review upgrade` or `pr-review install-skill`')
+  })
+
+  it('reports a copy whose files beside SKILL.md are missing or older', async () => {
+    for (const scenes of [null, `${SCENES}\nold ideas`]) {
+      const report = await runDoctorChecks(
+        deps({
+          dataDirOverride: await makeTempDir(),
+          readSkill: async file =>
+            !file.startsWith(path.join(REPO, CLAUDE_SKILLS_DIR))
+              ? null
+              : path.basename(file) === 'scenes.md'
+                ? scenes
+                : installedCopy(file),
+        })
+      )
+      expect(report.checks.skill.ok).toBe(false)
+      expect(report.checks.skill.detail).toContain(path.join(CLAUDE_SKILLS_DIR, 'pr-self-review'))
+    }
   })
 
   it('accepts copies after Git converts line endings to CRLF', async () => {

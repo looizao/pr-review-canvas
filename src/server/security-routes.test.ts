@@ -149,18 +149,19 @@ describe('content security policy', () => {
     )
   })
 
-  it('locks a scene frame down: no script, forms, popups, navigation, or network', () => {
+  it('locks a scene frame down: scripts with no origin, and no forms, popups, navigation, or network', () => {
     const policy = sceneFramePolicy().split('; ')
-    // Only the origin is kept, so the deck page can measure the scene; with no script allowed,
-    // nothing inside can use it.
-    expect(policy[0]).toBe('sandbox allow-same-origin')
+    // Scripts run, but in a sandbox with no origin: nothing inside reaches this server's pages,
+    // API, or storage.
+    expect(policy[0]).toBe('sandbox allow-scripts')
     expect(policy).toContain("default-src 'none'")
     expect(policy).toContain("form-action 'none'")
     expect(policy).toContain("frame-ancestors 'self'")
-    // The kit's stylesheet from this server, inline styles, and data images; nothing else.
-    expect(policy).toContain("style-src 'self' 'unsafe-inline'")
-    expect(policy).toContain('img-src data:')
-    expect(policy.some(d => d.startsWith('script-src') || d.startsWith('connect-src'))).toBe(false)
+    // The kit, the runtime, and the scene are all inline: the frame loads nothing.
+    expect(policy).toContain("script-src 'unsafe-inline'")
+    expect(policy).toContain("style-src 'unsafe-inline'")
+    expect(policy).toContain('img-src data: blob:')
+    expect(policy.filter(d => d.includes("'self'"))).toEqual(["frame-ancestors 'self'"])
   })
 
   it('gives each page a fresh nonce and puts it on every inline script', async () => {

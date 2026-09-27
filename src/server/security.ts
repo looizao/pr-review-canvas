@@ -80,17 +80,18 @@ export function contentSecurityPolicy(nonce: string, opts: { frames?: boolean } 
 export const SCENE_FRAME_PREFIX = '/deck-scene/'
 
 /**
- * A scene frame's policy. A scene is generated HTML, so its frame is sandboxed: no script, forms,
- * popups, or navigation of the deck page. It keeps its origin, which is what lets the deck page
- * measure a scene and shrink one that would overflow; without script, nothing in the frame can
- * use that origin. It may load nothing but the kit's stylesheet, and be framed only here.
+ * A scene frame's policy. A scene is generated HTML that may run its own scripts, so its frame is
+ * sandboxed with scripts alone: no origin (it cannot reach this server's pages, API, or storage),
+ * forms, popups, modals, or navigation of the deck page. Its styles and scripts are inline, the kit
+ * and the runtime included, so it loads nothing; it has no network, and it may be framed only here.
  */
 export function sceneFramePolicy(): string {
   return [
-    'sandbox allow-same-origin',
+    'sandbox allow-scripts',
     "default-src 'none'",
-    "style-src 'self' 'unsafe-inline'",
-    'img-src data:',
+    "script-src 'unsafe-inline'",
+    "style-src 'unsafe-inline'",
+    'img-src data: blob:',
     "form-action 'none'",
     "base-uri 'none'",
     "frame-ancestors 'self'",
@@ -114,12 +115,13 @@ export function applyResponseHeaders(res: Response, path: string, nonce: string)
     res.headers.set('cache-control', 'no-store')
   }
   if ((res.headers.get('content-type') ?? '').startsWith('text/html')) {
+    const scene = path.startsWith(SCENE_FRAME_PREFIX)
     res.headers.set(
       'content-security-policy',
-      path.startsWith(SCENE_FRAME_PREFIX)
-        ? sceneFramePolicy()
-        : contentSecurityPolicy(nonce, { frames: path.startsWith('/deck/') })
+      scene ? sceneFramePolicy() : contentSecurityPolicy(nonce, { frames: path.startsWith('/deck/') })
     )
+    // A scene's scripts could name a host to have it resolved; the policy does not cover that.
+    if (scene) res.headers.set('x-dns-prefetch-control', 'off')
   }
 }
 
