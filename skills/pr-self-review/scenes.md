@@ -25,7 +25,9 @@ what markup alone cannot. Be inventive with the picture and plain with the facts
 - **At rest, it reads.** Motion shows how the outcome comes about, or plays the payoff; the scene's
   resting state already states the outcome. An author who glances mid-animation, or who asked for
   reduced motion, still gets it. `on-pick` elements stay hidden until the pick, so they decorate
-  (a stamp, a check) and never carry the verdict.
+  (a stamp, a check) and never carry the verdict. Motion is off for reduced motion and in the
+  preview, so an element that starts hidden and only an animation reveals stays hidden: style it
+  visible and animate from hidden (`from { opacity: 0 }`), as the kit's `enter` does.
 - **One verdict.** End on the outcome, cost included, in a few words: usually a `banner` toned
   `good`, `bad`, or `warn`; a `toast`, a `stamp`, or a last terminal line works when it belongs to
   the picture.
