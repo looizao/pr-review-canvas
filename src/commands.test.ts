@@ -4,6 +4,7 @@ import path from 'node:path'
 import {
   type CliIo,
   EXIT,
+  namedCanvasDir,
   parsePrepareTarget,
   reportFailure,
   runClean,
@@ -361,6 +362,18 @@ describe('prepare, publish, validate through the CLI layer', () => {
         },
       }),
     ])
+  })
+})
+
+describe('namedCanvasDir', () => {
+  it("reads publish's <canvasDir> and validate's --canvas wherever they sit, and never throws", () => {
+    expect(namedCanvasDir('publish', ['dir', '--agent', 'a', '--harness', 'other'])).toBe('dir')
+    expect(namedCanvasDir('publish', ['--agent', 'a', '--allow-stale', 'dir', '--model=m'])).toBe('dir')
+    expect(namedCanvasDir('publish', ['--agent', 'a', '--bogus'])).toBeUndefined()
+    expect(namedCanvasDir('validate', ['m.json', '--human', '--canvas', 'dir'])).toBe('dir')
+    expect(namedCanvasDir('validate', ['--canvas=dir', 'm.json'])).toBe('dir')
+    expect(namedCanvasDir('validate', ['m.json', '--canvas'])).toBeUndefined()
+    expect(namedCanvasDir('prepare', ['--pr', '42'])).toBeUndefined()
   })
 })
 

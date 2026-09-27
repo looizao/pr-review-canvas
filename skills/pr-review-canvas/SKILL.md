@@ -111,6 +111,12 @@ file, no comments, no markdown fence.
 Prefer the host's file-writing tool (such as Write) for the canvas directory reported by prepare.
 Shell heredocs may be blocked by write guards when that directory is under the user's home.
 
+If your file-writing tool cannot write to `canvasDir`, for example because you are isolated to a
+worktree, do not copy the file in with the shell. Run prepare again with
+`--data-dir <a directory you can write>/.pr-review` and use the `canvasDir` it prints: validate
+and publish find that data dir from it. Tell the user that `pr-review serve` shows this canvas
+only when started with that same `--data-dir`.
+
 ### 4. Check before publishing
 
 ```bash

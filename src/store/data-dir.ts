@@ -6,13 +6,29 @@ import { readText } from './atomic-json.js'
 /**
  * `.pr-review/` next to the git common dir, so every worktree of one clone shares canvases, PR
  * state, and settings. The common dir of a worktree is `<main checkout>/.git`, and its parent
- * is the main checkout root. An explicit override wins.
+ * is the main checkout root. An explicit override wins. Without one, validate and publish use the
+ * data dir that holds their `canvasDir`, so a canvas prepared under an override stays in it.
  */
-export function resolveDataDir(opts: { override?: string | undefined; commonDir: string }): string {
+export function resolveDataDir(opts: {
+  override?: string | undefined
+  canvasDir?: string | undefined
+  commonDir: string
+}): string {
   if (opts.override !== undefined && opts.override !== '') {
     return path.resolve(opts.override)
   }
-  return path.join(path.dirname(path.resolve(opts.commonDir)), '.pr-review')
+  const holding = opts.canvasDir === undefined ? undefined : dataDirOfCanvas(opts.canvasDir)
+  return holding ?? path.join(path.dirname(path.resolve(opts.commonDir)), '.pr-review')
+}
+
+/** `<dataDir>` for a path shaped `<dataDir>/repos/<repo>/canvases/<sha>`; undefined for any other. */
+function dataDirOfCanvas(canvasDir: string): string | undefined {
+  const canvases = path.dirname(path.resolve(canvasDir))
+  const repos = path.dirname(path.dirname(canvases))
+  if (path.basename(canvases) !== 'canvases' || path.basename(repos) !== 'repos') {
+    return undefined
+  }
+  return path.dirname(repos)
 }
 
 /** Creates the directory and the `.gitignore` with `*` so it never gets committed. */
