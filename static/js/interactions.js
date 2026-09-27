@@ -769,6 +769,8 @@ export function wireReview(root, session, opts = {}) {
     }
     const event = signoffEvent(dialog.getAttribute('data-event'))
     const body = signoffBody(dialog)
+    const editor = dialog.querySelector('textarea')
+    const submittedText = editor?.value ?? ''
     void runCommand(
       button,
       async () => {
@@ -776,6 +778,7 @@ export function wireReview(root, session, opts = {}) {
           event,
           body === '' ? undefined : body
         )
+        if (editor) editor.defaultValue = submittedText
         showSignoffResult(dialog, review)
         for (const warning of warnings) {
           dialog.querySelector('.signoff-result')?.append(document.createTextNode(` ${warning}`))

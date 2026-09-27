@@ -165,3 +165,109 @@ test('refresh protects unfinished text, including edits made while patches are l
   await expect(page.locator('#refresh')).toBeEnabled()
   await expect(editor).toHaveValue('Typed during refresh')
 })
+
+for (const activation of ['click', 'Enter'] as const) {
+  test(`diagram links preserve history on ${activation}`, async ({ page, chatServer }) => {
+    const server = await chatServer({
+      setup: async ({ ctx }) => {
+        const artifact = syntheticArtifact()
+        artifact.layers[0]!.diagram = {
+          mermaid: 'flowchart LR\n  A[Later change]',
+          links: { A: '#line:src/app.ts:13' },
+        }
+        ctx.fixtureArtifact = artifact
+      },
+    })
+    await page.goto(server.url)
+    const node = page.locator('.diagram-body [data-link]').first()
+    await expect(node).toBeVisible()
+    if (activation === 'click') await node.click()
+    else await node.press('Enter')
+    await expect(page).toHaveURL(`${server.url}#line:src/app.ts:13`)
+    await expect(page.locator('#L-src_app_ts-new-13')).toBeInViewport()
+    await page.goBack()
+    await expect(page).toHaveURL(server.url)
+    await expect(node).toBeInViewport()
+    await page.goForward()
+    await expect(page.locator('#L-src_app_ts-new-13')).toBeInViewport()
+  })
+}
+
+for (const bodyState of ['generated', 'edited', 'posted'] as const) {
+  test(`refresh protects only unfinished review bodies: ${bodyState}`, async ({ page, reviewUrl }) => {
+    await page.goto(reviewUrl)
+    let release!: () => void
+    const waiting = new Promise<void>(resolve => {
+      release = resolve
+    })
+    await page.route('**/api/prs/42/patches', async route => {
+      const response = await route.fetch()
+      await waiting
+      await route.fulfill({ response })
+    })
+    const request = page.waitForRequest('**/api/prs/42/patches')
+    await page.locator('#refresh').click()
+    await request
+    await page.locator('#comment-review').click()
+    const dialog = page.locator('#signoff-dialog')
+    const post = dialog.locator('[data-act="signoff-post"]')
+    await expect(post).toBeEnabled()
+    if (bodyState !== 'generated') {
+      await page.locator('#signoff-body').fill('My review comment')
+    }
+    if (bodyState === 'posted') {
+      await post.click()
+      await expect(dialog.locator('.signoff-result')).toContainText('Posted')
+    }
+    let confirmations = 0
+    page.on('dialog', async prompt => {
+      confirmations++
+      await prompt.dismiss()
+    })
+    release()
+    await expect(page.locator('#refresh')).toBeEnabled()
+    expect(confirmations).toBe(bodyState === 'edited' ? 1 : 0)
+    if (bodyState === 'edited') {
+      await expect(page.locator('#signoff-body')).toHaveValue('My review comment')
+      await dialog.locator('[data-act="signoff-close"]').click()
+      await page.locator('#refresh').click()
+      await expect(page.locator('#refresh')).toBeEnabled()
+      expect(confirmations).toBe(1)
+    }
+    await expect(dialog).toHaveCount(0)
+  })
+}
+
+test('refresh stops regeneration polling before waiting for patches', async ({ page, chatServer }) => {
+  const server = await chatServer()
+  await page.clock.install()
+  await page.goto(server.url)
+  await page.locator('#regenerate').click()
+  await page.locator('#regenerate-dialog button[value="close"]').click()
+  let release!: () => void
+  const waiting = new Promise<void>(resolve => {
+    release = resolve
+  })
+  await page.route('**/api/prs/42/patches', async route => {
+    const response = await route.fetch()
+    await waiting
+    await route.fulfill({ response })
+  })
+  let polls = 0
+  page.on('request', request => {
+    if (request.url().endsWith('?poll=1')) polls++
+  })
+  const request = page.waitForRequest('**/api/prs/42/patches')
+  await page.locator('#refresh').click()
+  await request
+  const newer = syntheticArtifact()
+  newer.generatedAt = '2026-09-27T15:00:00.000Z'
+  newer.summary = 'Newly regenerated canvas'
+  server.ctx.fixtureArtifact = newer
+  await page.clock.runFor(5001)
+  release()
+  await expect(page.locator('#refresh')).toBeEnabled()
+  expect(polls).toBe(0)
+  await page.locator('#refresh').click()
+  await expect(page.locator('#overview .summary')).toHaveText(newer.summary)
+})

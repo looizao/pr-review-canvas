@@ -216,6 +216,7 @@ export class PrAppElement extends HTMLElement {
     if (!boot) {
       return
     }
+    this.stopPolling()
     const showsCanvas = bundle.artifact !== undefined && (bundle.status === 'ready' || this.viewStale)
     const staleSha = bundle.status === 'stale' ? bundle.stale?.canvasHeadSha : undefined
     const patches = showsCanvas
@@ -231,13 +232,12 @@ export class PrAppElement extends HTMLElement {
       : {}
     // Check after the requests finish, before tearing down the current screen: the reader may
     // have kept typing while the refresh was loading.
-    const hasUnfinishedText = [...this.querySelectorAll('.composer-box textarea, #msg')].some(
-      el => el instanceof HTMLTextAreaElement && el.value !== el.defaultValue
-    )
+    const hasUnfinishedText = [
+      ...this.querySelectorAll('.composer-box textarea, #msg, #signoff-dialog[open] textarea'),
+    ].some(el => el instanceof HTMLTextAreaElement && el.value !== el.defaultValue)
     if (hasUnfinishedText && !window.confirm('Discard unfinished text and update the review?')) {
       return
     }
-    this.stopPolling()
     this.diagrams?.stop()
     this.diagrams = null
     this.deepLinks?.stop()

@@ -45,6 +45,24 @@ export function followLink(href, root = document) {
 }
 
 /**
+ * Records an activated canvas link before scrolling, so Back restores the position being left.
+ * Initial loads and history replay use followLink without adding an entry.
+ * @param {string} href
+ * @param {ParentNode} [root]
+ * @param {Window} [view]
+ */
+export function navigateLink(href, root = document, view = window) {
+  try {
+    if (view.location.hash !== href) {
+      view.history.pushState(null, '', href)
+    }
+  } catch {
+    // A view without session history can still follow the link.
+  }
+  return followLink(href, root)
+}
+
+/**
  * @param {string} target
  * @param {ParentNode} root
  * @returns {boolean}
@@ -131,16 +149,7 @@ export function initDeepLinks(root, opts = {}) {
         return
       }
       event.preventDefault()
-      // Push before scrolling so Back restores the position we are leaving.
-      // pushState fires no hashchange; followLink performs the jump below.
-      try {
-        if (view.location.hash !== href) {
-          view.history.pushState(null, '', href)
-        }
-      } catch {
-        // A view without session history can still follow the link.
-      }
-      followLink(href, root)
+      navigateLink(href, root, view)
     },
     { signal: listeners.signal }
   )
