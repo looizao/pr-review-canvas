@@ -1,57 +1,60 @@
 # PR Review Canvas
 
-Review a GitHub pull request or GitLab merge request canvas: layers by topic, with grouped diffs,
-attention points, comments, and an optional AI chat. Everything runs locally at **http://localhost:3010**.
+Review GitHub pull requests and GitLab merge requests with diffs grouped by topic,
+attention points, comments, and optional AI chat. The review app runs locally at
+**http://localhost:3010**.
 
-## Quick start: author generates and self-reviews, reviewers review
+## Install
 
-### Author side
+You need Node.js 22+, npm, Git, and the CLI for your host:
 
-1. **Generate.** Before requesting review, run the installed skill in Claude Code or Codex:
+- GitHub: [GitHub CLI](https://cli.github.com). Sign in with `gh auth login`.
+- GitLab: [GitLab CLI (glab)](https://gitlab.com/gitlab-org/cli). Sign in with `glab auth login`.
+  For self-hosted GitLab whose hostname does not contain `gitlab`, set `PR_REVIEW_HOST=gitlab`.
 
-   ```text
-   /pr-review-canvas 123
-   ```
+Install the command globally:
 
-   Replace **123** with your PR number. The skill reads the PR, generates and validates the
-   canvas, then publishes a compressed canvas comment using your `gh` or `glab` login. It returns
-   a local review URL and the comment link. If you dealt a
-   [self-review deck](#settle-your-decisions-first-the-self-review-deck) first, the canvas takes
-   the decisions it settled.
-
-2. **Self-review.** Run `pr-review serve` and open the review URL. Each attention point says who
-   it is for: **yours** or **reviewer**. Settle each point marked yours: click **settle**,
-   write why it needs no reviewer decision ("nothing calls this API yet, so breaking it is fine"),
-   and save. The reason can also go out as a comment on the point's line. The canvas comment
-   updates at once, so the point leaves every reviewer's list, with your reason still readable.
-
-3. **Request review.** The canvas comment now says how many points are left for the reviewer and
-   how many you settled.
-
-If automatic sharing fails (including a canvas too large for one comment), the skill warns you
-and gives you a ZIP path. Drag that ZIP into the PR or MR description, wait for the upload, and
-save. This manual upload is only a fallback. See [Self-review](docs/reference.md#self-review)
-for the details.
-
-### Before you open the pull request
-
-To read your own change the way a reviewer will, generate a canvas for the work in your clone:
-
-```text
-/pr-review-canvas branch          # the current branch against the default branch
-/pr-review-canvas uncommitted     # the same, with your working-tree edits and new files on top
+```bash
+npm install -g @vintasoftware/pr-review-canvas
 ```
 
-Start `pr-review serve` and open **http://localhost:3010/review/branch** or
-**/review/uncommitted**. The two are separate reviews, so generating one leaves the other alone.
+To update an existing installation and its project skills, run `pr-review upgrade` from
+that project. See [upgrade options](docs/reference.md#upgrade-options).
 
-Nothing is posted anywhere: local work has no pull request, so the comment and sign-off commands
-stay off. You can still settle points. The settlements of a `branch` canvas follow it into the
-pull request's canvas wherever the code under them is unchanged; a snapshot of uncommitted work is
-on no branch, so its settlements stay with it. Add `--base <ref>` to compare against another
-branch. Committing after `branch`, or editing a file after `uncommitted`, moves the head: the next
-time you open the page or press refresh, the canvas is marked outdated and the page offers to
-generate it again.
+## Set up a project
+
+Run these commands in the repository you want to review:
+
+```bash
+cd /path/to/your-project
+pr-review install-skill
+pr-review doctor --all-checks
+```
+
+`install-skill` installs the generation skill for Claude Code and Codex in
+`.claude/skills/pr-review-canvas` and `.agents/skills/pr-review-canvas`.
+Commit these copies so your team can use them. Restart your coding agent if the skill
+does not appear. Repeat this setup for each project.
+
+`doctor --all-checks` checks your repository, host CLI login, local storage, installed
+skills, and `acpx` for AI Chat. Follow any hints it prints to fix failed checks.
+If only `acpx` is missing, you can still review canvases; install it below to enable chat.
+
+### Optional: AI Chat install
+
+To ask questions about a PR inside the canvas, install `acpx` globally:
+
+```bash
+npm install -g acpx@latest
+acpx --version
+pr-review doctor --all-checks
+```
+
+Install and sign in to Claude Code or Codex on the same machine. Start or restart the
+review server, then choose the **Chat agent** in **settings**. Chat uses that agent's account.
+See [AI Chat](docs/reference.md#ai-chat) for model settings and review checkouts.
+
+## Generate and review a canvas
 
 ### Settle your decisions first: the self-review deck
 
@@ -69,9 +72,8 @@ card shows each side's consequence in a sentence and a picture of where it lands
 terminal, the caller's code, a chart, or an animated diagram. `i` turns the card over to the
 reasons and the code. Before publishing, the skill runs `pr-review deck preview`, which
 screenshots every card with your installed Chrome, Chromium, or Edge, so it can look at what it
-drew. Open
-**http://localhost:3010/deck/branch** (or `/deck/uncommitted`, or `/deck/<pr-number>`) and work through the cards one at a
-time. At 1080p and above, the page never scrolls; on a phone the sides stack and you tap or drag.
+drew. Open **http://localhost:3010/deck/branch** (or `/deck/uncommitted`, or `/deck/<pr-number>`)
+and work through the cards one at a time. At 1080p and above, the page never scrolls; on a phone the sides stack and you tap or drag.
 A pull request works too: its head comes from the forge, so fixes reach the next deck once they
 are pushed.
 
@@ -98,233 +100,77 @@ again, so the next deck shows only the questions the fixes raised.
 When you then generate the pull request's canvas (`/pr-review-canvas <n>`), it takes what the
 decks for that pull request, or for its branch, settled. The canvas does not ask a settled decision
 again unless the code contradicts your pick; then the point is marked yours, to fix or to settle
-again. It raises the cards you skipped as reviewer points.
-Publishing it also posts every **PR comment** justification as your own review, one comment on the
-code each concerns. Pass `--skip-self-review-comments` to `pr-review publish` to keep them off; `sharing.canvasComment:
-false` keeps them off too.
+again. It raises the cards you skipped as reviewer points. Publishing it also posts every **PR
+comment** justification as your own review, one comment on the code each concerns. Pass
+`--skip-self-review-comments` to `pr-review publish` to keep them off; `sharing.canvasComment:
+false` keeps them off too. See [self-review deck](docs/reference.md#self-review-deck) for the
+commands and the rules the canvas is held to.
 
-### Review side
+### Self-reviewing your PRs
 
-Start the canvas server from the project you want to review:
+Run the installed skill in Claude Code or Codex, replacing `123` with your PR or MR number:
+
+```text
+/pr-review-canvas 123
+```
+
+The skill generates and validates the canvas, then shares it in a PR or MR comment using
+your `gh` or `glab` login. It returns a local review URL and the comment link.
+If you dealt a [self-review deck](#settle-your-decisions-first-the-self-review-deck) first, the
+canvas takes the decisions it settled.
+Anyone with access to the PR or MR can read the shared canvas.
+
+Start the server from your project:
 
 ```bash
 pr-review serve
 ```
 
-The server opens **http://localhost:3010** in your browser (pass `--no-open` to skip this). Enter a
-PR number (or follow a link to a local review), and leave the terminal running while you review.
-Stop the server with **Ctrl+C**. To use another port, run `pr-review serve --port 3011`.
+Open the review URL. For each attention point marked **yours**, click **settle** and
+explain why it needs no reviewer decision. Your reason stays visible to reviewers.
+Then request review from your team.
 
-## Install
+After pushing new commits, run `/pr-review-canvas 123` again to update the canvas.
+Reviewers click **refresh** to load it.
 
-You need Node.js 22+, npm, Git, and the CLI for your host:
+See [self-review](docs/reference.md#self-review) for settlement details and
+[manual sharing](docs/reference.md#automatic-sharing-and-zip-fallback) if automatic sharing fails.
 
-- GitHub: [GitHub CLI](https://cli.github.com). Sign in with `gh auth login`.
-- GitLab: [GitLab CLI (glab)](https://gitlab.com/gitlab-org/cli). Sign in with `glab auth login`.
-  Self-hosted GitLab whose hostname does not contain `gitlab` needs `PR_REVIEW_HOST=gitlab`.
+Before opening a PR, you can generate a canvas for your local work:
 
-Install the command globally once, for use in any project:
-
-```bash
-npm install -g @vintasoftware/pr-review-canvas
+```text
+/pr-review-canvas branch          # the current branch against the default branch
+/pr-review-canvas uncommitted     # includes working-tree edits and new files
 ```
 
-### Upgrade
+With `pr-review serve` running, open **http://localhost:3010/review/branch** or
+**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can settle
+attention points before sharing your work. Use `--base <ref>` to compare against another branch.
+See [local branch and uncommitted reviews](docs/reference.md#reviewing-before-the-pull-request-exists)
+for details.
 
-Run this from a project that has the skill installed:
+### Reviewing PRs
 
-```bash
-pr-review upgrade
-```
+Run `pr-review serve` from your clone of the project. It opens **http://localhost:3010**.
+Enter the PR or MR number to load the shared canvas, read the grouped diffs, and leave comments.
+Keep the terminal running while you review; stop the server with **Ctrl+C**.
 
-It updates pr-review, acpx, and the project's skill copies, after showing the plan and asking.
-Commit and push any refreshed skill copies so your team uses the same skill. `--yes` skips the
-question.
+## Documentation
 
-## Set up a project
-
-```bash
-cd /path/to/your-project
-pr-review install-skill
-pr-review doctor --all-checks
-```
-
-`install-skill` sets up **both Claude Code and Codex** in one command: `.claude/skills/pr-review-canvas`
-and `.agents/skills/pr-review-canvas`, respectively. These are portable copies you can commit to Git.
-`pr-review upgrade` refreshes them after the CLI changes. It also adds `.pr-review/settings.yml` to the
-project's `.gitignore`. Restart your coding agent if the skill does not appear. Repeat this setup for each project you want to review.
-
-`doctor` checks Git, your GitHub or GitLab remote, the matching CLI (`gh` or `glab`) and its login,
-write access to the local canvas directory, and whether installed skills match the current package.
-It prints a checklist, with `ok` or `failed` on each check and a hint under each failure, so a
-person and an agent read the same report. `--json` prints that report as one JSON line.
-`doctor --all-checks` also checks that `acpx` runs and reports its version. Exit code `0` means all
-checks passed.
-
-`serve` automatically runs the skill check and warns on stderr if a skill is missing, outdated,
-or modified. The warning includes the reinstall command and does not block startup.
-
-### Optional: AI Chat install
-
-To ask questions about a PR inside the canvas, install `acpx` globally:
-
-```bash
-npm install -g acpx@latest
-acpx --version
-pr-review doctor --all-checks
-```
-
-Install and sign in to either Claude Code or Codex on the same machine. Start (or restart)
-the review server, then choose the chat agent in **settings**. The chat uses that agent's account.
-You can review canvases without installing `acpx`.
-
-## Advanced usage
-
-See the [CLI and configuration reference](docs/reference.md) for detailed options and troubleshooting.
-
-### Export an existing canvas
-
-```bash
-pr-review export --pr 123
-```
-
-The command prints the zip's absolute path. `export` saves locally; `publish` also shares PR/MR
-canvases automatically as compressed comments.
-
-The zip contains `manifest.json` and `review.json`: the PR description, file/hunk metadata,
-and generated review notes. Publishing shares this information with everyone who can read the PR/MR. Each reviewer gets source diffs from their own clone; chat history stays local.
-
-### Update an outdated canvas
-
-After pushing new commits, run `/pr-review-canvas 123` again, without `--force`. The run updates
-the previous canvas: content for untouched files is kept, and reviewers' progress on them follows.
-Publishing updates your canvas comment automatically. Reviewers click **refresh**.
-
-`--force` regenerates from a blank page, whether or not the commit already has a canvas. Use it to
-rewrite a canvas for the same commit. Set `canvas.incremental: false` to always start from a blank
-page. See [Incremental canvases](docs/reference.md#incremental-canvases).
-
-When the saved canvas describes a different PR head, **Canvas is outdated** appears at
-the top. You can still read the older canvas, with its commit and distance shown; posting
-from that view is disabled. Click **refresh** to check GitHub or GitLab for changes and a newer canvas.
-Click **dismiss** to close the bar until the head moves again.
-
-A head whose diff is identical to the canvas's does not outdate it: after **Update branch**
-merged `main` in without touching the changed files, for example, the canvas still applies
-and the page says so. Set `canvas.keepForIdenticalDiff: false` in the project config to treat
-every commit as a new head.
-
-## Configuration
-
-### User-local preferences
-
-Your appearance, reading level, layer view, and AI Chat preferences are saved in
-`.pr-review/settings.yml` in your local project directory. This file is ignored by Git, so each
-teammate can use their own settings.
-
-Use **skin** and **theme** in the header to change the appearance, and **Hide code by default**
-in the settings dialog to choose how much code a review hides when it opens. Set **Show layers**
-to **one at a time** in the same dialog to read the overview or a single layer at once, moving
-between layers with the rail or the `j` and `k` keys.
-
-Two separate settings pick models, and neither affects the other:
-
-| What it controls  | Where you set it                                                              | Scope   |
-| ----------------- | ----------------------------------------------------------------------------- | ------- |
-| AI Chat           | **Chat agent** and **Chat model** in **settings** (`.pr-review/settings.yml`) | You     |
-| Canvas generation | `generation.models` in `pr-review.config.yml`                                 | Project |
-
-For AI Chat, open **settings** and, under **AI Chat**, choose Claude Code or Codex as the
-**Chat agent** and optionally enter a **Chat model** ID. Leave the chat model blank to use the
-agent's default. A chat model ID runs as the newest model of its family (`claude-opus-4-8` runs as
-`opus`); write `pin:claude-opus-4-8` to use that exact model. See
-[Model families](docs/reference.md#model-families). You can also adjust the reply timeout and
-maximum turns. Click **Test agent** to check the connection, then **save**.
-
-AI Chat reads code from a review checkout: a copy of the repository at the reviewed commit,
-separate from your own checkout, so answers describe the pull request's code whatever branch you
-are on. The **Checkouts** tab of the settings dialog controls it, and `pr-review clean` removes
-idle ones. See [Review checkouts](docs/reference.md#review-checkouts).
-
-Switching chat agents starts a new thread and keeps earlier threads. Server flags `--chat-agent`
-and `--chat-model` override your saved chat preferences for that run.
-
-### Shared project settings
-
-Edit `pr-review.config.yml` at the repository root and commit it to share settings with your team.
-It controls review rules, layers, generation mode and canvas generation models, test file patterns, prompt templates, and
-whether AI Chat is enabled. The settings dialog displays this configuration; edit the file to
-change it. See the [configuration reference](docs/reference.md#project-config).
-
-Canvas generation follows the [skill's model rules](skills/pr-review-canvas/SKILL.md#model-choice).
-Claude generates canvases with Opus by default. Set `generation.models` to pick another model for an
-agent in this project, for example `claude: sonnet` or `codex: gpt-6-sol`. Any other agent with no
-entry keeps the model of the session that runs the skill.
-The skill passes the value to its host as written, so chat model families and `pin:` do not apply,
-and the chat settings do not change it. The settings dialog lists it under **Canvas generation**.
-
-### Project prompt templates
-
-Customize generation and AI Chat prompts with the `prompts` map in your project's
-`pr-review.config.yml`:
-
-```yaml
-prompts:
-    generation-format.md: review-prompts/generation-format.md
-    generation-surfacing.md: review-prompts/generation-surfacing.md
-    chat-seed.md: review-prompts/chat-seed.md
-```
-
-Copy the installed templates to start editing (for an npm global install):
-
-```bash
-mkdir -p review-prompts
-cp "$(npm root -g)/@vintasoftware/pr-review-canvas/prompts/"*.md review-prompts/
-```
-
-Edit the copies and configure only the templates you want to replace. Paths are relative
-to the project root. Omitted entries use the bundled defaults. Keep each template's
-`{{TOKENS}}`, including `{{FORMAT}}` in generation wrappers. Commit the config and
-referenced files together.
-
-Run `prepare` again to apply generation edits (use `--force` for an existing canvas).
-Restart the server after changing the config; chat template edits apply to new threads.
-
-See the [prompt template reference](docs/reference.md#prompt-templates) for supported keys,
-path rules, validation, and upgrades.
-
-## Website
-
-The [project website](https://vintasoftware.github.io/pr-review-canvas/) introduces the review workflow with a real PR walkthrough. See [website development and publishing](docs/website.md) for local preview commands and the GitHub Pages deployment workflow.
+- [CLI and configuration reference](docs/reference.md): command options and troubleshooting.
+- [Project settings](docs/reference.md#project-config) and [prompt templates](docs/reference.md#prompt-templates): customize generation and review rules.
+- [Review controls](docs/reference.md#review-controls): navigation, comments, and sign-off.
+- [AI Chat](docs/reference.md#ai-chat): setup and review checkouts.
+- [Local preferences](docs/reference.md#local-settings-and-storage): appearance and chat settings.
+- [Incremental canvases](docs/reference.md#incremental-canvases): updates and saved review progress.
+- [Export and import](docs/reference.md#export-and-import-options): save and share canvases manually.
+- [Project website](https://vintasoftware.github.io/pr-review-canvas/): an interactive review walkthrough.
 
 ## Contributing
 
-In a clone of this tool, use pnpm for the shared lockfile and development checks:
-
-```bash
-corepack pnpm --version
-corepack pnpm install --frozen-lockfile
-corepack pnpm hooks:install
-corepack pnpm exec playwright install --with-deps chromium
-corepack pnpm verify
-corepack pnpm start --repo /path/to/your-project
-```
-
-The pre-commit hook runs `pnpm precommit`: lint, formatting, strict type checks, and tests.
-Any failure blocks the commit. Run `pnpm hooks:install`
-once per clone to enable it. Use `pnpm lint:fix` and `pnpm format` to apply automatic fixes.
-CI runs the same checks through `pnpm verify`, with coverage executing the unit tests once.
-
-Run the full `pnpm verify` before pushing. Keep branch coverage at least 96% when adding or
-changing behavior, leaving a margin above CI's 95% minimum. Cover meaningful failure and boundary
-cases rather than lowering thresholds. Each CI job uploads `coverage-node-<version>` with branch
-locations and a summary; locally, these reports are in `coverage/` after `pnpm coverage`.
-
-Run `pr-review --help` for CLI commands, or `pr-review <command> --help` for one command's flags.
-Local data goes in the project's `.pr-review/`
-directory; keep it out of Git.
-
-See [Publishing to npm](docs/publishing.md) for release checks and first-publish instructions.
+See the [contributor guide](docs/contributing.md) for development setup and checks,
+[website guide](docs/website.md) for previews and deployment, and
+[publishing guide](docs/publishing.md) for releases.
 
 ## License
 
