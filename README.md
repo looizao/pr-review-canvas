@@ -28,7 +28,7 @@ Run these commands in the repository you want to review:
 ```bash
 cd /path/to/your-project
 pr-review install-skill
-pr-review doctor
+pr-review doctor --all-checks
 ```
 
 `install-skill` installs the generation skill for Claude Code and Codex in
@@ -36,14 +36,27 @@ pr-review doctor
 Commit these copies so your team can use them. Restart your coding agent if the skill
 does not appear. Repeat this setup for each project.
 
-`doctor` checks your repository, host CLI login, local storage, and installed skills.
-Follow any hints it prints to fix failed checks.
+`doctor --all-checks` checks your repository, host CLI login, local storage, installed
+skills, and `acpx` for AI Chat. Follow any hints it prints to fix failed checks.
+If only `acpx` is missing, you can still review canvases; install it below to enable chat.
 
-For optional chat inside the canvas, follow the [AI Chat setup](docs/reference.md#ai-chat).
+### Optional: AI Chat install
+
+To ask questions about a PR inside the canvas, install `acpx` globally:
+
+```bash
+npm install -g acpx@latest
+acpx --version
+pr-review doctor --all-checks
+```
+
+Install and sign in to Claude Code or Codex on the same machine. Start or restart the
+review server, then choose the **Chat agent** in **settings**. Chat uses that agent's account.
+See [AI Chat](docs/reference.md#ai-chat) for model settings and review checkouts.
 
 ## Generate and review a canvas
 
-### Authors
+### Self-reviewing your PRs
 
 Run the installed skill in Claude Code or Codex, replacing `123` with your PR or MR number:
 
@@ -71,13 +84,24 @@ Reviewers click **refresh** to load it.
 See [self-review](docs/reference.md#self-review) for settlement details and
 [manual sharing](docs/reference.md#automatic-sharing-and-zip-fallback) if automatic sharing fails.
 
-### Reviewers
+Before opening a PR, you can generate a canvas for your local work:
+
+```text
+/pr-review-canvas branch          # the current branch against the default branch
+/pr-review-canvas uncommitted     # includes working-tree edits and new files
+```
+
+With `pr-review serve` running, open **http://localhost:3010/review/branch** or
+**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can settle
+attention points before sharing your work. Use `--base <ref>` to compare against another branch.
+See [local branch and uncommitted reviews](docs/reference.md#reviewing-before-the-pull-request-exists)
+for details.
+
+### Reviewing PRs
 
 Run `pr-review serve` from your clone of the project. It opens **http://localhost:3010**.
 Enter the PR or MR number to load the shared canvas, read the grouped diffs, and leave comments.
 Keep the terminal running while you review; stop the server with **Ctrl+C**.
-
-To review work before opening a PR, see [local branch and uncommitted reviews](docs/reference.md#reviewing-before-the-pull-request-exists).
 
 ## Documentation
 
