@@ -44,7 +44,8 @@ pr-review publish <canvasDir> --agent <id> [--model <id>] --harness claude-code|
 
 `validate` and `publish` use the data directory that holds their canvas dir (`--canvas` and
 `<canvasDir>`), so a canvas prepared with `--data-dir <dir>` is validated and published there
-without the flag, and nothing is written outside it. For `publish`, a `--data-dir` or
+without the flag, and nothing is written outside it. Neither command creates a data directory:
+they work in the one prepare made. For `publish`, a `--data-dir` or
 `PR_REVIEW_DATA_DIR` that names another data directory fails with `CANVAS_ELSEWHERE` instead of
 writing to it.
 

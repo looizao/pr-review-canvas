@@ -20,8 +20,9 @@
   The skill no longer pins Sonnet.
 - `validate` and `publish` use the data dir that holds their canvas dir. A canvas prepared with
   `--data-dir` no longer lands in the main checkout's `.pr-review/` when publish is run without
-  the flag, and neither command creates that `.pr-review/` any more. A `--data-dir` that names
-  another data dir makes publish fail with `CANVAS_ELSEWHERE`. `publish --help` lists
+  the flag. Neither command creates a data dir any more, not even for a canvas dir outside one or
+  a missing `--canvas`. A `--data-dir` that names another data dir makes publish fail with
+  `CANVAS_ELSEWHERE`. `publish --help` lists
   `--data-dir`. The skill tells an agent that cannot write to `canvasDir` to prepare under a
   `--data-dir` it can write, instead of copying files in with the shell.
 - The settings dialog lists the project's canvas generation models under **Canvas generation** in
