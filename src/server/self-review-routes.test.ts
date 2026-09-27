@@ -130,7 +130,7 @@ describe('settling an attention point', () => {
     expect((await t.ctx.canvases.readIndex()).canvases[HEAD_SHA]?.revisedAt).toBe('2026-09-10T12:00:00.000Z')
     const shared = sharedComment(forge)
     expect(shared.settled).toEqual(body.settled)
-    expect(shared.text).toContain('**Settled by the author:** 1, each with its reason in the canvas.')
+    expect(shared.text).toContain('**Resolved by the author:** 1, each with its reason in the canvas.')
     // Nothing went out as a line comment.
     expect(
       forge.calls.some(c => c.path === 'repos/acme/widgets/pulls/42/comments' && c.kind === 'post')
@@ -159,7 +159,7 @@ describe('settling an attention point', () => {
       path: 'src/app.ts',
       line: 13,
       side: 'RIGHT',
-      body: '**Settled by the author:** other() has no test\n\nCovered by e2e.\n\n_from the pr-review canvas self-review_',
+      body: '**Resolved by the author:** other() has no test\n\nCovered by e2e.\n\n_from the pr-review canvas self-review_',
     })
   })
 
@@ -187,7 +187,7 @@ describe('settling an attention point', () => {
       c => c.kind === 'post' && c.path === 'repos/acme/widgets/pulls/42/comments'
     )
     expect(inline?.body).toMatchObject({
-      body: '**Settled by the author:** other() has no test\n\nCovered by e2e.',
+      body: '**Resolved by the author:** other() has no test\n\nCovered by e2e.',
     })
   })
 

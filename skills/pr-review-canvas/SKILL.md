@@ -225,9 +225,11 @@ its commit is on no branch, so generate a fresh one for the PR.
 
 The canvas is ready for its author before it is ready for reviewers. End your report of a PR/MR or
 local run by asking the user to self-review before requesting review: start `pr-review serve`,
-open `reviewUrl`, and settle each attention point marked **yours** with a one-line reason. Settling updates the canvas comment for a PR/MR run, so reviewers
-see only what is left; when `sharing.status` was `"off"`, the settlements stay in the local canvas. Say how many points you marked for the author and how many for the
-reviewer. Do not settle points yourself: the reason is the author's to give.
+open `reviewUrl`, and resolve each attention point marked **yours** with a one-line reason.
+Resolving updates the canvas comment for a PR/MR run, so reviewers see only what is left; when
+`sharing.status` was `"off"`, the resolutions stay in the local canvas. Say how many points you
+marked for the author and how many for the reviewer. Leave resolution to the author: the reason
+is theirs to give.
 
 ## Rules the validator enforces (and models tend to break)
 

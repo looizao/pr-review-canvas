@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { mkdir, realpath } from 'node:fs/promises'
+import { lock } from 'proper-lockfile'
 import type { CarriedOverInfo } from '../contract/api.js'
 import {
   type CanvasIndex,
@@ -93,6 +95,24 @@ export function createCanvasStore(repoRoot: string, git: Git): CanvasStore {
   const readIndex = async (): Promise<CanvasIndex> =>
     (await readJson(indexFile, CanvasIndexSchema)) ?? { canvases: {} }
 
+  // All index writers share this lock, including other CLI/server processes. Atomic renames
+  // keep readers safe; the lock keeps a writer from replacing another writer's newer entry.
+  const updateIndex = async (update: (index: CanvasIndex) => Promise<void>): Promise<void> => {
+    await mkdir(repoRoot, { recursive: true })
+    const root = await realpath(repoRoot)
+    const release = await lock(root, {
+      lockfilePath: path.join(root, 'index.json.lock'),
+      retries: { retries: 100, factor: 1, minTimeout: 100, maxTimeout: 100 },
+    })
+    try {
+      const index = await readIndex()
+      await update(index)
+      await writeJsonAtomic(indexFile, index)
+    } finally {
+      await release()
+    }
+  }
+
   /**
    * The canvas for this head, or the closest one `accept` allows. Commits the head was built on
    * come first, newest wins inside a relation, and a canvas off a discarded branch is the last
@@ -137,54 +157,51 @@ export function createCanvasStore(repoRoot: string, git: Git): CanvasStore {
     exists: async headSha => (await readText(path.join(canvasDir(headSha), 'review.json'))) !== null,
     readArtifact: headSha => readJson(path.join(canvasDir(headSha), 'review.json'), ReviewArtifactSchema),
     readManifest: headSha => readJson(path.join(canvasDir(headSha), 'manifest.json'), CanvasManifestSchema),
-    write: async (headSha, artifact, manifest, prNumber, flags) => {
-      const dir = canvasDir(headSha)
-      await writeJsonAtomic(path.join(dir, 'review.json'), artifact)
-      await writeJsonAtomic(path.join(dir, 'manifest.json'), manifest)
-      const index = await readIndex()
-      const entry: CanvasEntry = {
-        generatedAt: artifact.generatedAt,
-        source: artifact.source,
-      }
-      const number = prNumber ?? manifest.prNumber
-      if (number !== undefined) {
-        entry.prNumber = number
-      }
-      if (artifact.revisedAt !== undefined) {
-        entry.revisedAt = artifact.revisedAt
-      }
-      if (artifact.importedAt !== undefined) {
-        entry.importedAt = artifact.importedAt
-      }
-      if (artifact.basisCanvasSha !== undefined) {
-        entry.basisCanvasSha = artifact.basisCanvasSha
-      }
-      if (flags?.worktree === true) {
-        entry.worktree = true
-      }
-      index.canvases[headSha] = entry
-      await writeJsonAtomic(indexFile, index)
-    },
+    write: (headSha, artifact, manifest, prNumber, flags) =>
+      updateIndex(async index => {
+        const dir = canvasDir(headSha)
+        await writeJsonAtomic(path.join(dir, 'review.json'), artifact)
+        await writeJsonAtomic(path.join(dir, 'manifest.json'), manifest)
+        const entry: CanvasEntry = {
+          generatedAt: artifact.generatedAt,
+          source: artifact.source,
+        }
+        const number = prNumber ?? manifest.prNumber
+        if (number !== undefined) {
+          entry.prNumber = number
+        }
+        if (artifact.revisedAt !== undefined) {
+          entry.revisedAt = artifact.revisedAt
+        }
+        if (artifact.importedAt !== undefined) {
+          entry.importedAt = artifact.importedAt
+        }
+        if (artifact.basisCanvasSha !== undefined) {
+          entry.basisCanvasSha = artifact.basisCanvasSha
+        }
+        if (flags?.worktree === true) {
+          entry.worktree = true
+        }
+        index.canvases[headSha] = entry
+      }),
     findForPr: (prNumber, currentHeadSha) => rank(currentHeadSha, entry => canvasBelongsTo(entry, prNumber)),
     findForLocal: (key, currentHeadSha) => rank(currentHeadSha, entry => canvasBelongsTo(entry, key)),
-    revise: async (headSha, artifact) => {
-      const index = await readIndex()
-      const entry = index.canvases[headSha]
-      if (entry === undefined) {
-        throw new Error(`no canvas for ${headSha} to revise`)
-      }
-      await writeJsonAtomic(path.join(canvasDir(headSha), 'review.json'), artifact)
-      index.canvases[headSha] = { ...entry, revisedAt: artifact.revisedAt }
-      await writeJsonAtomic(indexFile, index)
-    },
-    attachPrNumber: async (headSha, prNumber) => {
-      const index = await readIndex()
-      const entry = index.canvases[headSha]
-      if (entry === undefined || entry.prNumber === prNumber) {
-        return
-      }
-      index.canvases[headSha] = { ...entry, prNumber }
-      await writeJsonAtomic(indexFile, index)
-    },
+    revise: (headSha, artifact) =>
+      updateIndex(async index => {
+        const entry = index.canvases[headSha]
+        if (entry === undefined) {
+          throw new Error(`no canvas for ${headSha} to revise`)
+        }
+        await writeJsonAtomic(path.join(canvasDir(headSha), 'review.json'), artifact)
+        index.canvases[headSha] = { ...entry, revisedAt: artifact.revisedAt }
+      }),
+    attachPrNumber: (headSha, prNumber) =>
+      updateIndex(async index => {
+        const entry = index.canvases[headSha]
+        if (entry === undefined || entry.prNumber === prNumber) {
+          return
+        }
+        index.canvases[headSha] = { ...entry, prNumber }
+      }),
   }
 }

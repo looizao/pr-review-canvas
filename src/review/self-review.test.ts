@@ -17,7 +17,7 @@ describe('tallyCanvas', () => {
     const artifact = syntheticArtifact()
     const settled = Object.fromEntries(artifact.points.map(p => [p.fingerprint, settlement]))
     expect(tallyMarkdown(tallyCanvas({ ...artifact, settled }))).toBe(
-      '**For the reviewer:** no open attention points.\n**Settled by the author:** 3, each with its reason in the canvas.'
+      '**For the reviewer:** no open attention points.\n**Resolved by the author:** 3, each with its reason in the canvas.'
     )
     expect(tallyMarkdown({ reviewer: { decide: 0, check: 2, fyi: 1 }, authorOpen: 0, settled: 0 })).toBe(
       '**For the reviewer:** 3 attention points to judge (2 check, 1 fyi).'

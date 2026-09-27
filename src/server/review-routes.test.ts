@@ -1041,8 +1041,8 @@ describe('postedFromPending', () => {
     ...over,
   })
 
-  it('only follows a draft that came from an attention point', () => {
-    expect(postedFromPending([draft()], [comment()])).toEqual([])
+  it('records all submitted drafts and preserves attention point attribution', () => {
+    expect(postedFromPending([draft()], [comment()])).toEqual([{ commentId: 5001 }])
     expect(postedFromPending([draft({ pointFingerprint: 'fp-1' })], [comment()])).toEqual([
       { commentId: 5001, pointFingerprint: 'fp-1' },
     ])

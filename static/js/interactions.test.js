@@ -680,7 +680,7 @@ describe('attention points', () => {
       root.querySelector('section.layer li.finding[data-fingerprint="fp-1"]')?.hasAttribute('hidden')
     ).toBe(true)
     expect(root.querySelector('.settled-list .dismissed-line')?.textContent).toContain(
-      '1 settled by the author'
+      '1 resolved by the author'
     )
     expect(root.querySelector('.settled-reason')?.textContent).toContain('Covered by the e2e suite.')
     expect(root.querySelector('.self-review-note')?.textContent).toContain('2 points are marked yours')

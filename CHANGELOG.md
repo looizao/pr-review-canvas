@@ -7,17 +7,17 @@
 - Every attention point names its audience: **author** (shown as **yours** to the author) or
   **reviewer**. The generation prompt asks for it; a canvas from an earlier version reads every
   point as the reviewer's.
-- The author can **settle** an author point with a reason; reviewer points stay on the
-  reviewer's list. The settlement is written into the canvas, the
+- The author can **resolve** an author point with a reason; reviewer points stay on the
+  reviewer's list. The resolution is written into the canvas, the
   canvas comment is shared again, and the point leaves every reviewer's list with the reason
   listed under the overview. The reason can also post as a comment on the point's line.
-  **reopen** takes it back. Only the pull request's author can settle (`NOT_AUTHOR` otherwise).
+  **reopen** takes it back. Only the pull request's author can resolve (`NOT_AUTHOR` otherwise).
 - The canvas comment counts the points left for the reviewer by level, the points the author
-  settled, and the ones the author has not settled yet.
-- Settlements survive regenerating the same commit, and follow carried points into an incremental
+  resolved, and the ones the author has not resolved yet.
+- Resolutions survive regenerating the same commit, and follow carried points into an incremental
   canvas. **Refresh** imports a canvas the author revised at the same commit.
-- The sharing switches apply to settling too. With `canvasComment` off, settling shares nothing,
-  and the author's note says the settlement stays in the canvas. With `mentionCanvas` off, the
+- The sharing switches apply to resolving too. With `canvasComment` off, resolving shares nothing,
+  and the author's note says the resolution stays in the canvas. With `mentionCanvas` off, the
   posted reason drops its `from the pr-review canvas` credit.
 - The skill ends by handing the author the self-review.
 
