@@ -67,8 +67,8 @@ const COMMANDS: CommandHelp[] = [
       { form: '--model <id>', detail: 'the model that generated it' },
       { form: '--harness claude-code|codex|other' },
       { form: '--allow-stale', detail: 'the prepared commit, after the head has moved' },
-      { form: '--data-dir <dir>', detail: 'default: the data dir that holds <canvasDir>' },
       { form: '--skip-self-review-comments', detail: 'leave the self-review justifications unposted' },
+      { form: '--data-dir <dir>', detail: 'default: the data dir that holds <canvasDir>' },
     ],
     notes: [
       '--agent and --model record who generated the canvas. generation.models in pr-review.config.yml sets the default generation model for the project.',
