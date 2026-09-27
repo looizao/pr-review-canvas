@@ -7,6 +7,7 @@ import { ACPX_BIN, createAgentRunner, findOnPath } from './acpx/acpx.js'
 import {
   type CliIo,
   EXIT,
+  namedCanvasDir,
   printErrorEnvelope,
   reportFailure,
   runDeck,
@@ -58,6 +59,7 @@ async function buildContext(
   repo: string | undefined,
   dataDir: string | undefined,
   extra: {
+    canvasDir?: string | undefined
     port?: string | undefined
     fixtureCanvas?: string | undefined
     chatAgent?: string | undefined
@@ -72,6 +74,7 @@ async function buildContext(
     {
       port: extra.port === undefined ? undefined : parsePort(extra.port, 0),
       dataDir,
+      canvasDir: extra.canvasDir,
       fixtureCanvas: extra.fixtureCanvas,
       chatAgent: extra.chatAgent,
       chatModel: extra.chatModel,
@@ -228,7 +231,7 @@ export async function main(argv: string[]): Promise<number> {
         return await upgradeCommand(rest)
       default: {
         const { repo, dataDir, rest: own } = splitCommonFlags(rest)
-        const ctx = await buildContext(repo, dataDir)
+        const ctx = await buildContext(repo, dataDir, { canvasDir: namedCanvasDir(command, own) })
         switch (command) {
           case 'prepare':
             return await runPrepare(ctx, own, io)

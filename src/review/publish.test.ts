@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readCanvasComment } from '../canvas/comment.js'
 import { readCanvasZip } from '../canvas/zip.js'
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { ReviewArtifactSchema, TEXT_CAPS } from '../contract/review-artifact.js'
 import {
@@ -293,6 +293,31 @@ describe('publish', () => {
     output.layers[0]?.tests.pop()
     await writeModel(canvasDir, output)
     expect((await publish(t.ctx, canvasDir, OPTS)).status).toBe('published')
+  })
+
+  it('refuses a canvas dir that is not where its data dir keeps it, and writes nothing', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    const log = await readFile(path.join(canvasDir, 'publish.log'), 'utf8')
+    // Prepared under one data dir, published by a context on another, as with a --data-dir that
+    // names the main checkout's while the canvas sits in a sandbox.
+    const other = await makeTestContext({ git: clone, gh: ghFor42() })
+    const err = await publish(other.ctx, canvasDir, OPTS).catch(e => e)
+    const written = await readdir(other.dataDir, { recursive: true })
+    await other.cleanup()
+    expect(err).toBeInstanceOf(PublishError)
+    expect(err).toMatchObject({
+      code: 'CANVAS_ELSEWHERE',
+      message: `${canvasDir} is not the canvas dir of ${HEAD_SHA.slice(0, 7)} in ${other.dataDir}; publishing would write ${other.ctx.canvases.canvasDir(HEAD_SHA)}`,
+      hint: 'publish the canvasDir prepare printed, with the --data-dir prepare used or none',
+    })
+    expect(written).toEqual([])
+    // A copy of the canvas dir is refused the same way.
+    const copy = path.join(t.dataDir, 'copy')
+    await cp(canvasDir, copy, { recursive: true })
+    await expect(publish(t.ctx, copy, OPTS)).rejects.toMatchObject({ code: 'CANVAS_ELSEWHERE' })
+    expect(await readFile(path.join(canvasDir, 'publish.log'), 'utf8')).toBe(log)
+    expect(await t.ctx.canvases.exists(HEAD_SHA)).toBe(false)
   })
 
   it('refuses when context.json is missing', async () => {

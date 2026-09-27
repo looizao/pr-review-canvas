@@ -54,7 +54,7 @@ const COMMANDS: CommandHelp[] = [
     name: 'validate <model.json|review.json>',
     summary: 'Check a model file against a canvas.',
     flags: [
-      { form: '--canvas <dir>' },
+      { form: '--canvas <dir>', detail: 'the canvasDir prepare printed; also sets the data dir' },
       { form: '--human', detail: 'print text instead of JSON' },
       { form: '--fix', detail: 'trim over-cap titles in place and report each one' },
     ],
@@ -68,9 +68,11 @@ const COMMANDS: CommandHelp[] = [
       { form: '--harness claude-code|codex|other' },
       { form: '--allow-stale', detail: 'the prepared commit, after the head has moved' },
       { form: '--skip-self-review-comments', detail: 'leave the self-review justifications unposted' },
+      { form: '--data-dir <dir>', detail: 'default: the data dir that holds <canvasDir>' },
     ],
     notes: [
       '--agent and --model record who generated the canvas. generation.models in pr-review.config.yml sets the default generation model for the project.',
+      'publish writes into the data dir <canvasDir> sits in. A --data-dir or PR_REVIEW_DATA_DIR that names another one fails with CANVAS_ELSEWHERE.',
     ],
   },
   {

@@ -7,6 +7,7 @@ import {
   parsePort,
   resolveOrigin,
   resolveRepoRoot,
+  type ServeFlags,
 } from './config.js'
 import { GITHUB_HOST } from './host/host.js'
 import { createFakeGit } from './testing/fakes.js'
@@ -113,6 +114,21 @@ describe('loadRuntimeConfig', () => {
         '/cwd'
       )
     ).toMatchObject({ port: 5000, dataDir: '/flag/data', fixtureCanvasPath: '/cwd/fixtures/review.json' })
+  })
+
+  it('takes the data dir holding a published canvas dir unless --data-dir or env names one', async () => {
+    const canvasDir = `/sandbox/.pr-review/repos/acme__widgets/canvases/${'a'.repeat(40)}`
+    const dataDir = async (flags: ServeFlags, env: NodeJS.ProcessEnv = {}) =>
+      (await loadRuntimeConfig(flags, env, git(), '/cwd')).dataDir
+    expect(await dataDir({ canvasDir })).toBe('/sandbox/.pr-review')
+    expect(await dataDir({ canvasDir: `${canvasDir}/` })).toBe('/sandbox/.pr-review')
+    expect(await dataDir({ canvasDir: 'x/repos/r/canvases/sha' })).toBe('/cwd/x')
+    expect(await dataDir({ canvasDir }, { PR_REVIEW_DATA_DIR: '/env/data' })).toBe('/env/data')
+    expect(await dataDir({ canvasDir, dataDir: '/flag/data' })).toBe('/flag/data')
+    // A directory that is not a canvas dir leaves the default.
+    expect(await dataDir({ canvasDir: '/tmp/copy' })).toBe('/work/repo/.pr-review')
+    expect(await dataDir({ canvasDir: '/d/repos/r/other/sha' })).toBe('/work/repo/.pr-review')
+    expect(await dataDir({ canvasDir: '/d/stuff/r/canvases/sha' })).toBe('/work/repo/.pr-review')
   })
 
   it('rejects a bad env port', async () => {
