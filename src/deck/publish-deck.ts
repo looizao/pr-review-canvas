@@ -149,6 +149,42 @@ async function currentHead(ctx: AppContext, review: ReviewKey): Promise<string> 
   return (await ctx.config.host.fetchPrMeta(ctx.gh, ctx.config.repo, review)).headSha
 }
 
+/** The deck as publish stores it: the cards with their sides shuffled, and what stays settled. */
+function buildDeck(
+  ctx: AppContext,
+  context: DeckContext,
+  cards: DecisionCard[],
+  generator: Deck['generator']
+): Deck {
+  // A settled decision asked again means the code still contradicts it: the new card replaces it.
+  const asked = new Set(cards.map(c => c.key))
+  return {
+    version: 1,
+    review: context.review,
+    headSha: context.headSha,
+    mergeBaseSha: context.mergeBaseSha,
+    baseRef: context.base,
+    headRef: context.headRef,
+    generatedAt: ctx.now().toISOString(),
+    generator,
+    cards: cards.map(shuffleSides),
+    settled: context.settled.filter(c => !asked.has(c.key)),
+  }
+}
+
+/**
+ * The deck publish would store for the model and scene files as written now, for the deck page's
+ * preview. It is never stored, so nothing the author picked is touched; an invalid model throws.
+ */
+export async function previewDeck(ctx: AppContext, review: ReviewKey): Promise<Deck> {
+  const context = await readDeckContext(ctx, review)
+  const checked = await checkDeckModel(context)
+  if (!checked.ok) {
+    throw new DeckInvalidError(checked.problems)
+  }
+  return buildDeck(ctx, context, checked.cards, { agent: 'preview' })
+}
+
 export interface PublishDeckResult {
   status: 'published'
   review: ReviewKey
@@ -177,20 +213,9 @@ export async function publishDeck(
       'prepare the deck again, or pass --allow-stale to publish it for the old head'
     )
   }
-  // A settled decision asked again means the code still contradicts it: the new card replaces it.
-  const asked = new Set(checked.cards.map(c => c.key))
-  const deck: Deck = {
-    version: 1,
-    review,
-    headSha: context.headSha,
-    mergeBaseSha: context.mergeBaseSha,
-    baseRef: context.base,
-    headRef: context.headRef,
-    generatedAt: ctx.now().toISOString(),
-    generator: opts.model === undefined ? { agent: opts.agent } : { agent: opts.agent, model: opts.model },
-    cards: checked.cards.map(shuffleSides),
-    settled: context.settled.filter(c => !asked.has(c.key)),
-  }
+  const generator =
+    opts.model === undefined ? { agent: opts.agent } : { agent: opts.agent, model: opts.model }
+  const deck = buildDeck(ctx, context, checked.cards, generator)
   await ctx.decks.writeDeck(review, deck)
   return {
     status: 'published',

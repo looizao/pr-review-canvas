@@ -22,13 +22,14 @@ import {
 } from './commands.js'
 import { ConfigError, loadRuntimeConfig, parsePort, readEnv, resolveRepoRoot } from './config.js'
 import { type ReviewArtifact, ReviewArtifactSchema } from './contract/review-artifact.js'
+import { headlessScreenshot } from './deck/preview-deck.js'
 import { createGit } from './git/git.js'
 import { printUsage } from './help.js'
 import { createHostClient } from './host/client.js'
 import { loadProjectConfig } from './project-config.js'
 import { checkSkill } from './review/doctor.js'
 import { type AppContext, createAppContext, readPackageVersion } from './server/context.js'
-import { startServer } from './server/node-server.js'
+import { startQuietServer, startServer } from './server/node-server.js'
 import { PACKAGE_ROOT } from './paths.js'
 import { readJson } from './store/atomic-json.js'
 import { ensureDataDir } from './store/data-dir.js'
@@ -238,7 +239,12 @@ export async function main(argv: string[]): Promise<number> {
           case 'import':
             return await runImport(ctx, own, io)
           case 'deck':
-            return await runDeck(ctx, own, io)
+            return await runDeck(ctx, own, io, {
+              env: process.env,
+              platform: process.platform,
+              startServer: startQuietServer,
+              screenshot: headlessScreenshot,
+            })
           case 'clean':
             return await runClean(ctx, own, io)
           default:

@@ -1,5 +1,6 @@
 // The self-review deck's API: the deck with its picks and the code each card is anchored to, one
-// route per pick, and the finish route that writes the fix list.
+// route per pick, the finish route that writes the fix list, and the preview of a deck not yet
+// published.
 import { Hono } from 'hono'
 import {
   type Deck,
@@ -8,8 +9,10 @@ import {
   type PickBody,
   PickBodySchema,
 } from '../../contract/deck.js'
-import { keyLabel, parseReviewKey, type ReviewKey } from '../../contract/review-key.js'
+import { isLocalKey, keyLabel, parseReviewKey, type ReviewKey } from '../../contract/review-key.js'
 import { renderFixList, summarizePicks, type FixListSummary } from '../../deck/fix-list.js'
+import { DeckInvalidError, previewDeck } from '../../deck/publish-deck.js'
+import { formatDeckProblem } from '../../deck/validate-deck.js'
 import { hunkForLine, splitHunks } from '../../git/patch-lines.js'
 import type { Derived } from '../../store/derived-store.js'
 import type { AppContext } from '../context.js'
@@ -59,6 +62,22 @@ async function requireDeck(ctx: AppContext, key: ReviewKey): Promise<Deck> {
     )
   }
   return deck
+}
+
+/** The deck the work files would publish; an invalid model answers with its problems. */
+export async function requirePreview(ctx: AppContext, key: ReviewKey): Promise<Deck> {
+  try {
+    return await previewDeck(ctx, key)
+  } catch (err) {
+    if (!(err instanceof DeckInvalidError)) throw err
+    throw new AppError(
+      'DECK_INVALID',
+      err.message,
+      422,
+      `run \`pr-review deck validate ${isLocalKey(key) ? `--${key}` : `--pr ${key}`} --human\` and fix what it prints`,
+      err.problems.map(formatDeckProblem)
+    )
+  }
 }
 
 function excerptFor(card: DecisionCard, derived: Derived | null): CardExcerpt | null {
@@ -144,6 +163,13 @@ export function deckRoutes(ctx: AppContext): Hono {
   app.get('/:key', async c => {
     const key = parseKey(c.req.param('key'))
     return c.json(await deckResponse(ctx, key, await requireDeck(ctx, key)))
+  })
+
+  // The deck as the work files stand, before it is published: no picks, and no fix list.
+  app.get('/:key/preview', async c => {
+    const deck = await requirePreview(ctx, parseKey(c.req.param('key')))
+    const response = await deckResponse(ctx, deck.review, deck)
+    return c.json({ ...response, picks: {}, summary: summarizePicks(deck, {}), fixes: null })
   })
 
   app.put('/:key/picks/:card', async c => {

@@ -18,6 +18,8 @@ import {
   drawerHtml,
   finishHtml,
   pipsHtml,
+  previewEndHtml,
+  sceneDiagnosis,
   stackHtml,
 } from './deck-view.js'
 import { esc } from './dom.js'
@@ -169,20 +171,36 @@ function sendSceneMode(frame) {
 }
 
 /**
- * Takes a scene frame's answer: how far its scene was shrunk, and where the sides stack, the
- * height it needs. The frame runs generated scripts, so its word is taken for its own size only.
+ * Takes a scene frame's word: how far its scene was shrunk and whether it was cut off, where the
+ * sides stack the height it needs, or an error its script threw. The frame runs generated scripts,
+ * so its word is taken for its own size and its own preview note only.
  * @param {HTMLIFrameElement} frame
  * @param {unknown} data
  */
-function takeSceneSize(frame, data) {
-  const size = /** @type {{ scene?: unknown, zoom?: unknown, height?: unknown } | null} */ (data)
-  if (size?.scene !== 'size' || typeof size.zoom !== 'number' || !Number.isFinite(size.zoom)) return
-  frame.dataset['zoom'] = String(Math.min(1, Math.max(0, size.zoom)))
-  if (typeof size.height !== 'number' || !Number.isFinite(size.height)) return
-  // Only a changed height is written, so the resize this causes settles on the next answer.
-  const height = `${Math.round(Math.min(2000, Math.max(80, size.height)))}px`
-  if (frame.style.getPropertyValue('--scene-height') !== height)
-    frame.style.setProperty('--scene-height', height)
+function takeSceneMessage(frame, data) {
+  const said =
+    /** @type {{ scene?: unknown, zoom?: unknown, height?: unknown, cut?: unknown, message?: unknown } | null} */ (
+      data
+    )
+  if (said?.scene === 'error' && typeof said.message === 'string') {
+    frame.dataset['error'] = said.message.slice(0, 200)
+  } else if (said?.scene === 'size' && typeof said.zoom === 'number' && Number.isFinite(said.zoom)) {
+    frame.dataset['zoom'] = String(Math.min(1, Math.max(0, said.zoom)))
+    frame.dataset['cut'] = String(said.cut === true)
+    if (typeof said.height === 'number' && Number.isFinite(said.height)) {
+      // Only a changed height is written, so the resize this causes settles on the next answer.
+      const height = `${Math.round(Math.min(2000, Math.max(80, said.height)))}px`
+      if (frame.style.getPropertyValue('--scene-height') !== height)
+        frame.style.setProperty('--scene-height', height)
+    }
+  } else {
+    return
+  }
+  const note = frame.parentElement?.querySelector('.deck-diag')
+  if (note instanceof HTMLElement) {
+    note.textContent = sceneDiagnosis(frame.dataset)
+    note.hidden = note.textContent === ''
+  }
 }
 
 /**
@@ -248,18 +266,29 @@ export async function bootDeck() {
   }
   const boot = readBootstrap(main)
   const api = `/api/deck/${encodeURIComponent(boot.review)}`
+  // `?preview` draws the deck the work files would publish, and saves nothing; `?card=<key>`
+  // deals that card first, so each card can be looked at on its own.
+  const query = new URLSearchParams(window.location.search)
+  const preview = query.has('preview')
   /** @type {DeckResponse} */
   let data
   try {
-    data = await fetchJson(api)
+    data = await fetchJson(preview ? `${api}/preview` : api)
   } catch (err) {
     showError(main, err)
     return
   }
   const { deck, excerpts } = data
   /** @type {import('./deck-view.js').CardView} */
-  const view = { review: boot.review, theme: document.documentElement.dataset['theme'] ?? 'auto' }
+  const view = { review: boot.review, theme: document.documentElement.dataset['theme'] ?? 'auto', preview }
   const state = createDeckState(deck.cards, data.picks)
+  const first = preview ? deck.cards.findIndex(c => c.key === query.get('card')) : -1
+  if (first > 0) {
+    const pickedAt = new Date().toISOString()
+    state.replacePicks(
+      Object.fromEntries(deck.cards.slice(0, first).map(c => [c.key, { choice: 'skip', pickedAt }]))
+    )
+  }
   let summary = data.summary
   let fixes = data.fixes
   let busy = false
@@ -269,7 +298,8 @@ export async function bootDeck() {
   /** @type {Map<string, PickChoice>} */
   const leftBy = new Map()
 
-  main.innerHTML = `<header class="deck-top">
+  main.classList.toggle('deck-preview', preview)
+  main.innerHTML = `${preview ? '<p class="deck-preview-bar" role="status">Preview of the deck as written, before it is published. Picks are not saved.</p>' : ''}<header class="deck-top">
 <a class="deck-brand" href="/"><img src="/static/brand.svg" width="22" height="22" alt="">Self-review</a>
 <span class="deck-target mono">${esc(deck.headRef)} → ${esc(deck.baseRef)}</span>
 <div class="deck-pips-slot"></div>
@@ -297,6 +327,11 @@ ${deckHelpHtml()}`
   }
 
   const finish = async () => {
+    if (preview) {
+      main.classList.add('deck-finished')
+      table.innerHTML = previewEndHtml(deck.cards.length)
+      return
+    }
     try {
       const done = await fetchJson(`${api}/finish?headSha=${deck.headSha}`, { method: 'POST' })
       const result = /** @type {{ path: string, markdown: string, summary: Summary }} */ (done)
@@ -327,8 +362,9 @@ ${deckHelpHtml()}`
   }
 
   /**
-   * Deals the top card, or the finish screen when none is left.
-   * @param {'left' | 'right' | 'down' | 'up' | 'deal'} from
+   * Deals the top card, or the finish screen when none is left. `still` shows it at once, as a
+   * preview dealt for a screenshot does.
+   * @param {'left' | 'right' | 'down' | 'up' | 'deal' | 'still'} from
    */
   const deal = async from => {
     closeDrawer()
@@ -351,7 +387,7 @@ ${deckHelpHtml()}`
       scene.addEventListener('load', () => sendSceneMode(scene))
     }
     card.focus({ preventScroll: true })
-    await flyIn(card, from)
+    if (from !== 'still') await flyIn(card, from)
   }
 
   /**
@@ -394,7 +430,9 @@ ${deckHelpHtml()}`
     if (choice === 'a' || choice === 'b') showStamp(el, choice, 1)
     const direction = exitDirection(choice)
     leftBy.set(card.key, choice)
-    const saving = fetchJson(`${api}/picks/${encodeURIComponent(card.key)}`, { method: 'PUT', body })
+    const saving = preview
+      ? null
+      : fetchJson(`${api}/picks/${encodeURIComponent(card.key)}`, { method: 'PUT', body })
     state.record(card.key, {
       choice,
       pickedAt: new Date().toISOString(),
@@ -405,9 +443,11 @@ ${deckHelpHtml()}`
     if (choice === 'a' || choice === 'b') await payoff(el, choice)
     await flyOut(el, direction, from)
     try {
-      const saved = /** @type {{ picks: Record<string, Pick>, summary: Summary }} */ (await saving)
-      state.replacePicks(saved.picks)
-      summary = saved.summary
+      if (saving !== null) {
+        const saved = /** @type {{ picks: Record<string, Pick>, summary: Summary }} */ (await saving)
+        state.replacePicks(saved.picks)
+        summary = saved.summary
+      }
     } catch (err) {
       state.undo()
       toast(`Not saved: ${err instanceof Error ? err.message : String(err)}`)
@@ -427,16 +467,18 @@ ${deckHelpHtml()}`
     if (busy) return
     busy = true
     const key = /** @type {string} */ (state.undo())
-    try {
-      const saved = /** @type {{ picks: Record<string, Pick>, summary: Summary }} */ (
-        await fetchJson(`${api}/picks/${encodeURIComponent(key)}?headSha=${deck.headSha}`, {
-          method: 'DELETE',
-        })
-      )
-      state.replacePicks(saved.picks)
-      summary = saved.summary
-    } catch (err) {
-      toast(`Not undone: ${err instanceof Error ? err.message : String(err)}`)
+    if (!preview) {
+      try {
+        const saved = /** @type {{ picks: Record<string, Pick>, summary: Summary }} */ (
+          await fetchJson(`${api}/picks/${encodeURIComponent(key)}?headSha=${deck.headSha}`, {
+            method: 'DELETE',
+          })
+        )
+        state.replacePicks(saved.picks)
+        summary = saved.summary
+      } catch (err) {
+        toast(`Not undone: ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
     busy = false
     await deal(exitDirection(leftBy.get(key) ?? 'skip'))
@@ -686,7 +728,7 @@ ${deckHelpHtml()}`
   window.addEventListener('message', event => {
     for (const frame of topCard()?.querySelectorAll('iframe[data-scene]') ?? []) {
       const scene = /** @type {HTMLIFrameElement} */ (frame)
-      if (event.source !== null && event.source === scene.contentWindow) takeSceneSize(scene, event.data)
+      if (event.source !== null && event.source === scene.contentWindow) takeSceneMessage(scene, event.data)
     }
   })
   // A scene frame is inert, so it takes no clicks or tabs, but its script can still focus itself.
@@ -747,7 +789,7 @@ ${deckHelpHtml()}`
     }
   })
 
-  await deal('deal')
+  await deal(first >= 0 ? 'still' : 'deal')
 }
 
 /**

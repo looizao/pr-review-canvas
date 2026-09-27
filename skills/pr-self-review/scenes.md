@@ -32,8 +32,9 @@ what markup alone cannot. Be inventive with the picture and plain with the facts
 - **Beside the line, not a copy of it.** The consequence line says it in a sentence; the scene
   shows the end state with the numbers.
 - **Words in the markup.** Labels, numbers, and the verdict are HTML, so the browser wraps and
-  aligns them. Scripts and SVG draw shapes and move things. You draw blind, and the browser's
-  layout is what keeps text from colliding; validation refuses a scene whose markup has no words.
+  aligns them. Scripts and SVG draw shapes and move things. You write a scene before you see it,
+  and the browser's layout is what keeps text from colliding; validation refuses a scene whose
+  markup has no words.
 - **A varied deck.** Pick each card's picture for that card. A deck of ten box-arrow-banner scenes
   reads as one card dealt ten times; when two pictures fit a card equally, take the one the deck
   has used least.
@@ -203,6 +204,9 @@ starting points; combine them, and invent your own when the decision calls for i
   scripts that use `fetch`, `XMLHttpRequest`, `WebSocket`, storage, `eval`, or workers.
 - **Size.** At most 12,000 characters per scene; most need far fewer.
 - **If a script throws,** what the markup shows is what the author sees.
+- **Seeing it.** `pr-review deck preview` screenshots every card as the deck page shows it, each
+  scene at rest (reduced motion), with a note under any scene that was shrunk to fit, cut off, or
+  whose script threw.
 - **No secrets, credentials, or protected health information,** even as sample data.
 
 ## The kit

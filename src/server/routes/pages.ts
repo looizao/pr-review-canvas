@@ -9,6 +9,7 @@ import { LOCAL_KEYS, parseReviewKey } from '../../contract/review-key.js'
 import { deckPage, homePage, reviewPage, sceneFrame } from '../html.js'
 import { SCENE_FRAME_PREFIX } from '../security.js'
 import { inlineIcons } from '../../deck/scene.js'
+import { requirePreview } from './deck-routes.js'
 
 /** How the page is painted, rendered onto the tag so nothing flashes before the app module runs. */
 export async function appearanceFor(ctx: AppContext, query: AppearanceQuery): Promise<Appearance> {
@@ -112,11 +113,17 @@ export function pageRoutes(ctx: AppContext): Hono<AppEnv> {
     )
   })
 
-  // One side's scene, in the frame the deck page shows it in.
+  // One side's scene, in the frame the deck page shows it in; with `?preview`, from the deck the
+  // work files would publish.
   app.get(`${SCENE_FRAME_PREFIX}:key/:card/:side`, async c => {
     const review = parseReviewKey(c.req.param('key'))
     const side = c.req.param('side')
-    const deck = review === null ? null : await ctx.decks.readDeck(review)
+    const deck =
+      review === null
+        ? null
+        : c.req.query('preview') !== undefined
+          ? await requirePreview(ctx, review)
+          : await ctx.decks.readDeck(review)
     const scene =
       side === 'a' || side === 'b'
         ? deck?.cards.find(card => card.key === c.req.param('card'))?.[side].scene

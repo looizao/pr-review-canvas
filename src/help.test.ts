@@ -18,7 +18,7 @@ const WHOLE = [
   '{ "error": { code, message, hint } }',
   '/review/uncommitted',
   '--skip-self-review-comments',
-  'deck prepare|validate|publish|fixes',
+  'deck prepare|validate|preview|publish|fixes',
   'install-skill',
   'pr-review 0.5.0',
 ]

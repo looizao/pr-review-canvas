@@ -2,7 +2,7 @@
 // The runtime of a scene frame. The server inlines it ahead of the scene, so it runs before the
 // scene's own markup and scripts. It fits the scene to the frame, plays the payoff when its side is
 // picked, and gives the scene's scripts `window.scene`. The frame has no origin and no network: it
-// hears only its deck page, and tells it only its size.
+// hears only its deck page, and tells it only its size and the errors its scripts throw.
 ;(() => {
   /** Below this a scene is too small to read, so it is cut off instead of shrunk further. */
   const MIN_ZOOM = 0.55
@@ -45,10 +45,17 @@
     }),
   })
 
-  /** @param {{ height?: number, zoom: number }} size */
+  /** @param {{ height?: number, zoom: number, cut?: boolean }} size */
   function tell(size) {
     window.parent.postMessage({ scene: 'size', ...size }, '*')
   }
+
+  // A script that throws leaves what the markup shows; the deck's preview says so.
+  /** @param {unknown} reason */
+  const told = reason =>
+    window.parent.postMessage({ scene: 'error', message: String(reason).slice(0, 200) }, '*')
+  window.addEventListener('error', event => told(event.message))
+  window.addEventListener('unhandledrejection', event => told(event.reason))
 
   /**
    * Fits the scene. On a desktop card, where the frame's room is fixed, a scene that does not fit
@@ -80,7 +87,7 @@
     const cut = fits * 0.97 < MIN_ZOOM
     main.style.alignContent = cut ? 'start' : ''
     if (cut) console.warn(`scene of side ${root.dataset['side']} is too big for its frame; it is cut off`)
-    tell({ zoom: Math.round(zoom * 100) / 100 })
+    tell({ zoom: Math.round(zoom * 100) / 100, cut })
   }
 
   window.addEventListener('message', event => {

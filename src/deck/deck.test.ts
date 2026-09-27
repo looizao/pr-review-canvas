@@ -458,6 +458,46 @@ describe('a deck from prepare to the fix list', () => {
     }
   })
 
+  it('previews the deck the work files would publish, before and apart from any published one', async () => {
+    t = await makeTestContext({ git: gitForLocal() })
+    const scene = '<div class="scene"><p>3 rows lost</p></div>'
+    await prepareAndWrite([card({ a: { ...card().a, scene } })])
+    const app = createApp(t.ctx)
+    const res = await app.request('/api/deck/uncommitted/preview', { headers: LOCAL })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as DeckResponse
+    expect(body.deck.cards.map(c => c.key)).toEqual(['empty-rows'])
+    expect(body.deck.generator).toEqual({ agent: 'preview' })
+    expect(body.picks).toEqual({})
+    expect(body.fixes).toBeNull()
+    expect(body.excerpts['empty-rows']?.path).toBe('src/app.ts')
+    // The preview is never stored: nothing is published, and the page's own route still has no deck.
+    expect(await t.ctx.decks.readDeck('uncommitted')).toBeNull()
+    expect((await app.request('/api/deck/uncommitted', { headers: LOCAL })).status).toBe(404)
+    // Its scenes come from the same work files.
+    const side = body.deck.cards[0]?.a.scene === undefined ? 'b' : 'a'
+    const frame = await app.request(`/deck-scene/uncommitted/empty-rows/${side}?preview`, { headers: LOCAL })
+    expect(frame.status).toBe(200)
+    expect(await frame.text()).toContain('<p>3 rows lost</p>')
+    expect((await app.request(`/deck-scene/uncommitted/empty-rows/${side}`, { headers: LOCAL })).status).toBe(
+      404
+    )
+
+    // An invalid model answers with its problems, one line each.
+    await prepareAndWrite([card({ line: 99 })])
+    const bad = await app.request('/api/deck/uncommitted/preview', { headers: LOCAL })
+    expect(bad.status).toBe(422)
+    const error = ((await bad.json()) as { error: { code: string; hint: string; issues: string[] } }).error
+    expect(error.code).toBe('DECK_INVALID')
+    expect(error.hint).toBe('run `pr-review deck validate --uncommitted --human` and fix what it prints')
+    expect(error.issues).toEqual([
+      expect.stringMatching(/^CARD_OUTSIDE_DIFF card:empty-rows: src\/app\.ts:99/),
+    ])
+    expect(
+      (await app.request(`/deck-scene/uncommitted/empty-rows/a?preview`, { headers: LOCAL })).status
+    ).toBe(422)
+  })
+
   it('reads scene files beside the model into their sides, and names files that fit no side', async () => {
     t = await makeTestContext({ git: gitForLocal() })
     const prepared = await prepareAndWrite([card({ b: { ...card().b, scene: '<p>inline</p>' } })])

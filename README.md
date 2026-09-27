@@ -50,8 +50,11 @@ The skill writes a short deck of **decision cards**, at most one per 100 changed
 more than ten. Each card is one choice your change makes that a reasonable engineer could make
 either way, such as handling a rare case or simplifying, or keeping backwards compatibility or
 breaking cleanly. Each card has two sides, A and B, and marks the one the code does now. The
-card shows each side's consequence in a sentence and a small picture of it; `i` turns the card
-over to the reasons and the code. Open
+card shows each side's consequence in a sentence and a picture of where it lands: the screen, the
+terminal, the caller's code, a chart, or an animated diagram. `i` turns the card over to the
+reasons and the code. Before publishing, the skill runs `pr-review deck preview`, which
+screenshots every card with your installed Chrome, Chromium, or Edge, so it can look at what it
+drew. Open
 **http://localhost:3010/deck/branch** (or `/deck/uncommitted`, or `/deck/<pr-number>`) and work through the cards one at a
 time. At 1080p and above, the page never scrolls; on a phone the sides stack and you tap or drag.
 A pull request works too: its head comes from the forge, so fixes reach the next deck once they

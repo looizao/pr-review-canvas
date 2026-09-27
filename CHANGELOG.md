@@ -20,7 +20,10 @@
   point that says `asks`, and the canvas page marks both. Publishing it posts
   the **PR comment** justifications as the author's own review, once; `--skip-self-review-comments`
   keeps them off.
-- New commands `pr-review deck prepare|validate|publish|fixes`. `install-skill`, `doctor`, and
+- New commands `pr-review deck prepare|validate|preview|publish|fixes`. `deck preview` screenshots
+  every card of the deck as written, before it is published, with an installed Chrome, Chromium,
+  or Edge (`PR_REVIEW_BROWSER` picks one), and notes any scene that was shrunk, cut off, or whose
+  script threw; `/deck/<n>?preview` shows the same on a running `serve`. `install-skill`, `doctor`, and
   `upgrade` now handle the two new skills alongside `pr-review-canvas`.
 - Each side of a card shows its consequence in a sentence and a **scene**: a picture of what
   happens if you pick it, drawn where the consequence lands: the screen a user sees, the terminal

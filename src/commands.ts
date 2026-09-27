@@ -14,6 +14,7 @@ import { isLocalKey, type LocalKey, type ReviewKey } from './contract/review-key
 import { HARNESSES, type ReviewArtifact, ReviewArtifactSchema } from './contract/review-artifact.js'
 import { formatValidationError, type ValidationReport } from './contract/validation.js'
 import { prepareDeck } from './deck/prepare-deck.js'
+import { type PreviewDeps, previewDeckCards } from './deck/preview-deck.js'
 import { checkDeckModel, DeckInvalidError, publishDeck, readDeckContext } from './deck/publish-deck.js'
 import { formatDeckProblem } from './deck/validate-deck.js'
 import { fetchPrRefs } from './git/pr-refs.js'
@@ -371,7 +372,7 @@ export async function runPublish(ctx: AppContext, argv: string[], io: CliIo): Pr
   return EXIT.ok
 }
 
-const DECK_VERBS = ['prepare', 'validate', 'publish', 'fixes'] as const
+const DECK_VERBS = ['prepare', 'validate', 'preview', 'publish', 'fixes'] as const
 
 function deckReview(values: {
   pr?: string | undefined
@@ -389,11 +390,17 @@ function deckReview(values: {
 }
 
 /**
- * `deck prepare|validate|publish|fixes`: the self-review deck of a pull request or a local review. Prepare writes
- * the prompt, validate checks the generated deck-model.json, publish stores it for the deck page,
- * and fixes names the fix list the page wrote when the author cleared the deck.
+ * `deck prepare|validate|preview|publish|fixes`: the self-review deck of a pull request or a local
+ * review. Prepare writes the prompt, validate checks the generated deck-model.json, preview
+ * screenshots its cards as the deck page would show them, publish stores it for the deck page, and
+ * fixes names the fix list the page wrote when the author cleared the deck.
  */
-export async function runDeck(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
+export async function runDeck(
+  ctx: AppContext,
+  argv: string[],
+  io: CliIo,
+  previewDeps: PreviewDeps
+): Promise<number> {
   const [verb, ...rest] = argv
   if (!DECK_VERBS.some(v => v === verb)) {
     throw new UsageError(`deck takes one of ${DECK_VERBS.join(', ')}`)
@@ -443,6 +450,18 @@ export async function runDeck(ctx: AppContext, argv: string[], io: CliIo): Promi
       return EXIT.ok
     }
     throw new DeckInvalidError(checked.problems)
+  }
+  if (verb === 'preview') {
+    const result = await previewDeckCards(ctx, review, previewDeps)
+    if (values.human !== true) {
+      printJson(io, result)
+    } else if (result.status === 'no-browser') {
+      io.stdout(`no browser to take screenshots with: ${result.hint ?? ''}`)
+      io.stdout(`preview: ${result.previewUrl}`)
+    } else {
+      for (const file of result.screenshots) io.stdout(file)
+    }
+    return EXIT.ok
   }
   if (values.agent === undefined || values.agent === '') {
     throw new UsageError('deck publish needs --agent <id>')

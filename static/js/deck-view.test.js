@@ -1,7 +1,16 @@
 // @ts-check
 // @vitest-environment happy-dom
 import { DECK_KEY_HELP } from './deck-state.js'
-import { cardHtml, deckHelpHtml, drawerHtml, finishHtml, pipsHtml, stackHtml } from './deck-view.js'
+import {
+  cardHtml,
+  deckHelpHtml,
+  drawerHtml,
+  finishHtml,
+  pipsHtml,
+  previewEndHtml,
+  sceneDiagnosis,
+  stackHtml,
+} from './deck-view.js'
 
 /** @typedef {import('./deck-state.js').DecisionCard} DecisionCard */
 /** @typedef {import('./deck-state.js').Pick} Pick */
@@ -199,6 +208,38 @@ describe('cardHtml', () => {
     const root = render(cardHtml(card(), { index: 0, total: 1 }))
     expect(root.querySelector('[data-pick="a"]')?.textContent).toBe('a pick A')
     expect(root.querySelector('[data-pick="b"]')?.textContent).toBe('b pick B')
+  })
+})
+
+describe('the preview of a deck not yet published', () => {
+  it('frames scenes from the work files, each with a slot for what went wrong', () => {
+    const scene = '<p>x</p>'
+    const html = cardHtml(
+      card({ a: { ...card().a, scene }, b: { ...card().b, scene } }),
+      { index: 0, total: 1 },
+      { review: '42', theme: 'light', preview: true }
+    )
+    const root = render(html)
+    const frame = root.querySelector('iframe[data-scene="a"]')
+    expect(frame?.getAttribute('src')).toBe('/deck-scene/42/rows/a?theme=light&preview')
+    expect(root.querySelector('[data-visual="a"] .deck-diag')?.hasAttribute('hidden')).toBe(true)
+    // The published deck has no such slot.
+    const published = render(cardHtml(card({ a: { ...card().a, scene } }), { index: 0, total: 1 }, {}))
+    expect(published.querySelector('.deck-diag')).toBeNull()
+  })
+
+  it('says when a scene was shrunk, cut off, or its script threw', () => {
+    expect(sceneDiagnosis({ zoom: '1', cut: 'false' })).toBe('')
+    expect(sceneDiagnosis({})).toBe('')
+    expect(sceneDiagnosis({ zoom: '0.72', cut: 'false' })).toBe('shrunk to 72% to fit')
+    expect(sceneDiagnosis({ zoom: '0.55', cut: 'true', error: 'boom' })).toBe(
+      'cut off: too big even at 55% · script error: boom'
+    )
+  })
+
+  it('ends on a screen that says nothing was saved', () => {
+    expect(render(previewEndHtml(1)).textContent).toContain('1 card, as the deck would be published')
+    expect(render(previewEndHtml(3)).textContent).toContain('3 cards')
   })
 })
 

@@ -25,6 +25,7 @@ import { PrNotFoundError } from './host/pr.js'
 import { SkillDirExistsError } from './review/install-skill.js'
 import { artifactToModelOutput } from './review/normalize.js'
 import { ModelInvalidError, PublishError } from './review/publish.js'
+import type { PreviewDeps } from './deck/preview-deck.js'
 import { makeTempDir, makeTestContext, type TestContext } from './testing/fakes.js'
 import { ghFor42, gitFor42, HEAD_SHA, syntheticArtifact } from './testing/synthetic.js'
 
@@ -544,25 +545,33 @@ describe('export and import through the CLI layer', () => {
   })
 })
 
+/** Preview dependencies with no browser installed, for the deck commands that never preview. */
+const NO_BROWSER: PreviewDeps = {
+  env: { PATH: '' },
+  platform: 'linux',
+  startServer: () => Promise.reject(new Error('no preview server expected')),
+  screenshot: () => Promise.reject(new Error('no screenshot expected')),
+}
+
 describe('deck through the CLI layer', () => {
   it('names one review, and a pull request brings its own base', async () => {
     t = await makeTestContext({ git: gitFor42(), gh: ghFor42() })
     const io = fakeIo()
-    await expect(runDeck(t.ctx, ['shuffle', '--branch'], io)).rejects.toThrow(
-      'deck takes one of prepare, validate, publish, fixes'
+    await expect(runDeck(t.ctx, ['shuffle', '--branch'], io, NO_BROWSER)).rejects.toThrow(
+      'deck takes one of prepare, validate, preview, publish, fixes'
     )
-    await expect(runDeck(t.ctx, ['prepare'], io)).rejects.toThrow(
+    await expect(runDeck(t.ctx, ['prepare'], io, NO_BROWSER)).rejects.toThrow(
       'deck needs --pr <n>, --branch, or --uncommitted'
     )
-    await expect(runDeck(t.ctx, ['prepare', '--pr', '42', '--branch'], io)).rejects.toThrow(
+    await expect(runDeck(t.ctx, ['prepare', '--pr', '42', '--branch'], io, NO_BROWSER)).rejects.toThrow(
       /separate reviews/
     )
-    await expect(runDeck(t.ctx, ['prepare', '--pr', '42', '--base', 'main'], io)).rejects.toThrow(
+    await expect(runDeck(t.ctx, ['prepare', '--pr', '42', '--base', 'main'], io, NO_BROWSER)).rejects.toThrow(
       /--pr takes no --base/
     )
-    expect(await runDeck(t.ctx, ['fixes', '--pr', '42'], io)).toBe(EXIT.ok)
+    expect(await runDeck(t.ctx, ['fixes', '--pr', '42'], io, NO_BROWSER)).toBe(EXIT.ok)
     expect(lastJson(io)).toEqual({ review: 42, path: t.ctx.decks.fixesPath(42), exists: false })
-    expect(await runDeck(t.ctx, ['prepare', '--pr', '42'], io)).toBe(EXIT.ok)
+    expect(await runDeck(t.ctx, ['prepare', '--pr', '42'], io, NO_BROWSER)).toBe(EXIT.ok)
     expect(lastJson(io)).toMatchObject({ status: 'prepared', review: 42, headSha: HEAD_SHA })
   })
 })
@@ -585,20 +594,22 @@ describe('deck validate and publish through the CLI layer', () => {
   it('says ok for a human, prints JSON for a tool, and one line per problem with exit 5', async () => {
     t = await makeTestContext({ git: gitFor42(), gh: ghFor42() })
     const io = fakeIo()
-    expect(await runDeck(t.ctx, ['prepare', '--pr', '42'], io)).toBe(EXIT.ok)
+    expect(await runDeck(t.ctx, ['prepare', '--pr', '42'], io, NO_BROWSER)).toBe(EXIT.ok)
     const { modelPath } = lastJson(io) as { modelPath: string }
 
     await writeTextAtomic(modelPath, JSON.stringify({ cards: [cardJson()] }))
     const human = fakeIo()
-    expect(await runDeck(t.ctx, ['validate', '--pr', '42', '--human'], human)).toBe(EXIT.ok)
+    expect(await runDeck(t.ctx, ['validate', '--pr', '42', '--human'], human, NO_BROWSER)).toBe(EXIT.ok)
     expect(human.out).toEqual(['ok: deck-model.json has 1 of at most 1 cards'])
     const tool = fakeIo()
-    expect(await runDeck(t.ctx, ['validate', '--pr', '42'], tool)).toBe(EXIT.ok)
+    expect(await runDeck(t.ctx, ['validate', '--pr', '42'], tool, NO_BROWSER)).toBe(EXIT.ok)
     expect(lastJson(tool)).toEqual({ ok: true, cards: 1, maxCards: 1 })
 
     await writeTextAtomic(modelPath, JSON.stringify({ cards: [cardJson({ line: 99 })] }))
     const bad = fakeIo()
-    const code = await runDeck(t.ctx, ['validate', '--pr', '42'], bad).catch(err => reportFailure(bad, err))
+    const code = await runDeck(t.ctx, ['validate', '--pr', '42'], bad, NO_BROWSER).catch(err =>
+      reportFailure(bad, err)
+    )
     expect(code).toBe(EXIT.invalid)
     expect(bad.out[0]).toMatch(/^CARD_OUTSIDE_DIFF card:rows: src\/app\.ts:99 \(new\) is not in the diff/)
     expect(lastJson(bad)).toMatchObject({ error: { code: 'DECK_INVALID' } })
@@ -607,16 +618,16 @@ describe('deck validate and publish through the CLI layer', () => {
   it('publishes only with an agent id, and prints where the deck is', async () => {
     t = await makeTestContext({ git: gitFor42(), gh: ghFor42() })
     const io = fakeIo()
-    await runDeck(t.ctx, ['prepare', '--pr', '42'], io)
+    await runDeck(t.ctx, ['prepare', '--pr', '42'], io, NO_BROWSER)
     const { modelPath } = lastJson(io) as { modelPath: string }
     await writeTextAtomic(modelPath, JSON.stringify({ cards: [cardJson()] }))
-    await expect(runDeck(t.ctx, ['publish', '--pr', '42'], io)).rejects.toThrow(
+    await expect(runDeck(t.ctx, ['publish', '--pr', '42'], io, NO_BROWSER)).rejects.toThrow(
       'deck publish needs --agent <id>'
     )
     expect(await t.ctx.decks.readDeck(42)).toBeNull()
-    expect(await runDeck(t.ctx, ['publish', '--pr', '42', '--agent', 'claude', '--model', 'm'], io)).toBe(
-      EXIT.ok
-    )
+    expect(
+      await runDeck(t.ctx, ['publish', '--pr', '42', '--agent', 'claude', '--model', 'm'], io, NO_BROWSER)
+    ).toBe(EXIT.ok)
     expect(lastJson(io)).toMatchObject({
       status: 'published',
       review: 42,
@@ -624,6 +635,62 @@ describe('deck validate and publish through the CLI layer', () => {
       deckUrl: 'http://localhost:3010/deck/42',
     })
     expect((await t.ctx.decks.readDeck(42))?.generator).toEqual({ agent: 'claude', model: 'm' })
+  })
+
+  it('previews each card with the browser it finds, or says where to look without one', async () => {
+    t = await makeTestContext({ git: gitFor42(), gh: ghFor42() })
+    const io = fakeIo()
+    await runDeck(t.ctx, ['prepare', '--pr', '42'], io, NO_BROWSER)
+    const { modelPath } = lastJson(io) as { modelPath: string }
+    await writeTextAtomic(modelPath, JSON.stringify({ cards: [cardJson()] }))
+
+    const none = fakeIo()
+    expect(await runDeck(t.ctx, ['preview', '--pr', '42', '--human'], none, NO_BROWSER)).toBe(EXIT.ok)
+    expect(none.out).toEqual([
+      expect.stringMatching(/^no browser to take screenshots with: install Chrome/),
+      'preview: http://localhost:3010/deck/42?preview',
+    ])
+
+    const loaded: string[] = []
+    let closed = false
+    const browser: PreviewDeps = {
+      env: { PATH: '', PR_REVIEW_BROWSER: '/opt/chrome' },
+      platform: 'linux',
+      startServer: async () => ({
+        origin: 'http://127.0.0.1:9',
+        close: async () => {
+          closed = true
+        },
+      }),
+      screenshot: async (bin, url, file) => {
+        loaded.push(`${bin} ${url}`)
+        await writeTextAtomic(file, 'png')
+      },
+    }
+    const tool = fakeIo()
+    expect(await runDeck(t.ctx, ['preview', '--pr', '42'], tool, browser)).toBe(EXIT.ok)
+    const shot = path.join(t.ctx.decks.workDir(42), 'preview', '01-rows.png')
+    expect(lastJson(tool)).toEqual({
+      review: 42,
+      cards: 1,
+      previewUrl: 'http://localhost:3010/deck/42?preview',
+      status: 'previewed',
+      screenshots: [shot],
+    })
+    expect(loaded).toEqual(['/opt/chrome http://127.0.0.1:9/deck/42?preview&card=rows&theme=light'])
+    expect(closed).toBe(true)
+    const human = fakeIo()
+    expect(await runDeck(t.ctx, ['preview', '--pr', '42', '--human'], human, browser)).toBe(EXIT.ok)
+    expect(human.out).toEqual([shot])
+    // A preview publishes nothing.
+    expect(await t.ctx.decks.readDeck(42)).toBeNull()
+
+    await writeTextAtomic(modelPath, JSON.stringify({ cards: [cardJson({ line: 99 })] }))
+    const bad = fakeIo()
+    const code = await runDeck(t.ctx, ['preview', '--pr', '42'], bad, browser).catch(err =>
+      reportFailure(bad, err)
+    )
+    expect(code).toBe(EXIT.invalid)
   })
 })
 

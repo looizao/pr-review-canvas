@@ -70,16 +70,29 @@ this file, in full before drawing the first one: it has what every scene must do
 pictures to pick from by where the consequence lands, techniques with SVG, canvas, and scripts, the
 frame's rules, the kit, and worked examples. Write each scene as its own file in `scenesDir`,
 `<card key>.a.html` or `<card key>.b.html`. Most authors decide from the card's front, so spend
-your invention there, and let validation name what the frame would block.
+your invention there, let validation name what the frame would block, and let the preview show you
+what you drew.
 
-## 3. Validate, then publish
+## 3. Validate, look, then publish
 
 ```bash
 pr-review deck validate (--pr <n> | --branch | --uncommitted) --human
 ```
 
 Fix every line it prints and run it again until it says `ok`. Caps are measured on visible text,
-so shorten wording rather than dropping a side's cost. Then:
+so shorten wording rather than dropping a side's cost. Then look at the cards before anyone else
+does; you drew the scenes blind:
+
+```bash
+pr-review deck preview (--pr <n> | --branch | --uncommitted) --human
+```
+
+It prints one screenshot per card, taken as the deck page shows it at 1920 × 1080 with each scene at
+rest. Read every one with your image-reading tool. A note under a scene says it was shrunk to fit,
+cut off, or its script threw; fix those, and any scene that overlaps, wraps its verdict, or reads
+slower than its consequence line, then preview again. When it prints `no browser`, open the preview
+URL it gives in a browser tool if you have one (it needs `pr-review serve` running); without one,
+go on. Nothing a preview does is published or saved. Then:
 
 ```bash
 pr-review deck publish (--pr <n> | --branch | --uncommitted) --agent <your agent id> [--model <model id>]
@@ -88,12 +101,6 @@ pr-review deck publish (--pr <n> | --branch | --uncommitted) --agent <your agent
 `DECK_STALE` means the pull request, the branch, or the working tree changed while you worked: offer to prepare
 again rather than passing `--allow-stale`. `DECK_INVALID` prints one line per problem; fix them and
 publish again, at most three times.
-
-When you can open a browser page and see it (a browser or screenshot tool), look at the deck
-before handing it over: start `pr-review serve` if it is not running, open the `deckUrl` at about
-1920 × 1080, and read every card's front, pressing `s` to move to the next card. Fix any scene
-that is cut off, overlapping, or slower to read than its consequence line, then publish again,
-even when nothing changed: publishing clears the skips you made while looking.
 
 ## 4. Hand over
 

@@ -43,8 +43,9 @@ function inline(text) {
 
 /**
  * What the page knows beyond the card itself: the review (for the scene frames' address), the
- * theme (so a scene matches the page), and the chunk of the diff the card is anchored to.
- * @typedef {{ review?: string, theme?: string, excerpt?: CardExcerpt | undefined }} CardView
+ * theme (so a scene matches the page), the chunk of the diff the card is anchored to, and whether
+ * this is the preview of a deck not yet published.
+ * @typedef {{ review?: string, theme?: string, excerpt?: CardExcerpt | undefined, preview?: boolean }} CardView
  */
 
 /**
@@ -60,11 +61,13 @@ function sideFrontHtml(card, side, view) {
   const content = card[side]
   const letter = side.toUpperCase()
   const now = card.current === side ? '<span class="deck-now">in code now</span>' : ''
-  const src = `/deck-scene/${encodeURIComponent(view.review ?? '')}/${encodeURIComponent(card.key)}/${side}?theme=${encodeURIComponent(view.theme ?? 'auto')}`
+  const src = `/deck-scene/${encodeURIComponent(view.review ?? '')}/${encodeURIComponent(card.key)}/${side}?theme=${encodeURIComponent(view.theme ?? 'auto')}${view.preview === true ? '&preview' : ''}`
+  // The preview says when a scene had to be shrunk, was cut off, or its script threw.
+  const diag = view.preview === true ? `<p class="deck-diag" data-diag="${side}" hidden></p>` : ''
   const scene =
     content.scene === undefined
       ? ''
-      : `<div class="deck-visual" data-visual="${side}"><iframe class="deck-scene" data-scene="${side}" sandbox="allow-scripts" src="${esc(src)}" title="Scene of side ${letter}" referrerpolicy="no-referrer" tabindex="-1" aria-hidden="true" inert></iframe></div>`
+      : `<div class="deck-visual" data-visual="${side}"><iframe class="deck-scene" data-scene="${side}" sandbox="allow-scripts" src="${esc(src)}" title="Scene of side ${letter}" referrerpolicy="no-referrer" tabindex="-1" aria-hidden="true" inert></iframe>${diag}</div>`
   return `<section class="deck-side deck-side-${side}" data-side="${side}"${content.scene === undefined ? ' data-plain' : ''} aria-label="Side ${letter}: ${esc(content.label)}">
 <header class="deck-side-h"><span class="deck-letter" aria-hidden="true">${letter}</span><h3>${esc(content.label)}</h3>${now}</header>
 <div class="deck-gist">${inline(content.consequence)}</div>
@@ -292,6 +295,30 @@ ${empty ? '' : next}
 ${list}
 ${picks.length === 0 ? '' : `<details class="deck-picks"><summary>Your picks</summary><ul class="plain">${picks.join('')}</ul></details>`}
 </section>`
+}
+
+/**
+ * The screen after the last card of a preview: nothing was saved, so there is no tally.
+ * @param {number} total
+ */
+export function previewEndHtml(total) {
+  return `<section class="deck-finish" aria-labelledby="deck-finish-h">
+<h2 id="deck-finish-h">End of the preview</h2>
+<p>${total} card${total === 1 ? '' : 's'}, as the deck would be published. Nothing was saved; <kbd>u</kbd> goes back a card.</p>
+</section>`
+}
+
+/**
+ * What a preview says under a scene, from what its frame reported; empty when all is well.
+ * @param {{ zoom?: string, cut?: string, error?: string }} report the frame's data attributes
+ */
+export function sceneDiagnosis(report) {
+  const zoom = Number(report.zoom ?? '1')
+  const notes = []
+  if (report.cut === 'true') notes.push('cut off: too big even at 55%')
+  else if (zoom < 1) notes.push(`shrunk to ${Math.round(zoom * 100)}% to fit`)
+  if (report.error !== undefined) notes.push(`script error: ${report.error}`)
+  return notes.join(' · ')
 }
 
 export const DECK_HELP_ID = 'deck-help'

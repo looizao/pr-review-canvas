@@ -74,7 +74,7 @@ const COMMANDS: CommandHelp[] = [
     ],
   },
   {
-    name: 'deck prepare|validate|publish|fixes',
+    name: 'deck prepare|validate|preview|publish|fixes',
     summary: 'The self-review deck: decision cards the author settles before review.',
     flags: [
       { form: '--pr <n>' },
@@ -82,12 +82,13 @@ const COMMANDS: CommandHelp[] = [
       { form: '--uncommitted' },
       { form: '--base <ref>', detail: 'prepare, with --branch or --uncommitted' },
       { form: '--force', detail: 'prepare' },
-      { form: '--human', detail: 'validate, print text instead of JSON' },
+      { form: '--human', detail: 'validate and preview, print text instead of JSON' },
       { form: '--agent <id> --model <id>', detail: 'publish' },
       { form: '--allow-stale', detail: 'publish' },
     ],
     notes: [
       'Decks show at /deck/<n>, /deck/branch, and /deck/uncommitted. fixes says where the fix list is, and whether it exists.',
+      'preview screenshots every card of the unpublished deck with an installed Chrome, Chromium, or Edge (PR_REVIEW_BROWSER picks one), and publishes nothing; /deck/<n>?preview shows it on a running serve.',
     ],
   },
   {

@@ -76,7 +76,8 @@ const test = base.extend<{ deckUrl: string }>({
         throw new Error('test server did not bind a port')
       }
       await use(`http://127.0.0.1:${address.port}/deck/uncommitted`)
-      expect(errors).toEqual([])
+      // A test that makes a scene's script throw on purpose says so in the message.
+      expect(errors.filter(message => !message.includes('deliberate'))).toEqual([])
     } finally {
       if ('closeAllConnections' in server) {
         server.closeAllConnections()
@@ -340,4 +341,37 @@ test('a scene’s script reaches neither the page, the network, nor the deck’s
   // The frame never took the focus, so the deck's keys still pick.
   await page.keyboard.press('b')
   await expect(page.locator('.deck-card h2')).toHaveText('Second')
+})
+
+test('previews the deck as written: says what went wrong under a scene, and saves no pick', async ({
+  page,
+  deckUrl,
+}) => {
+  // A scene whose script throws, past the runtime, as a generator's might.
+  await page.route('**/deck-scene/**', async route => {
+    const res = await route.fetch()
+    const body = (await res.text()).replace(
+      '</main>',
+      '<script>throw new Error("deliberate scene error")</script></main>'
+    )
+    await route.fulfill({ response: res, body })
+  })
+  await page.goto(`${deckUrl}?preview`)
+  await expect(page.locator('.deck-preview-bar')).toContainText('Preview of the deck as written')
+  await expect(page.locator('[data-diag="a"]')).toContainText('script error:')
+  await expect(page.locator('[data-diag="a"]')).toContainText('deliberate scene error')
+  const stacked = await page.evaluate(() => matchMedia('(max-width: 900px), (max-height: 700px)').matches)
+  if (!stacked) await expect(page.locator('[data-diag="b"]')).toContainText(/shrunk to \d+% to fit/)
+
+  // Picks move through the preview, but nothing is saved.
+  await page.keyboard.press('b')
+  await expect(page.locator('.deck-card h2')).toHaveText('Second')
+  const saved = await page.evaluate(async () => (await fetch('/api/deck/uncommitted')).json())
+  expect(saved.picks).toEqual({})
+
+  // `card` deals that card first, which is how `deck preview` takes one picture per card.
+  await page.goto(`${deckUrl}?preview&card=three`)
+  await expect(page.locator('.deck-card h2')).toHaveText('Third')
+  await page.keyboard.press('s')
+  await expect(page.locator('.deck-finish h2')).toHaveText('End of the preview')
 })
