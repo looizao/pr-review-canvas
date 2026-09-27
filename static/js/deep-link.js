@@ -4,9 +4,9 @@
 // so `…/review/278#line:path/to/file.ts:40` opens the page on that line and a click on a link
 // leaves a URL the reader can share. The jump itself is `jumpTo` in anchors.js; this module
 // decides when it runs.
-import { cssEscape, drawCardOf, jumpTo, keyFromPath, nearestRow } from './anchors.js'
+import { drawCardsOf, jumpTo, keyFromPath, nearestRow } from './anchors.js'
 import { flash, scrollIntoViewSafe } from './dom.js'
-import { fileAnchorId, layerAnchorId } from './keys.js'
+import { layerAnchorId } from './keys.js'
 import { parseLink } from './links.js'
 import { markRailCurrent } from './scroll-spy.js'
 
@@ -45,6 +45,24 @@ export function followLink(href, root = document) {
 }
 
 /**
+ * Records an activated canvas link before scrolling, so Back restores the position being left.
+ * Initial loads and history replay use followLink without adding an entry.
+ * @param {string} href
+ * @param {ParentNode} [root]
+ * @param {Window} [view]
+ */
+export function navigateLink(href, root = document, view = window) {
+  try {
+    if (view.location.hash !== href) {
+      view.history.pushState(null, '', href)
+    }
+  } catch {
+    // A view without session history can still follow the link.
+  }
+  return followLink(href, root)
+}
+
+/**
  * @param {string} target
  * @param {ParentNode} root
  * @returns {boolean}
@@ -75,9 +93,8 @@ function jumpToTarget(target, root) {
  */
 function jumpToLine(root, link) {
   const key = keyFromPath(link.path)
-  drawCardOf(root, link.path)
-  const card = root.querySelector(`#${cssEscape(fileAnchorId(key))}`)
-  const near = nearestRow(card ?? root, key, link.side, link.start)
+  drawCardsOf(root, link.path)
+  const near = nearestRow(root, key, link.side, link.start)
   if (near === null) {
     return false
   }
@@ -132,13 +149,7 @@ export function initDeepLinks(root, opts = {}) {
         return
       }
       event.preventDefault()
-      followLink(href, root)
-      // The URL stays shareable, and no second jump follows: replaceState fires no hashchange.
-      try {
-        view.history.replaceState(null, '', href)
-      } catch {
-        // A view without session history keeps the URL it had; the jump already happened.
-      }
+      navigateLink(href, root, view)
     },
     { signal: listeners.signal }
   )

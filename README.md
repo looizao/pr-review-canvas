@@ -99,8 +99,8 @@ again, so the next deck shows only the questions the fixes raised.
 
 When you then generate the pull request's canvas (`/pr-review-canvas <n>`), it takes what the
 decks for that pull request, or for its branch, settled. The canvas does not ask a settled decision
-again unless the code contradicts your pick; then the point is marked yours, to fix or to settle
-again. It raises the cards you skipped as reviewer points. Publishing it also posts every **PR
+again unless the code contradicts your pick; then the point is marked yours, to fix or to
+resolve. It raises the cards you skipped as reviewer points. Publishing it also posts every **PR
 comment** justification as your own review, one comment on the code each concerns. Pass
 `--skip-self-review-comments` to `pr-review publish` to keep them off; `sharing.canvasComment:
 false` keeps them off too. See [self-review deck](docs/reference.md#self-review-deck) for the
@@ -126,14 +126,14 @@ Start the server from your project:
 pr-review serve
 ```
 
-Open the review URL. For each attention point marked **yours**, click **settle** and
+Open the review URL. For each attention point marked **yours**, click **resolve** and
 explain why it needs no reviewer decision. Your reason stays visible to reviewers.
 Then request review from your team.
 
 After pushing new commits, run `/pr-review-canvas 123` again to update the canvas.
 Reviewers click **refresh** to load it.
 
-See [self-review](docs/reference.md#self-review) for settlement details and
+See [self-review](docs/reference.md#self-review) for resolution details and
 [manual sharing](docs/reference.md#automatic-sharing-and-zip-fallback) if automatic sharing fails.
 
 Before opening a PR, you can generate a canvas for your local work:
@@ -144,7 +144,7 @@ Before opening a PR, you can generate a canvas for your local work:
 ```
 
 With `pr-review serve` running, open **http://localhost:3010/review/branch** or
-**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can settle
+**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can resolve
 attention points before sharing your work. Use `--base <ref>` to compare against another branch.
 See [local branch and uncommitted reviews](docs/reference.md#reviewing-before-the-pull-request-exists)
 for details.

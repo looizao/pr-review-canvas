@@ -2,7 +2,7 @@
 // @vitest-environment happy-dom
 import { emptyState } from '../../src/contract/state.js'
 import { syntheticArtifact } from '../../src/testing/synthetic.js'
-import { dismissedListHtml, isSetAside, openPoints } from './points.js'
+import { dismissedListHtml, isSetAside, openPoints, pointCommandsHtml } from './points.js'
 import { createReviewSession } from './review-session.js'
 import {
   audiencePillHtml,
@@ -56,6 +56,24 @@ describe('what a reader sees', () => {
     expect(document.querySelector('.settled-reason code')?.textContent).toBe('e2e')
     expect(document.querySelector('.findings.settled')?.hasAttribute('hidden')).toBe(false)
     expect(document.querySelector('[data-act="point-unsettle"]')).toBeNull()
+  })
+
+  it('ignores old personal dismissals in self-review without resolving reviewer points', () => {
+    const dismissed = {
+      ...state,
+      dismissed: Object.fromEntries(artifact.points.map(p => [p.fingerprint, { at: 'x' }])),
+    }
+    setSelfReview(true, { [tests.fingerprint]: settlement })
+    expect(openPoints(artifact.points, dismissed)).toEqual([decide, debt])
+    expect(dismissedListHtml(artifact.points, dismissed, ctx)).toContain('hidden')
+    expect(pointCommandsHtml(debt)).toContain('>resolve</button>')
+    expect(pointCommandsHtml(debt)).not.toContain('point-dismiss')
+    expect(pointCommandsHtml(decide)).not.toContain('point-dismiss')
+    expect(pointCommandsHtml(decide)).not.toContain('point-settle')
+    expect(selfReviewNoteHtml(openPoints(artifact.points, dismissed))).toContain('1 point is marked yours')
+    setSelfReview(false, {})
+    expect(openPoints(artifact.points, dismissed)).toEqual([])
+    expect(pointCommandsHtml(debt)).toContain('point-dismiss')
   })
 
   it('hides the settled list and the note when there is nothing to show', () => {

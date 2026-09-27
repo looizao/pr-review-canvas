@@ -28,12 +28,16 @@ Who an attention point is for. An author point asks something the author can ans
 _Avoid_: Severity, priority
 
 **Self-review**:
-The author's pass over their own change before asking for review. It may start before the canvas, with a self-review deck that settles the change's open decisions; on the canvas, the author settles the attention points they can answer.
+The author's pass over their own change before asking for review. It may start before the canvas, with a self-review deck that settles the change's open decisions; on the canvas, the author resolves the attention points they can answer.
 _Avoid_: Self-approval, pre-review
 
-**Settled point**:
-An attention point the author answered with a reason in the canvas itself. It leaves every reader's list and stays readable with its reason; a dismissal, by contrast, is one reader's local mark.
-_Avoid_: Resolved, dismissed, closed
+**Resolved point**:
+An author attention point answered with a reason saved in the canvas. It leaves the open-point list and stays readable with its reason for anyone loading that canvas.
+_Avoid_: Dismissed, approved, closed
+
+**Dismissal**:
+A reviewer's personal mark that hides an attention point from their own list. It does not answer the point for other readers or complete the author's self-review.
+_Avoid_: Resolution, approval
 
 **Review progress**:
 The reviewer's record of which changes they have examined, kept against the canvas they examined them on rather than against a commit. Progress survives every later commit that canvas keeps applying to.

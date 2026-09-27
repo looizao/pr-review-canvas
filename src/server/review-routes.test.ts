@@ -853,17 +853,25 @@ describe('the pending review', () => {
     expect(gh.calls.filter(c => c.kind === 'post')).toEqual([])
   })
 
-  it('does not retry a successful post when its receipt read fails', async () => {
+  it('remembers consecutive successful submissions when their receipt reads fail', async () => {
     t = await contextWithCanvas(ghFor42({ postRoutes: POST_ROUTES }))
     const app = createApp(t.ctx)
-    await app.request(...post('/api/prs/42/pending', DRAFT))
-    const response = await app.request(...post('/api/prs/42/review', { event: 'COMMENT', body: 'a look' }))
-    expect(response.status).toBe(201)
-    const answer = await json<PostReviewResponse>(response)
-    expect(answer.review.id).toBe(7001)
-    expect(answer.comments).toEqual([])
-    expect(answer.warnings[0]).toContain('Review posted, but its comments could not be loaded')
-    expect(answer.state.pending).toEqual([])
+    for (const body of ['first submitted comment', 'second submitted comment']) {
+      await app.request(...post('/api/prs/42/pending', { ...DRAFT, body }))
+      const response = await app.request(...post('/api/prs/42/review', { event: 'COMMENT', body: 'a look' }))
+      expect(response.status).toBe(201)
+      const answer = await json<PostReviewResponse>(response)
+      expect(answer.review.id).toBe(7001)
+      expect(answer.comments).toEqual([])
+      expect(answer.warnings[0]).toContain('Review posted, but its comments could not be loaded')
+      expect(answer.state.pending).toEqual([])
+      expect(answer.state.submitted.at(-1)).toMatchObject({ ...DRAFT, body, headSha: HEAD_SHA })
+    }
+    // Re-reading persisted state after the second submission must retain both acknowledgements.
+    expect((await t.ctx.state.read(42)).submitted.map(draft => draft.body)).toEqual([
+      'first submitted comment',
+      'second submitted comment',
+    ])
   })
 
   it('keeps a comment locally and posts nothing while it waits', async () => {
@@ -1041,8 +1049,8 @@ describe('postedFromPending', () => {
     ...over,
   })
 
-  it('only follows a draft that came from an attention point', () => {
-    expect(postedFromPending([draft()], [comment()])).toEqual([])
+  it('records all submitted drafts and preserves attention point attribution', () => {
+    expect(postedFromPending([draft()], [comment()])).toEqual([{ commentId: 5001 }])
     expect(postedFromPending([draft({ pointFingerprint: 'fp-1' })], [comment()])).toEqual([
       { commentId: 5001, pointFingerprint: 'fp-1' },
     ])

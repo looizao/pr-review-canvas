@@ -10,6 +10,7 @@ import { layerAnchorId, pointAnchorId } from './keys.js'
 import { renderMarkdown } from './markdown.js'
 import {
   audiencePillHtml,
+  canDismissPoints,
   selfReviewNoteHtml,
   settleButtonHtml,
   settledListHtml,
@@ -37,7 +38,9 @@ export function pointsByLevel(points) {
  * @param {PrState | undefined} state
  */
 export function isSetAside(p, state) {
-  return state?.dismissed[p.fingerprint] !== undefined || settlementOf(p) !== undefined
+  return (
+    (canDismissPoints() && state?.dismissed[p.fingerprint] !== undefined) || settlementOf(p) !== undefined
+  )
 }
 
 /**
@@ -122,7 +125,7 @@ export function pointCommandsHtml(p, opts = {}) {
     sendCommandsHtml({ kind: 'point', id: p.id, postedUrl: opts.postedUrl, queued: opts.queued }) +
     askButtonHtml(pointContext(p)) +
     settle +
-    toggle +
+    (canDismissPoints() ? toggle : '') +
     '</span>'
   )
 }
@@ -205,7 +208,7 @@ export function pointCardHtml(p, ctx) {
 export function dismissedListHtml(points, state, ctx, expanded = false) {
   // A point the author settled is listed with its reason instead.
   const dismissed = points.filter(
-    p => state.dismissed[p.fingerprint] !== undefined && settlementOf(p) === undefined
+    p => canDismissPoints() && state.dismissed[p.fingerprint] !== undefined && settlementOf(p) === undefined
   )
   if (dismissed.length === 0) {
     return '<div class="dismissed-list" hidden></div>'

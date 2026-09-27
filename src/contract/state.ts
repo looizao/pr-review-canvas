@@ -63,6 +63,8 @@ export const PrStateSchema = z.preprocess(
      * of an older tool version has none, which reads as an empty list.
      */
     pending: z.array(PendingCommentSchema).default([]),
+    /** Submitted drafts, retained even when the forge's comment receipt could not be read. */
+    submitted: z.array(PendingCommentSchema).default([]),
     chat: z.object({ threads: z.array(ChatThreadSchema), activeThread: z.string().optional() }),
     updatedAt: z.string(),
   })
@@ -78,6 +80,7 @@ export function emptyState(updatedAt: string): PrState {
     posted: [],
     dismissed: {},
     pending: [],
+    submitted: [],
     chat: { threads: [] },
     updatedAt,
   }

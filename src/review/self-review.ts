@@ -51,10 +51,10 @@ export function tallyMarkdown(tally: CanvasTally): string {
       : `**For the reviewer:** ${plural(total, 'attention point')} to judge (${levels.join(', ')}).`,
   ]
   if (tally.settled > 0) {
-    lines.push(`**Settled by the author:** ${tally.settled}, each with its reason in the canvas.`)
+    lines.push(`**Resolved by the author:** ${tally.settled}, each with its reason in the canvas.`)
   }
   if (tally.authorOpen > 0) {
-    lines.push(`**Not yet settled by the author:** ${tally.authorOpen}.`)
+    lines.push(`**Not yet resolved by the author:** ${tally.authorOpen}.`)
   }
   return lines.join('\n')
 }
@@ -81,7 +81,7 @@ export function settlementCommentBody(
   mentionCanvas: boolean
 ): string {
   const credit = mentionCanvas ? '\n\n_from the pr-review canvas self-review_' : ''
-  return `**Settled by the author:** ${point.title}\n\n${reason.trim()}${credit}`
+  return `**Resolved by the author:** ${point.title}\n\n${reason.trim()}${credit}`
 }
 
 /**

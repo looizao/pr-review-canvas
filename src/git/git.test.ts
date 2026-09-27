@@ -117,6 +117,28 @@ describe('createGit (real adapter)', () => {
     }
   })
 
+  it('runs overlapping fetches of a moved branch without touching its remote-tracking ref', async () => {
+    const origin = await makeTempDir('pr-review-origin-')
+    const clone = await makeTempDir('pr-review-clone-')
+    try {
+      await g(origin, 'clone', '-q', '--bare', repo.dir, origin)
+      await g(repo.dir, 'clone', '-q', origin, clone)
+      await g(clone, 'update-ref', 'refs/pr/1/base', repo.sha1)
+      // origin/main in the clone goes stale: the branch moves on the remote after the clone.
+      await g(origin, 'update-ref', 'refs/heads/main', repo.sha1)
+      const git = createGit(clone)
+      await Promise.all(
+        [1, 1, 1, 2, 3, 4].map(n => git.fetch('origin', [`+refs/heads/main:refs/pr/${n}/base`]))
+      )
+      expect(await git.revParse('refs/pr/1/base')).toBe(repo.sha1)
+      expect(await git.revParse('refs/pr/4/base')).toBe(repo.sha1)
+      expect(await git.revParse('refs/remotes/origin/main')).toBe(repo.sha2)
+    } finally {
+      await rm(origin, { recursive: true, force: true })
+      await rm(clone, { recursive: true, force: true })
+    }
+  })
+
   it('reads the directory it was given even when the environment points elsewhere', async () => {
     // What a git hook hands its children: every command would go to that repository instead. The
     // pre-commit hook of this project is how the suite meets them. Only these three keys are put

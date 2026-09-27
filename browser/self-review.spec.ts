@@ -21,7 +21,7 @@ test('the author settles a point with a reason, reads it after a reload, and reo
 
   await page.reload()
   const settled = page.locator('.settled-list')
-  await expect(settled.locator('.dismissed-line')).toContainText('1 settled by the author')
+  await expect(settled.locator('.dismissed-line')).toContainText('1 resolved by the author')
   await expect(card).toBeHidden()
   await settled.locator('[data-act="show-settled"]').click()
   await expect(settled.locator('.settled-reason')).toContainText('The spec says sum')

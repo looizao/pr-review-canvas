@@ -4,7 +4,7 @@
 // `securityLevel: 'strict'`, and its SVG goes through DOMPurify before it reaches the page.
 // Model text is untrusted, so mermaid's own escaping is not the only barrier.
 import DOMPurify from 'dompurify'
-import { followLink } from './deep-link.js'
+import { navigateLink } from './deep-link.js'
 import { chevronHtml, esc } from './dom.js'
 import { linkLabel, parseLink } from './links.js'
 import { diagramKind } from './mermaid-fences.js'
@@ -186,7 +186,7 @@ export function activateNodeLink(event) {
     return false
   }
   event.preventDefault()
-  return followLink(href)
+  return navigateLink(href)
 }
 
 /**

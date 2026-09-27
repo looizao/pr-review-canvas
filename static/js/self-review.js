@@ -14,6 +14,10 @@ import { renderMarkdown } from './markdown.js'
 export const REASON_MAX = 600
 
 let selfReview = false
+/** Personal dismissals apply only in reviewer mode. */
+export function canDismissPoints() {
+  return !selfReview
+}
 /** Whether a settlement also updates the canvas comment reviewers load. */
 let sharesCanvas = true
 /** @type {Readonly<Record<string, Settlement>>} */
@@ -46,7 +50,7 @@ export function settlementOf(p) {
  */
 export function audiencePillHtml(p) {
   if (p.audience === 'author') {
-    return `<span class="pill audience author" title="The author can settle this before review">${selfReview ? 'yours' : 'author'}</span>`
+    return `<span class="pill audience author" title="The author can resolve this before review">${selfReview ? 'yours' : 'author'}</span>`
   }
   return '<span class="pill audience reviewer" title="This needs the reviewer’s judgment">reviewer</span>'
 }
@@ -58,7 +62,7 @@ export function audiencePillHtml(p) {
  */
 export function settleButtonHtml(p) {
   return selfReview && p.audience === 'author' && settlementOf(p) === undefined
-    ? `<button class="cmd" type="button" data-act="point-settle" data-fingerprint="${esc(p.fingerprint)}">settle</button>`
+    ? `<button class="cmd" type="button" data-act="point-settle" data-fingerprint="${esc(p.fingerprint)}">resolve</button>`
     : ''
 }
 
@@ -76,7 +80,7 @@ export function settleFormHtml(p, opts) {
     '<div class="composer-box settle-box">' +
     `<label class="lbl" for="settle-${esc(p.id)}">Why this needs no reviewer decision</label>` +
     `<textarea id="settle-${esc(p.id)}" name="settle-reason" rows="3" maxlength="${REASON_MAX}" placeholder="e.g. nothing uses this API yet, so breaking it is fine"></textarea>` +
-    `${post}<span class="tbtns"><button class="cmd" type="button" data-act="settle-save" data-fingerprint="${esc(p.fingerprint)}">settle</button>` +
+    `${post}<span class="tbtns"><button class="cmd" type="button" data-act="settle-save" data-fingerprint="${esc(p.fingerprint)}">resolve</button>` +
     '<button class="cmd" type="button" data-act="settle-cancel">cancel</button></span></div>'
   )
 }
@@ -95,9 +99,10 @@ export function settledListHtml(points, ctx, expanded = false) {
       return []
     }
     const link = settlement.commentUrl === undefined ? '' : viewCommentHtml(settlement.commentUrl)
-    const reopen = selfReview
-      ? `<button class="cmd" type="button" data-act="point-unsettle" data-fingerprint="${esc(p.fingerprint)}">reopen</button>`
-      : ''
+    const reopen =
+      selfReview && p.audience === 'author'
+        ? `<button class="cmd" type="button" data-act="point-unsettle" data-fingerprint="${esc(p.fingerprint)}">reopen</button>`
+        : ''
     return [
       `<li class="finding"><span class="sq ${p.level}" role="img" aria-label="${p.level}"></span><div>` +
         `<div class="f-title"><span>${esc(p.title)}</span><span class="pill kind">${esc(p.kind)}</span></div>` +
@@ -111,7 +116,7 @@ export function settledListHtml(points, ctx, expanded = false) {
   }
   return (
     '<div class="settled-list">' +
-    `<p class="muted dismissed-line">${rows.length} settled by the author <button class="cmd" type="button" data-act="show-settled" aria-expanded="${expanded}">${expanded ? 'hide' : 'show'}</button></p>` +
+    `<p class="muted dismissed-line">${rows.length} resolved by the author <button class="cmd" type="button" data-act="show-settled" aria-expanded="${expanded}">${expanded ? 'hide' : 'show'}</button></p>` +
     `<ol class="findings settled"${expanded ? '' : ' hidden'}>${rows.join('')}</ol></div>`
   )
 }
@@ -135,7 +140,7 @@ export function selfReviewNoteHtml(open) {
     ? 'the canvas comment updates, so reviewers see only what is left'
     : 'it is written into this canvas'
   return (
-    `<p class="self-review-note"><strong>${lead}</strong> Settle what you can answer now, with a reason; ${where}. ` +
+    `<p class="self-review-note"><strong>${lead}</strong> Resolve what you can answer now, with a reason; ${where}. ` +
     `${theirs} ${theirs === 1 ? 'point goes' : 'points go'} to the reviewer.</p>`
   )
 }
@@ -201,9 +206,9 @@ export function selfReviewActions(session, notify) {
         async () => {
           const answer = await session.settle(point.fingerprint, input)
           box.remove()
-          notify(sharingNote(answer.sharing, 'point settled'))
+          notify(sharingNote(answer.sharing, 'point resolved'))
         },
-        { pendingLabel: 'settling…' }
+        { pendingLabel: 'resolving…' }
       )
     },
     'point-unsettle': el => {

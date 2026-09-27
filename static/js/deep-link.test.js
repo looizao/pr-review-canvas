@@ -209,15 +209,15 @@ describe('initDeepLinks', () => {
     note.innerHTML = '<a href="#line:src/app.ts:3" data-link="#line:src/app.ts:3">l</a>'
     root.appendChild(note)
     /** @type {Array<string | URL | null | undefined>} */
-    const replaced = []
-    const real = window.history.replaceState.bind(window.history)
-    window.history.replaceState = (...args) => {
-      replaced.push(args[2])
+    const pushed = []
+    const real = window.history.pushState.bind(window.history)
+    window.history.pushState = (...args) => {
+      pushed.push(args[2])
       real(...args)
     }
     click(note.querySelector('a'))
-    window.history.replaceState = real
-    expect(replaced).toEqual(['#line:src/app.ts:3'])
+    window.history.pushState = real
+    expect(pushed).toEqual(['#line:src/app.ts:3'])
     second.stop()
   })
 
@@ -227,7 +227,7 @@ describe('initDeepLinks', () => {
       /** @type {unknown} */ ({
         location: { hash: '' },
         history: {
-          replaceState: () => {
+          pushState: () => {
             throw new Error('no history')
           },
         },
