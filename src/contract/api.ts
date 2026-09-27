@@ -32,6 +32,7 @@ export const ERROR_CODES = [
   'MODEL_INVALID',
   'SKILL_DIR_EXISTS',
   'COMMENT_FORBIDDEN',
+  'NOT_AUTHOR',
   'COMMENT_LINE_NOT_IN_DIFF',
   'SIGNOFF_INCOMPLETE',
   'CHAT_BUSY',
@@ -133,6 +134,11 @@ export interface PrBundle {
   marksCarriedFrom?: string
   sharedCanvas?: SharedCanvasInfo
   skillCommand: string
+  /**
+   * True when the reader wrote the change: the login that runs the server is the pull request's
+   * author, or the review is of local work. The page then offers to settle attention points.
+   */
+  selfReview: boolean
   /** Set on a local review: work that has no pull request, so the forge side of the page is off. */
   local?: LocalKey
   comments: CommentsPayload
@@ -142,6 +148,11 @@ export interface PrBundle {
   chat: ChatStatus
   /** More than 400 files or 50 000 changed lines: the page says the canvas was capped. */
   largePr: boolean
+  /**
+   * Whether settling shares the canvas comment again: false when `sharing.canvasComment` is off or
+   * the review is local, where there is no pull request to share on.
+   */
+  canvasComment: boolean
   /** False when `sharing.mentionCanvas` is off: text the page writes for the forge never names the canvas. */
   mentionCanvas: boolean
   error?: ErrorEnvelope['error']

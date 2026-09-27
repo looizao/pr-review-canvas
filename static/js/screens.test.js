@@ -57,7 +57,9 @@ function bundle(over = {}) {
     capabilities: UNKNOWN_CAPABILITIES,
     chat: { enabled: true, acpx: true },
     largePr: false,
+    selfReview: false,
     mentionCanvas: true,
+    canvasComment: true,
     warnings: [],
   }
   const merged = { ...base, ...over }

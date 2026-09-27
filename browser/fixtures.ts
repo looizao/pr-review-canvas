@@ -13,7 +13,13 @@ import {
   type TestContext,
   type TestContextOptions,
 } from '../src/testing/fakes.js'
-import { GH_REVIEW_COMMENTS, ghFor42, gitFor42, syntheticArtifact } from '../src/testing/synthetic.js'
+import {
+  GH_ISSUE_COMMENTS,
+  GH_REVIEW_COMMENTS,
+  ghFor42,
+  gitFor42,
+  syntheticArtifact,
+} from '../src/testing/synthetic.js'
 
 export { expect } from '@playwright/test'
 
@@ -31,8 +37,16 @@ export interface ChatServer {
   ctx: TestContext['ctx']
 }
 
+const POSTED_INLINE = ghPost(body => ({
+  ...GH_REVIEW_COMMENTS[0],
+  ...(body as Record<string, unknown>),
+  id: 5001,
+  html_url: 'https://github.com/acme/widgets/pull/42#discussion_r5001',
+}))
+
 export const test = base.extend<{
   reviewUrl: string
+  selfReviewUrl: string
   chatServer: (options?: ChatServerOptions) => Promise<ChatServer>
 }>({
   chatServer: async ({ page }, use) => {
@@ -58,6 +72,47 @@ export const test = base.extend<{
   reviewUrl: async ({ page }, use) => {
     const server = await startServer(page)
     try {
+      await use(server.url)
+    } finally {
+      await server.stop()
+    }
+  },
+  /** PR #42 with a published canvas, served to its author, who may settle its points. */
+  selfReviewUrl: async ({ page }, use) => {
+    const server = await startServer(page, {
+      gh: ghFor42({
+        postRoutes: {
+          'repos/acme/widgets/pulls/42/comments': POSTED_INLINE,
+          'repos/acme/widgets/issues/42/comments': ghPost(() => ({
+            ...GH_ISSUE_COMMENTS[0],
+            id: 6001,
+            html_url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001',
+          })),
+        },
+      }),
+      fixtureArtifact: null,
+    })
+    try {
+      // The drawn point, fp-1, is marked for the author so it can be settled.
+      const synthetic = syntheticArtifact()
+      const artifact = {
+        ...synthetic,
+        points: synthetic.points.map(p =>
+          p.fingerprint === 'fp-1' ? { ...p, audience: 'author' as const } : p
+        ),
+      }
+      await server.t.ctx.canvases.write(artifact.pr.headSha, artifact, {
+        formatVersion: 1,
+        tool: { name: 'pr-review', version: '0.0.0-test' },
+        repo: artifact.pr.repo,
+        prNumber: 42,
+        headSha: artifact.pr.headSha,
+        mergeBaseSha: artifact.pr.mergeBaseSha,
+        baseRef: 'main',
+        headRef: 'feat/b',
+        generatedAt: artifact.generatedAt,
+        generator: artifact.generator,
+      })
       await use(server.url)
     } finally {
       await server.stop()
@@ -103,12 +158,7 @@ async function startServer(
             html_url: 'https://github.com/acme/widgets/pull/42#pullrequestreview-7001',
           }
         }),
-        'repos/acme/widgets/pulls/42/comments': ghPost(body => ({
-          ...GH_REVIEW_COMMENTS[0],
-          ...(body as Record<string, unknown>),
-          id: 5001,
-          html_url: 'https://github.com/acme/widgets/pull/42#discussion_r5001',
-        })),
+        'repos/acme/widgets/pulls/42/comments': POSTED_INLINE,
       },
     }),
     fixtureArtifact: syntheticArtifact(),
