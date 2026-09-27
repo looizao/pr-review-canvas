@@ -77,6 +77,7 @@ function bundleFor(state, canvas = artifact) {
     largePr: false,
     selfReview: false,
     mentionCanvas: true,
+    canvasComment: true,
     warnings: [],
   })
 }

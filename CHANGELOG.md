@@ -16,8 +16,9 @@
   settled, and the ones the author has not settled yet.
 - Settlements survive regenerating the same commit, and follow carried points into an incremental
   canvas. **Refresh** imports a canvas the author revised at the same commit.
-- The sharing switches apply to settling too: with `canvasComment` off, settling shares nothing,
-  and with `mentionCanvas` off, the posted reason drops its `from the pr-review canvas` credit.
+- The sharing switches apply to settling too. With `canvasComment` off, settling shares nothing,
+  and the author's note says the settlement stays in the canvas. With `mentionCanvas` off, the
+  posted reason drops its `from the pr-review canvas` credit.
 - The skill ends by handing the author the self-review.
 
 ### Sharing

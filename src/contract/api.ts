@@ -147,6 +147,11 @@ export interface PrBundle {
   chat: ChatStatus
   /** More than 400 files or 50 000 changed lines: the page says the canvas was capped. */
   largePr: boolean
+  /**
+   * Whether settling shares the canvas comment again: false when `sharing.canvasComment` is off or
+   * the review is local, where there is no pull request to share on.
+   */
+  canvasComment: boolean
   /** False when `sharing.mentionCanvas` is off: text the page writes for the forge never names the canvas. */
   mentionCanvas: boolean
   error?: ErrorEnvelope['error']

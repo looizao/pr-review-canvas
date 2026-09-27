@@ -370,4 +370,22 @@ describe('the bundle', () => {
     const res = await createApp(t.ctx).request('/api/prs/42', { headers: { host: 'localhost:3010' } })
     expect(((await res.json()) as { selfReview: boolean }).selfReview).toBe(selfReview)
   })
+
+  it('says whether settling shares the canvas comment again', async () => {
+    const canvasComment = async (key: string): Promise<boolean> => {
+      const res = await createApp(t.ctx).request(`/api/prs/${key}`, { headers: { host: 'localhost:3010' } })
+      return ((await res.json()) as { canvasComment: boolean }).canvasComment
+    }
+    t = await withCanvas()
+    expect(await canvasComment('42')).toBe(true)
+    t.ctx.projectConfig = {
+      ...t.ctx.projectConfig,
+      config: { ...t.ctx.projectConfig.config, sharing: { canvasComment: false, mentionCanvas: true } },
+    }
+    expect(await canvasComment('42')).toBe(false)
+    await t.cleanup()
+    // Local work has no pull request to share on.
+    t = await makeTestContext({ git: gitForLocal(), gh: gh() })
+    expect(await canvasComment('uncommitted')).toBe(false)
+  })
 })

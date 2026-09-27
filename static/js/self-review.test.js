@@ -67,6 +67,10 @@ describe('what a reader sees', () => {
     expect(selfReviewNoteHtml([tests, decide, debt])).toContain('2 points are marked yours')
     expect(selfReviewNoteHtml([tests])).toContain('1 point is marked yours')
     expect(selfReviewNoteHtml([tests])).toContain('0 points go to the reviewer')
+    expect(selfReviewNoteHtml([tests])).toContain('the canvas comment updates')
+    setSelfReview(true, {}, false)
+    expect(selfReviewNoteHtml([tests])).toContain('it is written into this canvas')
+    expect(selfReviewNoteHtml([tests])).not.toContain('canvas comment')
   })
 
   it('offers to post the reason only where a comment can go', () => {

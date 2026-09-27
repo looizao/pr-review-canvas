@@ -59,6 +59,7 @@ function bundle(over = {}) {
     largePr: false,
     selfReview: false,
     mentionCanvas: true,
+    canvasComment: true,
     warnings: [],
   }
   const merged = { ...base, ...over }

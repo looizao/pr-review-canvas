@@ -14,16 +14,20 @@ import { renderMarkdown } from './markdown.js'
 export const REASON_MAX = 600
 
 let selfReview = false
+/** Whether a settlement also updates the canvas comment reviewers load. */
+let sharesCanvas = true
 /** @type {Readonly<Record<string, Settlement>>} */
 let settled = {}
 
 /**
  * @param {boolean} on whether the reader wrote the change and may settle points
  * @param {Readonly<Record<string, Settlement>> | undefined} points the canvas's settled points
+ * @param {boolean} [canvasComment] whether settling shares the canvas comment again
  */
-export function setSelfReview(on, points) {
+export function setSelfReview(on, points, canvasComment = true) {
   selfReview = on
   settled = points ?? {}
+  sharesCanvas = canvasComment
 }
 
 /** @param {Readonly<Record<string, Settlement>>} points */
@@ -127,8 +131,11 @@ export function selfReviewNoteHtml(open) {
     yours === 0
       ? 'Self-review done: nothing marked yours is open.'
       : `Self-review: ${yours} ${yours === 1 ? 'point is' : 'points are'} marked yours.`
+  const where = sharesCanvas
+    ? 'the canvas comment updates, so reviewers see only what is left'
+    : 'it is written into this canvas'
   return (
-    `<p class="self-review-note"><strong>${lead}</strong> Settle what you can answer now, with a reason; the canvas comment updates, so reviewers see only what is left. ` +
+    `<p class="self-review-note"><strong>${lead}</strong> Settle what you can answer now, with a reason; ${where}. ` +
     `${theirs} ${theirs === 1 ? 'point goes' : 'points go'} to the reviewer.</p>`
   )
 }

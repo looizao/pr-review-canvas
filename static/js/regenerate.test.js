@@ -36,6 +36,7 @@ function bundle(status, over = {}) {
     largePr: false,
     selfReview: false,
     mentionCanvas: true,
+    canvasComment: true,
     warnings: [],
   }
   if (status === 'ready') {

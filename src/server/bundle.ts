@@ -345,6 +345,7 @@ async function bundleBase(
     input.artifact === null
       ? { state: stateForCanvas(stored, input.canvasSha), carriedFrom: undefined }
       : await marksForCanvas(ctx, input.artifact, input.canvasSha, stored)
+  const sharing = resolveSharing(ctx.projectConfig.config.sharing, personal)
   return {
     pr: input.pr,
     files: input.diff.files,
@@ -360,7 +361,8 @@ async function bundleBase(
       ...(settings === null ? {} : { agent: settings.chatAgent, model: settings.chatModel }),
     },
     largePr: largePrOf(input.diff.files),
-    mentionCanvas: resolveSharing(ctx.projectConfig.config.sharing, personal).mentionCanvas,
+    mentionCanvas: sharing.mentionCanvas,
+    canvasComment: !isLocalKey(key) && sharing.canvasComment,
     warnings: input.warnings,
   }
 }
