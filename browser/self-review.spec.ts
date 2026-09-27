@@ -6,6 +6,8 @@ test('the author settles a point with a reason, reads it after a reload, and reo
 }) => {
   await page.goto(selfReviewUrl)
   await expect(page.locator('.self-review-note')).toContainText('3 points are marked yours')
+  const railCount = page.locator('nav.rail a[href="#overview"] .m')
+  await expect(railCount).toHaveText('3 attention points')
   const card = page.locator('section.layer li.finding[data-fingerprint="fp-1"]')
   await expect(card.locator('.pill.audience')).toHaveText('yours')
   await card.locator('[data-act="point-settle"]').click()
@@ -15,6 +17,7 @@ test('the author settles a point with a reason, reads it after a reload, and reo
   await box.locator('[data-act="settle-save"]').click()
   await expect(card).toBeHidden()
   await expect(page.locator('.toast')).toContainText('canvas comment is updated')
+  await expect(railCount).toHaveText('2 attention points')
 
   await page.reload()
   const settled = page.locator('.settled-list')
@@ -25,6 +28,7 @@ test('the author settles a point with a reason, reads it after a reload, and reo
   await expect(settled.locator('a[href$="#discussion_r5001"]')).toHaveCount(1)
   await settled.locator('[data-act="point-unsettle"]').click()
   await expect(card).toBeVisible()
+  await expect(railCount).toHaveText('3 attention points')
   await expect(card.locator('[data-act="point-settle"]')).toBeVisible()
   await expect(settled).toBeHidden()
 })

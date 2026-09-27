@@ -341,8 +341,9 @@ export function wireReview(root, session, opts = {}) {
       drawnPending = state.pending
       drawnComments = session.submittedComments
     }
-    refreshProgress(root, session.artifact, state)
+    // Settled points leave the rail's count too, so they are known before the rail is drawn.
     setSettled(session.settled)
+    refreshProgress(root, session.artifact, state)
     applyPointStates(root, session.artifact.points, state, {
       paths: paths(),
       layers: session.artifact.layers,
