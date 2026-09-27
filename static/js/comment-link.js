@@ -26,7 +26,7 @@ export function replacePostButton(button, url) {
  * @param {{ path: string, line: number | null, side: string, startLine?: number | undefined, body: string }} a
  * @param {{ path: string, line: number, side: string, startLine?: number | undefined, body: string }} b
  */
-function sameAnchoredComment(a, b) {
+export function sameAnchoredComment(a, b) {
   return (
     a.path === b.path &&
     a.line === b.line &&
@@ -64,12 +64,16 @@ export function isQueuedComment(proposed, pending) {
  *   id: string,
  *   postedUrl?: string | undefined,
  *   queued?: boolean | undefined,
+ *   submitted?: boolean | undefined,
  *   leadWithQueue?: boolean,
  * }} opts `kind` names the commands (`point-post`) and the attribute that carries `id`
  */
 export function sendCommandsHtml(opts) {
   if (opts.postedUrl !== undefined) {
     return viewCommentHtml(opts.postedUrl)
+  }
+  if (opts.submitted === true) {
+    return '<span class="pill">submitted</span>'
   }
   if (opts.queued === true) {
     return '<span class="pill pending queued">in your review</span>'

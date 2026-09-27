@@ -660,7 +660,9 @@ A pending review holds comments on your machine until you submit them together.
   in advance. A point in the review shows **in your review**; edit or remove it as the draft on its
   line. After submission, the point shows the comment it became.
 - A comment the AI Chat proposes works the same way: it offers **post to github** and **add to
-  review**, and shows **in your review** once it is queued.
+  review**, and shows **in your review** once it is queued. After submission it shows **view
+  comment** when the comment link is known, or **submitted** when the receipt could not be loaded.
+  Neither state offers to submit that proposal again.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.
