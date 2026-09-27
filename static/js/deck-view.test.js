@@ -4,7 +4,6 @@ import { DECK_KEY_HELP } from './deck-state.js'
 import {
   cardHtml,
   deckHelpHtml,
-  drawerHtml,
   finishHtml,
   pipsHtml,
   previewEndHtml,
@@ -268,7 +267,7 @@ describe('pipsHtml', () => {
   })
 })
 
-describe('drawerHtml', () => {
+describe("the code on the card's back", () => {
   const excerpt = {
     path: 'src/import.ts',
     header: '@@ -10,3 +10,4 @@',
@@ -281,8 +280,20 @@ describe('drawerHtml', () => {
   const numbers = root =>
     [...root.querySelectorAll('tr')].map(tr => [...tr.querySelectorAll('.ln')].map(td => td.textContent))
 
+  /**
+   * The back's code of a card anchored as `over` says, over `chunk`.
+   * @param {Record<string, unknown>} over
+   * @param {typeof excerpt} chunk
+   */
+  const backCode = (over, chunk) =>
+    /** @type {Element} */ (
+      render(cardHtml(card(over), { index: 0, total: 1 }, { excerpt: chunk })).querySelector(
+        '.deck-back-code'
+      )
+    )
+
   it('numbers each side the way the diff counts it, and marks the anchored line', () => {
-    const root = render(drawerHtml(card({ line: 12 }), excerpt))
+    const root = backCode({ line: 12 }, excerpt)
     expect(numbers(root)).toEqual([
       ['10', '10'],
       ['11', ''],
@@ -295,7 +306,7 @@ describe('drawerHtml', () => {
   })
 
   it('reads a blank patch line as context, not as a change', () => {
-    const root = render(drawerHtml(card({ line: 11 }), { ...excerpt, lines: [' a', '', ' c'] }))
+    const root = backCode({ line: 11 }, { ...excerpt, lines: [' a', '', ' c'] })
     expect([...root.querySelectorAll('tr')].map(tr => tr.className)).toEqual([
       'deck-diff-ctx',
       'deck-diff-ctx deck-diff-here',
@@ -304,15 +315,8 @@ describe('drawerHtml', () => {
   })
 
   it('marks an old-side anchor by its old line number', () => {
-    const root = render(drawerHtml(card({ line: 11, side: 'old' }), excerpt))
+    const root = backCode({ line: 11, side: 'old' }, excerpt)
     expect(root.querySelector('.deck-diff-here')?.textContent).toContain('skip(rows)')
-  })
-
-  it('says so when the chunk is gone from the diff, and still offers a way to close', () => {
-    const root = render(drawerHtml(card(), undefined))
-    expect(root.textContent).toContain('src/import.ts:12')
-    expect(root.textContent).toContain('not in this clone')
-    expect(root.querySelector('.deck-drawer-close')).not.toBeNull()
   })
 })
 

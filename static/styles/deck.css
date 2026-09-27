@@ -1,6 +1,6 @@
-/* The self-review deck. One card per screen: at 1080p and up the page never scrolls, so the
-   layout is a fixed-height grid and only the code drawer and the fix list scroll inside
-   themselves. Side A leans indigo, side B pink, both from the brand stripe. */
+/* The self-review deck. One card per screen: at 1080p and up the card's front never scrolls, so
+   the layout is a fixed-height grid; its back and the finish screen grow, and the page scrolls
+   with them. Side A leans indigo, side B pink, both from the brand stripe. */
 
 .deck-page {
   --deck-a: var(--v6);
@@ -444,11 +444,7 @@
   gap: 10px;
 }
 .deck-anchor {
-  border: 0;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
+  color: var(--fg-muted);
   font-size: 13px;
 }
 .deck-card-more {
@@ -512,41 +508,6 @@
   transform: rotate(14deg) scale(1.4);
 }
 
-/* The code drawer slides over the lower part of the table. */
-.deck-drawer {
-  position: absolute;
-  inset: auto 0 0;
-  width: min(1180px, calc(100% - 48px));
-  margin-inline: auto;
-  z-index: 5;
-  height: 58%;
-  background: var(--panel);
-  border: 2px solid var(--line-strong);
-  border-bottom: 0;
-  box-shadow: 0 -6px 0 var(--shadow);
-  animation: deck-drawer-in 0.28s cubic-bezier(0.2, 1.2, 0.4, 1);
-}
-.deck-drawer[hidden] {
-  display: none;
-}
-.deck-drawer-body {
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-.deck-drawer-close {
-  float: right;
-  font-family: var(--sans);
-}
-.deck-drawer-h {
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-}
-.deck-drawer-scroll {
-  overflow: auto;
-}
 .deck-diff {
   border-collapse: collapse;
   width: 100%;
@@ -568,7 +529,7 @@
   width: 1%;
   user-select: none;
 }
-/* Beats the skins' inline-code chip, which would box every line of the drawer. */
+/* Beats the skins' inline-code chip, which would box every line of the code. */
 .deck-page .deck-code code {
   background: none;
   padding: 0;
@@ -584,23 +545,21 @@
 .deck-diff-here {
   box-shadow: inset 4px 0 0 var(--v1);
 }
-@keyframes deck-drawer-in {
-  from {
-    transform: translateY(100%);
-  }
-}
-
-/* Only the card screen promises no scroll. Once the deck is cleared, the page grows with the fix
-   list and scrolls as a whole, instead of boxing it in a scroll area of its own. */
-.deck-page.deck-finished {
+/* Only the card's front promises no scroll. A card turned to its back, and the screen after the
+   last card, grow with what they hold (the code, the fix list), and the page scrolls as a whole
+   instead of boxing them in a scroll area of their own. */
+.deck-page.deck-finished,
+.deck-page:has(.deck-card.deck-flipped) {
   height: auto;
   min-height: 100dvh;
   overflow: visible;
 }
-.deck-finished .deck-stage {
+.deck-finished .deck-stage,
+.deck-page:has(.deck-card.deck-flipped) .deck-stage {
   place-items: start center;
 }
-.deck-finished .deck-table {
+.deck-finished .deck-table,
+.deck-page:has(.deck-card.deck-flipped) :is(.deck-table, .deck-hand) {
   height: auto;
 }
 .deck-finished .deck-hints {
@@ -827,9 +786,12 @@
   cursor: auto;
   user-select: text;
 }
+.deck-card.deck-flipped {
+  height: auto;
+}
 .deck-card.deck-flipped .deck-back {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
   gap: 14px;
 }
 .deck-card.deck-flipped .deck-front {
@@ -894,7 +856,7 @@
   opacity: 0.45;
 }
 
-/* The back: the two sides' reasons side by side, then the code, which takes the rest. */
+/* The back: the two sides' reasons side by side, then the code, whole: the card grows with it. */
 .deck-details {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -942,9 +904,9 @@
 }
 .deck-back-code-scroll {
   flex: 1;
-  min-height: 0;
   min-width: 0;
-  overflow: auto;
+  /* A wide line scrolls sideways; the chunk's height is the card's. */
+  overflow-x: auto;
 }
 .deck-back-code .deck-diff {
   width: 100%;
@@ -1026,10 +988,6 @@
   .deck-scene {
     height: var(--scene-height, 260px);
   }
-  /* The code keeps to a screenful, so the card's actions stay near. */
-  .deck-back-code-scroll {
-    max-height: 60vh;
-  }
   /* Room for the folded corner, which keeps its fold but drops its words. */
   .deck-card-h {
     padding-right: 36px;
@@ -1058,8 +1016,8 @@
   }
 }
 
-/* Phones: tighter padding, a code drawer that is a bottom sheet, and big touch targets instead of
-   key hints, which touch screens have no use for. */
+/* Phones: tighter padding, a note that is a bottom sheet, and big touch targets instead of key
+   hints, which touch screens have no use for. */
 @media (max-width: 600px) {
   .deck-top {
     padding: 8px 12px;
@@ -1114,12 +1072,6 @@
   }
   .deck-card-more {
     flex-wrap: wrap;
-  }
-  .deck-drawer {
-    position: fixed;
-    inset: auto 0 0;
-    width: 100%;
-    height: 70dvh;
   }
   .deck-note {
     position: fixed;

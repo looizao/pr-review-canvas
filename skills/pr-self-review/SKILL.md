@@ -109,6 +109,7 @@ and tell the user to start `pr-review serve` if it is not running. On the page:
 
 - `a` picks side A, `b` picks side B, or drag the card left or right;
 - `n` says neither side fits and takes a note, `s` skips a card and leaves it to reviewers;
-- `u` undoes, `e` edits a justification, `o` shows the code, `?` lists every key.
+- `u` undoes, `e` edits a justification, `i` turns the card over to the reasons and the code, `?`
+  lists every key.
 
 When the deck is cleared, the page writes the fix list and suggests `/pr-self-review-fix <review>`.

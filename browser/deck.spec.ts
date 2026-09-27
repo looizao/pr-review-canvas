@@ -147,15 +147,27 @@ test('picks with a and b, takes a note with n, skips with s, undoes with u', asy
   await expect(page.locator('.deck-card h2')).toHaveText('Third')
 })
 
-test('edits a justification before picking, and shows the code with o', async ({ page, deckUrl }) => {
+test('edits a justification before picking, and shows the code whole on the back', async ({
+  page,
+  deckUrl,
+}) => {
   await page.goto(deckUrl)
   await expect(page.locator('.deck-card h2')).toHaveText('First')
-  await page.keyboard.press('o')
-  const drawer = page.locator('.deck-drawer')
-  await expect(drawer).toBeVisible()
-  await expect(drawer.locator('.deck-diff-here')).toContainText("import { b } from './b'")
+  const front = await page.locator('.deck-card').boundingBox()
+  await page.keyboard.press('i')
+  await expect(page.locator('.deck-back .deck-diff-here')).toContainText("import { b } from './b'")
+  // The code takes its own height, the card grows with it (never shorter than its front), and the
+  // page scrolls with the card instead of boxing the code in.
+  const code = page.locator('.deck-back-code-scroll')
+  expect(await code.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1)
+  expect(await page.locator('main.deck-page').evaluate(el => getComputedStyle(el).overflowY)).toBe('visible')
+  const back = await page.locator('.deck-card').boundingBox()
+  expect(back?.height ?? 0).toBeGreaterThanOrEqual((front?.height ?? 0) - 1)
+  // o opens nothing: the code is on the back.
   await page.keyboard.press('Escape')
-  await expect(drawer).toBeHidden()
+  await expect(page.locator('.deck-back')).toBeHidden()
+  await page.keyboard.press('o')
+  await expect(page.locator('.deck-back')).toBeHidden()
 
   await page.keyboard.press('e')
   const why = page.locator('[data-why="b"]')
@@ -203,10 +215,6 @@ test('fits a phone: no sideways scroll, and every action has a button', async ({
   ).toBe(0)
   await page.locator('.deck-card-more [data-act="details"]').click()
   await expect(page.locator('.deck-back')).toBeHidden()
-  await page.locator('[data-act="drawer"]').click()
-  await expect(page.locator('.deck-drawer')).toBeVisible()
-  await page.locator('.deck-drawer-close').click()
-  await expect(page.locator('.deck-drawer')).toBeHidden()
   await page.locator('[data-pick="b"]').click()
   await expect(page.locator('.deck-card h2')).toHaveText('Second')
   await page.locator('.deck-links [data-act="undo"]').click()
@@ -374,4 +382,28 @@ test('previews the deck as written: says what went wrong under a scene, and save
   await expect(page.locator('.deck-card h2')).toHaveText('Third')
   await page.keyboard.press('s')
   await expect(page.locator('.deck-finish h2')).toHaveText('End of the preview')
+})
+
+test('switches the theme and the skin from the top bar, and keeps them', async ({ page, deckUrl }) => {
+  await page.goto(deckUrl)
+  const root = () => page.evaluate(() => ({ ...document.documentElement.dataset }))
+  const before = await root()
+  const theme = page.locator('[data-act="theme"]')
+  await expect(theme).toHaveText(`theme: ${before['theme']}`)
+  await theme.click()
+  const after = (await root())['theme']
+  expect(after).not.toBe(before['theme'])
+  await expect(theme).toHaveText(`theme: ${after}`)
+  // A scene draws in the theme its frame was loaded with, so the frames reload in the new one.
+  await expect(page.locator('iframe[data-scene="a"]')).toHaveAttribute('src', new RegExp(`theme=${after}`))
+  await expect(page.frameLocator('iframe[data-scene="a"]').locator('html')).toHaveAttribute(
+    'data-theme',
+    `${after}`
+  )
+
+  await page.locator('[data-act="skin"]').click()
+  const skin = (await root())['skin']
+  expect(skin).not.toBe(before['skin'])
+  // Both are saved to the settings file, so the next load wears them.
+  await expect.poll(async () => (await page.reload(), await root())).toMatchObject({ theme: after, skin })
 })

@@ -16,8 +16,8 @@
  */
 /** @typedef {{ choice: PickChoice, why?: string, note?: string, record?: RecordTarget, pickedAt: string }} Pick */
 /**
- * @typedef {'pick-a' | 'pick-b' | 'neither' | 'skip' | 'undo' | 'edit' | 'record' | 'drawer'
- *   | 'details' | 'help' | 'escape'} DeckAction
+ * @typedef {'pick-a' | 'pick-b' | 'neither' | 'skip' | 'undo' | 'edit' | 'record' | 'details'
+ *   | 'help' | 'escape'} DeckAction
  */
 
 /** Rows of the help dialog, in the order a first-time reader needs them. */
@@ -30,9 +30,8 @@ export const DECK_KEY_HELP = [
   { keys: 'e', what: 'edit the justification of either side before picking' },
   { keys: 'r', what: 'change where a justification is recorded' },
   { keys: 'i', what: 'turn the card over: the context, the justifications, and the code' },
-  { keys: 'o', what: 'open or close the code the card is about' },
   { keys: '?', what: 'this help' },
-  { keys: 'Esc', what: 'close the note, the editor, the details, the code, or this help' },
+  { keys: 'Esc', what: "close the note, the editor, the card's back, or this help" },
 ]
 
 /** Where a record target sends a justification, as the card says it. */
@@ -79,7 +78,6 @@ const KEYS = {
   u: 'undo',
   e: 'edit',
   r: 'record',
-  o: 'drawer',
   i: 'details',
   '?': 'help',
 }

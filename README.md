@@ -68,7 +68,6 @@ are pushed.
 | `u`       | undo the last pick                                          |
 | `e` / `r` | edit a side's justification, or change where it is recorded |
 | `i`       | turn the card over: context, justifications, and the code   |
-| `o`       | show the code the card is about                             |
 
 When the deck is cleared, the page writes a **fix list** from every pick that disagrees with the
 code, and suggests the next command:

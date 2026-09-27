@@ -2,7 +2,7 @@
 // Boot and drive the self-review deck: fetch the deck, deal the top card, and turn keys, drags,
 // and clicks into picks. A pick animates first and saves in parallel; a failed save puts the card
 // back. The finish screen writes the fix list the fix skill reads.
-import { ApiError, fetchJson } from './api.js'
+import { ApiError, fetchJson, saveAppearance } from './api.js'
 import {
   createDeckState,
   deckKeyAction,
@@ -15,7 +15,6 @@ import {
   cardHtml,
   DECK_HELP_ID,
   deckHelpHtml,
-  drawerHtml,
   finishHtml,
   pipsHtml,
   previewEndHtml,
@@ -24,6 +23,8 @@ import {
 } from './deck-view.js'
 import { esc } from './dom.js'
 import { errorCardHtml } from './errors.js'
+import { applySkin, nextSkin, readSkin, skinLabel } from './skin.js'
+import { applyTheme, nextTheme, readTheme, themeLabel } from './theme.js'
 
 /** @typedef {import('./deck-state.js').DecisionCard} DecisionCard */
 /** @typedef {import('./deck-state.js').Pick} Pick */
@@ -220,19 +221,19 @@ async function payoff(card, side) {
 }
 
 /**
- * Says which face a card shows on its buttons, and brings the anchor line of the back's code into
- * view when the back comes up.
+ * Turns a card to its back or its front, and says which on its buttons. The back grows with its
+ * code and the page scrolls with it, but it never makes the card shorter than its front was, so
+ * turning a card over does not make it jump.
  * @param {HTMLElement} card
  * @param {boolean} flipped
  */
-function markFlipped(card, flipped) {
+function turnCard(card, flipped) {
+  if (flipped && !card.classList.contains('deck-flipped')) card.style.minHeight = `${card.offsetHeight}px`
+  if (!flipped) card.style.minHeight = ''
+  card.classList.toggle('deck-flipped', flipped)
   for (const button of card.querySelectorAll('[data-act="details"]')) {
     button.setAttribute('aria-pressed', String(flipped))
   }
-  if (!flipped) return
-  const scroll = card.querySelector('.deck-back-code-scroll')
-  const here = /** @type {HTMLElement | null} */ (card.querySelector('.deck-back-code .deck-diff-here'))
-  if (scroll !== null && here !== null) scroll.scrollTop = here.offsetTop - scroll.clientHeight / 3
 }
 
 /** @param {HTMLElement} root */
@@ -280,7 +281,7 @@ export async function bootDeck() {
   }
   const { deck, excerpts } = data
   /** @type {import('./deck-view.js').CardView} */
-  const view = { review: boot.review, theme: document.documentElement.dataset['theme'] ?? 'auto', preview }
+  const view = { review: boot.review, theme: readTheme(document.documentElement), preview }
   const state = createDeckState(deck.cards, data.picks)
   const first = preview ? deck.cards.findIndex(c => c.key === query.get('card')) : -1
   if (first > 0) {
@@ -303,15 +304,14 @@ export async function bootDeck() {
 <a class="deck-brand" href="/"><img src="/static/brand.svg" width="22" height="22" alt="">Self-review</a>
 <span class="deck-target mono">${esc(deck.headRef)} → ${esc(deck.baseRef)}</span>
 <div class="deck-pips-slot"></div>
-<nav class="deck-links"><button class="cmd" type="button" data-act="undo"><kbd>u</kbd> undo</button><a class="cmd" href="/review/${esc(boot.review)}">canvas</a><button class="cmd" type="button" data-act="help"><kbd>?</kbd> keys</button></nav>
+<nav class="deck-links"><button class="cmd" type="button" data-act="undo"><kbd>u</kbd> undo</button><button class="cmd" type="button" data-act="skin" title="Switch between Terminal and GitHub styling">${esc(skinLabel(readSkin(document.documentElement)))}</button><button class="cmd" type="button" data-act="theme" title="Switch between Light, Dark, and Auto themes">${esc(themeLabel(readTheme(document.documentElement)))}</button><a class="cmd" href="/review/${esc(boot.review)}">canvas</a><button class="cmd" type="button" data-act="help"><kbd>?</kbd> keys</button></nav>
 </header>
 <div class="deck-stage"><div class="deck-table"></div>
-<aside class="deck-drawer" aria-label="The code this card is about" hidden></aside></div>
-<footer class="deck-hints" aria-hidden="true"><span><kbd>a</kbd> A</span><span><kbd>b</kbd> B</span><span><kbd>n</kbd> neither</span><span><kbd>s</kbd> skip</span><span><kbd>u</kbd> undo</span><span><kbd>e</kbd> edit why</span><span><kbd>o</kbd> code</span><span><kbd>?</kbd> help</span></footer>
+</div>
+<footer class="deck-hints" aria-hidden="true"><span><kbd>a</kbd> A</span><span><kbd>b</kbd> B</span><span><kbd>n</kbd> neither</span><span><kbd>s</kbd> skip</span><span><kbd>u</kbd> undo</span><span><kbd>e</kbd> edit why</span><span><kbd>i</kbd> back</span><span><kbd>?</kbd> help</span></footer>
 ${deckHelpHtml()}`
 
   const table = /** @type {HTMLElement} */ (main.querySelector('.deck-table'))
-  const drawer = /** @type {HTMLElement} */ (main.querySelector('.deck-drawer'))
   const pipsSlot = /** @type {HTMLElement} */ (main.querySelector('.deck-pips-slot'))
 
   const topCard = () => /** @type {HTMLElement | null} */ (table.querySelector('.deck-card'))
@@ -319,11 +319,6 @@ ${deckHelpHtml()}`
   const drawPips = () => {
     pipsSlot.innerHTML =
       deck.cards.length === 0 ? '' : pipsHtml(deck.cards, state.picks(), state.top()?.key ?? null)
-  }
-
-  const closeDrawer = () => {
-    drawer.hidden = true
-    topCard()?.querySelector('[data-act="drawer"]')?.setAttribute('aria-expanded', 'false')
   }
 
   const finish = async () => {
@@ -367,7 +362,6 @@ ${deckHelpHtml()}`
    * @param {'left' | 'right' | 'down' | 'up' | 'deal' | 'still'} from
    */
   const deal = async from => {
-    closeDrawer()
     mode = 'card'
     main.classList.remove('deck-finished')
     window.scrollTo(0, 0)
@@ -498,8 +492,8 @@ ${deckHelpHtml()}`
     const el = topCard()
     if (el === null) return
     mode = 'edit'
-    el.classList.add('deck-editing', 'deck-flipped')
-    markFlipped(el, true)
+    el.classList.add('deck-editing')
+    turnCard(el, true)
     const target = /** @type {HTMLElement | null} */ (
       el.querySelector(focus === 'why' ? '[data-why="a"]' : '[data-record-select="a"]')
     )
@@ -510,10 +504,6 @@ ${deckHelpHtml()}`
     const dialog = /** @type {HTMLDialogElement | null} */ (document.getElementById(DECK_HELP_ID))
     if (dialog?.open) {
       dialog.close()
-      return
-    }
-    if (!drawer.hidden) {
-      closeDrawer()
       return
     }
     const el = topCard()
@@ -543,8 +533,7 @@ ${deckHelpHtml()}`
         duration: 140,
         easing: 'ease-in',
       })
-    el.classList.toggle('deck-flipped', to)
-    markFlipped(el, to)
+    turnCard(el, to)
     if (turn)
       await play(el, [{ transform: 'rotateY(-90deg)' }, { transform: 'none' }], {
         duration: 180,
@@ -552,17 +541,33 @@ ${deckHelpHtml()}`
       })
   }
 
-  const toggleDrawer = () => {
-    const card = state.top()
-    if (card === null) return
-    if (!drawer.hidden) {
-      closeDrawer()
+  /**
+   * The appearance settings the deck wears, as the canvas page has them: both repaint the page under
+   * the click and save to `.pr-review/settings.yml`, saying so when they cannot. A scene draws in
+   * the theme its frame was loaded with, so a new theme reloads the frames.
+   * @param {'skin' | 'theme'} what
+   * @param {HTMLElement} button
+   */
+  const cycleAppearance = (what, button) => {
+    const root = document.documentElement
+    if (what === 'skin') {
+      const skin = nextSkin(readSkin(root))
+      applySkin(skin, root)
+      button.textContent = skinLabel(skin)
+      void saveAppearance({ skin }).catch(() => toast('Could not save the skin to settings.yml'))
       return
     }
-    drawer.innerHTML = drawerHtml(card, excerpts[card.key])
-    drawer.hidden = false
-    topCard()?.querySelector('[data-act="drawer"]')?.setAttribute('aria-expanded', 'true')
-    drawer.querySelector('.deck-diff-here')?.scrollIntoView({ block: 'center' })
+    const theme = nextTheme(readTheme(root))
+    applyTheme(theme, root)
+    button.textContent = themeLabel(theme)
+    view.theme = theme
+    for (const frame of main.querySelectorAll('iframe[data-scene]')) {
+      const scene = /** @type {HTMLIFrameElement} */ (frame)
+      const url = new URL(scene.src, window.location.href)
+      url.searchParams.set('theme', theme)
+      scene.src = `${url.pathname}${url.search}`
+    }
+    void saveAppearance({ theme }).catch(() => toast('Could not save the theme to settings.yml'))
   }
 
   const help = () => {
@@ -714,10 +719,11 @@ ${deckHelpHtml()}`
       return
     }
     const act = target.closest('[data-act]')?.getAttribute('data-act')
-    if (act === 'drawer') toggleDrawer()
-    else if (act === 'neither') openNote()
+    if (act === 'neither') openNote()
     else if (act === 'skip') void pick('skip')
     else if (act === 'help') help()
+    else if (act === 'skin' || act === 'theme')
+      cycleAppearance(act, /** @type {HTMLElement} */ (target.closest('[data-act]')))
     else if (act === 'undo') void undo()
     else if (act === 'edit') openEditor('why')
     else if (act === 'details') void flip()
@@ -776,9 +782,6 @@ ${deckHelpHtml()}`
         break
       case 'record':
         openEditor('record')
-        break
-      case 'drawer':
-        toggleDrawer()
         break
       case 'details':
         void flip()

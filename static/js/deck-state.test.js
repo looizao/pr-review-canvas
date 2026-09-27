@@ -44,7 +44,7 @@ function press(key, init = {}, target = document.body) {
 
 describe('deckKeyAction', () => {
   it('maps the deck keys and leaves the arrows alone', () => {
-    expect(['a', 'b', 'n', 's', 'u', 'e', 'r', 'o', 'i', '?', 'Escape'].map(k => press(k))).toEqual([
+    expect(['a', 'b', 'n', 's', 'u', 'e', 'r', 'i', '?', 'Escape'].map(k => press(k))).toEqual([
       'pick-a',
       'pick-b',
       'neither',
@@ -52,11 +52,12 @@ describe('deckKeyAction', () => {
       'undo',
       'edit',
       'record',
-      'drawer',
       'details',
       'help',
       'escape',
     ])
+    // The code is on the card's back, under i; o opens nothing.
+    expect(press('o')).toBeNull()
     expect(press('ArrowLeft')).toBeNull()
     expect(press('ArrowRight')).toBeNull()
   })

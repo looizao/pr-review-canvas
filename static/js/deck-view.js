@@ -1,6 +1,6 @@
 // @ts-check
-// HTML for the self-review deck: a card, the stack behind it, the progress pips, the code drawer,
-// the finish screen, and the help dialog. Every value from the deck goes through esc() or the
+// HTML for the self-review deck: a card, the stack behind it, the progress pips, the finish
+// screen, and the help dialog. Every value from the deck goes through esc() or the
 // sanitizing markdown renderer.
 import hljs from 'hljs'
 import { esc } from './dom.js'
@@ -170,7 +170,7 @@ export function cardHtml(card, position, view = {}) {
 ${backCodeHtml(card, view.excerpt)}
 </div>
 <footer class="deck-card-f">
-<button class="deck-anchor mono" type="button" data-act="drawer" aria-expanded="false"><kbd>o</kbd> ${esc(where)}</button>
+<span class="deck-anchor mono">${esc(where)}</span>
 <span class="deck-card-more"><button class="cmd" type="button" data-act="details" aria-pressed="false"><kbd>i</kbd> back</button><button class="cmd" type="button" data-act="edit"><kbd>e</kbd> edit why</button><button class="cmd" type="button" data-act="neither"><kbd>n</kbd> neither</button><button class="cmd" type="button" data-act="skip"><kbd>s</kbd> skip</button></span>
 </footer>
 <form class="deck-note" data-note hidden>
@@ -211,22 +211,6 @@ export function pipsHtml(cards, picks, topKey) {
     return `<li class="deck-pip" data-state="${state}"${fix}${current} title="${esc(`${card.title}: ${label}`)}"></li>`
   })
   return `<ol class="deck-pips" aria-label="Progress">${pips.join('')}</ol>`
-}
-
-const closeHtml =
-  '<button class="cmd deck-drawer-close" type="button" data-act="escape"><kbd>Esc</kbd> close</button>'
-
-/**
- * The code a card is anchored to, as its chunk of the diff.
- * @param {DecisionCard} card
- * @param {CardExcerpt | undefined} excerpt
- */
-export function drawerHtml(card, excerpt) {
-  if (excerpt === undefined) {
-    return `<div class="deck-drawer-body"><p class="deck-drawer-h">${closeHtml}</p><p class="muted">The chunk for <code>${esc(card.path)}:${card.line}</code> is not in this clone's diff anymore.</p></div>`
-  }
-  return `<div class="deck-drawer-body"><p class="deck-drawer-h mono">${esc(excerpt.path)} <span class="muted">${esc(excerpt.header)}</span>${closeHtml}</p>
-<div class="deck-drawer-scroll"><table class="deck-diff deck-code"><tbody>${diffRowsHtml(card, excerpt)}</tbody></table></div></div>`
 }
 
 /**

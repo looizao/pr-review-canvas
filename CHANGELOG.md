@@ -11,7 +11,8 @@
 - `/deck/<n>`, `/deck/branch`, and `/deck/uncommitted` show one card per screen with no scroll at
   1080p, and stack the sides for touch on phones. Pick with
   `a` / `b` or a drag, `n` for neither, `s` to skip, `u` to undo, `e` / `r` to edit a
-  justification, `o` for the code.
+  justification, `i` for the card's back, where the code shows whole and the page scrolls with it.
+  The top bar switches the theme and the skin, as the canvas page does.
 - Clearing the deck writes a fix list. `/pr-self-review-fix` asks about unclear entries, applies
   them, and deals the next deck, which never asks a settled decision again.
 - A pull request's canvas takes the decisions its decks settled: it does not ask them again unless
