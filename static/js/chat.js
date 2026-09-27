@@ -19,7 +19,7 @@ import {
   unseenLabel,
 } from './chat-scroll.js'
 import { runCommand, runControl, showCommandError } from './commands.js'
-import { isQueuedComment, postedCommentUrl, sendCommandsHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, sameAnchoredComment, sendCommandsHtml } from './comment-link.js'
 import { esc, qs } from './dom.js'
 import { getRenderContext } from './layers.js'
 import { renderMarkdown } from './markdown.js'
@@ -214,7 +214,7 @@ export function checkoutWarningHtml(event) {
   )
 }
 
-/** @typedef {{ postedUrl?: string | undefined, queued?: boolean }} SendState */
+/** @typedef {{ postedUrl?: string | undefined, queued?: boolean, submitted?: boolean }} SendState */
 
 /**
  * The commands under a card. `add to review` leads, as it does on a diff-line comment, and both
@@ -226,7 +226,14 @@ export function checkoutWarningHtml(event) {
  * @param {SendState} send
  */
 function proposedCommandsHtml(comment, id, send) {
-  const shown = send.postedUrl !== undefined ? 'posted' : send.queued === true ? 'queued' : 'open'
+  const shown =
+    send.postedUrl !== undefined
+      ? 'posted'
+      : send.submitted === true
+        ? 'submitted'
+        : send.queued === true
+          ? 'queued'
+          : 'open'
   return (
     `<span class="tbtns" data-send="${shown}">` +
     sendCommandsHtml({ kind: 'proposed', id, ...send, leadWithQueue: true }) +
@@ -260,10 +267,15 @@ export function proposedCommentHtml(comment, id, send = {}) {
  * @param {ProposedComment} comment
  * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} submitted
  * @returns {SendState}
  */
-function sendStateOf(comment, posted, pending) {
-  return { postedUrl: postedCommentUrl(comment, posted), queued: isQueuedComment(comment, pending) }
+function sendStateOf(comment, posted, pending, submitted) {
+  return {
+    postedUrl: postedCommentUrl(comment, posted),
+    queued: isQueuedComment(comment, pending),
+    submitted: submitted.some(draft => sameAnchoredComment(draft, comment)),
+  }
 }
 
 /**
@@ -278,8 +290,18 @@ function sendStateOf(comment, posted, pending) {
  * @param {string} [turnKey] the prefix of this turn's card keys
  * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} [posted]
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [pending]
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [submitted]
  */
-export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted = [], pending = []) {
+export function answerHtml(
+  text,
+  targets,
+  sink,
+  paths,
+  turnKey = 'turn',
+  posted = [],
+  pending = [],
+  submitted = []
+) {
   let index = 0
   return splitChatAnswer(text, targets)
     .map(segment => {
@@ -290,7 +312,11 @@ export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted 
         const id = `${turnKey}-${index}`
         index += 1
         sink.set(id, segment.comment)
-        return proposedCommentHtml(segment.comment, id, sendStateOf(segment.comment, posted, pending))
+        return proposedCommentHtml(
+          segment.comment,
+          id,
+          sendStateOf(segment.comment, posted, pending, submitted)
+        )
       }
       return `<pre class="proposed-invalid"><code>${esc(segment.text)}</code></pre><p class="muted small">${esc(segment.reason)}</p>`
     })
@@ -547,7 +573,8 @@ export function wireChat(options) {
                       paths,
                       `history-${i}`,
                       postedComments(),
-                      pendingComments(session.state)
+                      pendingComments(session.state),
+                      session.state.submitted
                     )
                   : renderMarkdown(turn.text, { paths }),
                 {
@@ -599,7 +626,8 @@ export function wireChat(options) {
       paths,
       turnKey,
       postedComments(),
-      pendingComments(session.state)
+      pendingComments(session.state),
+      session.state.submitted
     )
   }
 
@@ -913,7 +941,11 @@ export function wireChat(options) {
           continue
         }
         const template = document.createElement('template')
-        template.innerHTML = proposedCommandsHtml(comment, id, sendStateOf(comment, posted, pending))
+        template.innerHTML = proposedCommandsHtml(
+          comment,
+          id,
+          sendStateOf(comment, posted, pending, session.state.submitted)
+        )
         const next = template.content.firstElementChild
         if (next !== null && next.getAttribute('data-send') !== tbtns.getAttribute('data-send')) {
           tbtns.replaceWith(next)

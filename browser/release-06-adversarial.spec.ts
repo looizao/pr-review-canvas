@@ -3,58 +3,83 @@ import { expect, test } from './fixtures.js'
 import { syntheticArtifact } from '../src/testing/synthetic.js'
 
 // Release 0.6 browser regressions retained from the adversarial audit.
-test('proposed comment survives queue, reload, delete, and submission', async ({ page, chatServer }) => {
-  const narrow = (page.viewportSize()?.width ?? 1440) < 1200
-  const openChat = async () => {
-    if (narrow) await page.getByRole('button', { name: 'AI Chat', exact: true }).click()
-  }
-  const closeChat = async () => {
-    if (narrow) await page.getByRole('button', { name: 'Minimize AI Chat' }).click()
-  }
-  const proposal = {
-    path: 'src/app.ts',
-    line: 5,
-    startLine: 4,
-    body: 'Cover both lines with a regression test.',
-  }
-  const { url } = await chatServer({
-    runner: {
-      script: [
-        { type: 'chunk', text: '```comment\n' + JSON.stringify(proposal) + '\n```' },
-        { type: 'done', stopReason: 'end_turn' },
-      ],
-    },
+for (const receipt of ['available', 'unavailable']) {
+  test(`proposed comment survives queue, reload, delete, and submission with receipt ${receipt}`, async ({
+    page,
+    chatServer,
+  }) => {
+    const narrow = (page.viewportSize()?.width ?? 1440) < 1200
+    const openChat = async () => {
+      if (narrow) await page.getByRole('button', { name: 'AI Chat', exact: true }).click()
+    }
+    const closeChat = async () => {
+      if (narrow) await page.getByRole('button', { name: 'Minimize AI Chat' }).click()
+    }
+    const proposal = {
+      path: 'src/app.ts',
+      line: 5,
+      startLine: 4,
+      body: 'Cover both lines with a regression test.',
+    }
+    const { url } = await chatServer({
+      setup: async ({ ctx }) => {
+        if (receipt === 'unavailable') {
+          const api = ctx.gh.api.bind(ctx.gh)
+          ctx.gh.api = async (path, params) => {
+            if (path.endsWith('/reviews/7001/comments')) throw new Error('receipt temporarily unavailable')
+            return api(path, params)
+          }
+        }
+      },
+      runner: {
+        script: [
+          { type: 'chunk', text: '```comment\n' + JSON.stringify(proposal) + '\n```' },
+          { type: 'done', stopReason: 'end_turn' },
+        ],
+      },
+    })
+    await page.goto(url)
+    await openChat()
+    await page.locator('#msg').fill('Propose a comment')
+    await page.locator('#chat-send').click()
+    const card = page.locator('.proposed')
+    await card.locator('[data-act="proposed-queue"]').click()
+    await expect(card).toContainText('in your review')
+    await page.reload()
+    await openChat()
+    await expect(card).toContainText('in your review')
+    await expect(page.locator('.pending-bar')).toContainText('1 pending comment')
+    await closeChat()
+    await page.locator('article.file[data-path="src/app.ts"]').first().scrollIntoViewIfNeeded()
+    await page.locator('[data-act="pending-delete"]').click()
+    await openChat()
+    await expect(card.locator('[data-act="proposed-queue"]')).toBeVisible()
+    await card.locator('[data-act="proposed-queue"]').click()
+    await closeChat()
+    await page.locator('[data-act="pending-finish"]').click()
+    await page.locator('[data-act="signoff-post"]').click()
+    await expect(page.locator('.signoff-result')).toContainText('Posted')
+    await page.locator('[data-act="signoff-close"]').click()
+    await openChat()
+    if (receipt === 'available') {
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    } else {
+      await expect(card.locator('.tbtns')).toContainText('submitted')
+      await expect(card.locator('a')).toHaveCount(0)
+    }
+    await expect(card.locator('[data-act="proposed-queue"]')).toHaveCount(0)
+    await expect(card.locator('[data-act="proposed-post"]')).toHaveCount(0)
+    await page.reload()
+    await openChat()
+    if (receipt === 'available') {
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    } else {
+      await expect(card.locator('.tbtns')).toContainText('submitted')
+      await expect(card.locator('a')).toHaveCount(0)
+    }
+    await expect(card.locator('[data-act="proposed-queue"], [data-act="proposed-post"]')).toHaveCount(0)
   })
-  await page.goto(url)
-  await openChat()
-  await page.locator('#msg').fill('Propose a comment')
-  await page.locator('#chat-send').click()
-  const card = page.locator('.proposed')
-  await card.locator('[data-act="proposed-queue"]').click()
-  await expect(card).toContainText('in your review')
-  await page.reload()
-  await openChat()
-  await expect(card).toContainText('in your review')
-  await expect(page.locator('.pending-bar')).toContainText('1 pending comment')
-  await closeChat()
-  await page.locator('article.file[data-path="src/app.ts"]').first().scrollIntoViewIfNeeded()
-  await page.locator('[data-act="pending-delete"]').click()
-  await openChat()
-  await expect(card.locator('[data-act="proposed-queue"]')).toBeVisible()
-  await card.locator('[data-act="proposed-queue"]').click()
-  await closeChat()
-  await page.locator('[data-act="pending-finish"]').click()
-  await page.locator('[data-act="signoff-post"]').click()
-  await expect(page.locator('.signoff-result')).toContainText('Posted')
-  await page.locator('[data-act="signoff-close"]').click()
-  await openChat()
-  await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-  await expect(card.locator('[data-act="proposed-queue"]')).toHaveCount(0)
-  await expect(card.locator('[data-act="proposed-post"]')).toHaveCount(0)
-  await page.reload()
-  await openChat()
-  await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-})
+}
 
 test('settling with sharing disabled and the reason unchecked stays local across reload', async ({
   page,

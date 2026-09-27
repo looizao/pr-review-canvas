@@ -180,6 +180,7 @@ export function createStateStore(prs: PrStore, now: () => Date): StateStore {
       update(key, state => ({
         ...state,
         pending: state.pending.filter(p => !submitted.some(s => s.id === p.id && s.body === p.body)),
+        submitted: [...state.submitted, ...submitted],
         posted: [
           ...state.posted,
           ...posted
