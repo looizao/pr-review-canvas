@@ -132,6 +132,27 @@ Check the `sharing` result even when the process exits successfully:
   Upload that ZIP into the PR/MR description in the browser and save; replace an older attachment
   link if present. A host failure can have an uncertain outcome, so check the comment before retrying.
 - `{ "status": "local" }`: a refs-only target has no PR/MR to publish to.
+- `{ "status": "off" }`: `sharing.canvasComment` is off, so nothing was posted. The canvas is
+  saved locally and opens with `pr-review serve`; `pr-review export` makes a ZIP when you want to
+  hand it over another way.
+
+### Turning sharing off
+
+Some projects must not get a canvas comment, or any mention of the tool, on their PRs/MRs. Two
+switches cover this, both on by default:
+
+- `sharing.canvasComment`: `false` makes `publish` skip the canvas comment and return
+  `sharing.status: "off"`. It posts none of the self-review justifications either
+  (`selfReview.status: "skipped"`).
+- `sharing.mentionCanvas`: `false` keeps the canvas out of everything the review page posts. An
+  attention point's comment drops its `from the pr-review canvas` credit, and the sign-off dialog
+  opens with an empty body for you to write, since the suggested body describes the canvas.
+  Posting comments and reviews from the page still works. GitHub needs a body to request changes
+  or to post a comment-only review, so write one.
+
+Set them for everyone in `pr-review.config.yml`, or for yourself as `canvasComment` and
+`mentionCanvas` in `.pr-review/settings.yml`. A personal value of `true` or `false` wins over the
+project's; `null` follows it.
 
 The entire comment must fit the host limit: 65,536 characters on GitHub and 1,000,000 on GitLab.
 Base64 uses roughly four characters per three compressed bytes, leaving slightly under 48 KiB
@@ -286,6 +307,8 @@ within one path segment.
 | `chat.enabled`                  | `true`                                                                      | Set to `false` to disable AI Chat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `canvas.keepForIdenticalDiff`   | `true`                                                                      | Keep the canvas current for a later head whose diff is identical to the canvas's; see [outdated canvases](#outdated-canvases). Set to `false` to mark it outdated on every commit                                                                                                                                                                                                                                                                                                                                  |
 | `canvas.incremental`            | `true`                                                                      | Regenerate a canvas for a new head by updating the newest canvas of a commit the head was built on; see [incremental canvases](#incremental-canvases). Set to `false` to generate every canvas from a blank page                                                                                                                                                                                                                                                                                                   |
+| `sharing.canvasComment`         | `true`                                                                      | Set to `false` to keep canvases local: `publish` posts no PR/MR comment; see [turning sharing off](#turning-sharing-off)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `sharing.mentionCanvas`         | `true`                                                                      | Set to `false` to keep the canvas out of what the review page posts                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `prompts`                       | Bundled templates                                                           | See [prompt templates](#prompt-templates) for supported keys and behavior                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Generation's numeric options and text caps must be positive integers. An empty `layers` list
@@ -376,22 +399,30 @@ placed in Other while its source is in a regular layer.
 
 The data directory's `settings.yml` accepts these keys and values:
 
-| Key              | Default  | Accepted values                                       |
-| ---------------- | -------- | ----------------------------------------------------- |
-| `version`        | `1`      | `1`                                                   |
-| `skin`           | `github` | `terminal`, `github`                                  |
-| `theme`          | `auto`   | `auto`, `light`, `dark`                               |
-| `foldLevel`      | `light`  | `light`, `moderate`, `aggressive`                     |
-| `layerView`      | `all`    | `all`, `one`                                          |
-| `chatAgent`      | `claude` | `claude`, `codex` (2)                                 |
-| `chatModel`      | `null`   | A model ID, or `null` for the agent's default (1) (2) |
-| `chatTimeoutSec` | `600`    | Integer seconds, 30–3600                              |
-| `maxTurns`       | `null`   | Integer 1–100, or `null` for the agent's default      |
+| Key                    | Default  | Accepted values                                                                  |
+| ---------------------- | -------- | -------------------------------------------------------------------------------- |
+| `version`              | `1`      | `1`                                                                              |
+| `skin`                 | `github` | `terminal`, `github`                                                             |
+| `theme`                | `auto`   | `auto`, `light`, `dark`                                                          |
+| `foldLevel`            | `light`  | `light`, `moderate`, `aggressive`                                                |
+| `layerView`            | `all`    | `all`, `one`                                                                     |
+| `chatAgent`            | `claude` | `claude`, `codex` (2)                                                            |
+| `chatModel`            | `null`   | A model ID, or `null` for the agent's default (1) (2)                            |
+| `chatTimeoutSec`       | `600`    | Integer seconds, 30–3600                                                         |
+| `maxTurns`             | `null`   | Integer 1–100, or `null` for the agent's default                                 |
+| `checkoutEnabled`      | `true`   | `true` reads a [review checkout](#review-checkouts); `false` reads your checkout |
+| `checkoutIdleDays`     | `7`      | Integer 1–365, or `-1` to never remove an idle checkout                          |
+| `checkoutSweepMinutes` | `60`     | Integer minutes, 5–1440, between `serve`'s idle sweeps                           |
+| `canvasComment`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
+| `mentionCanvas`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
 
 (1) A model ID names a family; see [Model families](#model-families).
 (2) AI Chat only. Canvas generation reads `generation.models` in the project config instead. A
 file written before these keys were renamed keeps working: `agent` and `model` are read as
 `chatAgent` and `chatModel`, and the next save renames them in the file.
+(3) Overrides `sharing.canvasComment` or `sharing.mentionCanvas` in the project config for you; see
+[turning sharing off](#turning-sharing-off). Edit these in the file; the settings dialog does not
+show them.
 
 Invalid settings fall back to defaults. URL parameters `?skin=github&theme=light` can override
 appearance for one page load without saving it.
@@ -554,6 +585,8 @@ A pending review holds comments on your machine until you submit them together.
 - An attention point keeps both **post to github** and **add to review**, since its text is written
   in advance. A point in the review shows **in your review**; edit or remove it as the draft on its
   line. After submission, the point shows the comment it became.
+- A comment the AI Chat proposes works the same way: it offers **post to github** and **add to
+  review**, and shows **in your review** once it is queued.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.
@@ -579,6 +612,7 @@ Sign-off offers three verdicts: **approve**, **request changes**, and **comment*
 review with no verdict. Each opens a
 dialog previewing an editable review body summarizing reviewed layers, dismissed attention points,
 and comments posted from the canvas, so an approval or a rejection always carries a comment.
+With `sharing.mentionCanvas` off, the dialog opens with an empty body for you to write.
 
 Approval requires every layer except **Other changes** to be reviewed for the current head.
 Requesting changes and a comment-only review do not require that completion. On GitLab,
@@ -659,6 +693,48 @@ or copy it. A proposal outside the current diff remains text with an explanation
 Use **stop** to interrupt a reply. Only one chat turn can run per PR at a time. A timeout or
 incomplete answer can be retried; increase `chatTimeoutSec` if replies need more time.
 
+### Review checkouts
+
+AI Chat reads code from a review checkout: a detached `git worktree` of the repository at
+the reviewed commit, kept under the data directory (`repos/<owner>__<repo>/checkouts/<key>`) and
+apart from your own checkout. Your branch and your uncommitted edits are never touched. The first
+chat turn of a review creates it, and each turn moves it to the commit the chat talks about. The
+chat pane shows **Creating the review checkout** or **Checking out** while that runs.
+
+- A pull request and the branch review each get one. The branch review reads the branch's last
+  commit, without your uncommitted edits.
+- The uncommitted review has none: the agent reads your working tree, which is the work under
+  review.
+- A review checkout holds tracked files only, and no submodules. The agent reads installed
+  dependencies from your checkout and is told they may not match a pull request that changes them.
+- In a repository that uses Git LFS, creating or moving a review checkout downloads its LFS files,
+  like any checkout does. On a large LFS repository the first chat turn of a review can take a
+  while and use network and disk; the chat pane shows the checkout while it runs.
+- Review checkouts are full copies of the repository inside the data directory, which by default
+  sits in your main checkout (`.pr-review/`, ignored by git). Tools that respect `.gitignore`, such
+  as ripgrep and `git status`, skip them. Tools that do not may index them as duplicate sources:
+  some IDE indexers, a Jest module map, or a `tsc` run without `include`. Exclude `.pr-review/`
+  in those tools, or set `PR_REVIEW_DATA_DIR` (or `--data-dir` on every command) to a folder
+  outside the checkout. That moves all pr-review data, not only checkouts: settings, canvases,
+  review progress, and chat history go with it. They also appear in `git worktree list`.
+- If the checkout cannot be created or moved, the turn reads your checkout instead and the answer
+  carries a warning naming your branch, also when the thread is reopened later.
+- Every worktree of one clone shares the checkouts. While one `pr-review serve` answers about a
+  review, a turn on the same review from another is refused with `CHAT_BUSY`; ask again once the
+  first answer is done.
+
+`serve` removes checkouts with no chat turn for `checkoutIdleDays`, at startup and every
+`checkoutSweepMinutes`. `pr-review clean` does the same on demand:
+
+```text
+pr-review clean [--all | --older-than <days>] [--dry-run]
+```
+
+With `checkoutIdleDays: -1`, neither removes anything unless you pass `--all` or `--older-than`.
+Cleanup never touches canvases or review state. The **Checkouts** tab of the settings dialog
+lists the current checkouts and edits these settings. Set `checkoutEnabled: false` to read your
+own checkout, as before review checkouts existed.
+
 ## Network access and permissions
 
 The server binds to `127.0.0.1` and rejects browser writes from other origins. It is intended for
@@ -692,7 +768,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `CANVAS_STALE`                          | The PR head moved; prepare again for the current commit                                                                                               |
 | `MODEL_INVALID`                         | Fix the reported problems in `model.json`, validate, then publish again                                                                               |
 | `SKILL_DIR_EXISTS`                      | The destination contains a customized directory; preserve it elsewhere before replacing it with `--force`                                             |
-| `CHAT_BUSY`                             | Wait for the running reply or press **stop**                                                                                                          |
+| `CHAT_BUSY`                             | Wait for the running reply or press **stop**; when another `pr-review serve` holds the review checkout, ask again once its answer is done             |
 | `AGENT_AUTH_REQUIRED`                   | Sign in through the selected agent's CLI, then retry                                                                                                  |
 | `AGENT_MISSING` or missing chat pane    | Check `chat.enabled` and confirm the server can find `acpx` and the selected agent; run `pr-review doctor --all-checks`                               |
 | `AGENT_INCOMPLETE`                      | Retry the message or increase the chat timeout                                                                                                        |

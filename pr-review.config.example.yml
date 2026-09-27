@@ -83,6 +83,12 @@ tests:
 chat:
   enabled: true # false removes the chat pane and its routes
 
+# What publish and the review page put on the PR/MR. .pr-review/settings.yml can override both
+# for one person (canvasComment and mentionCanvas there; null follows these).
+sharing:
+  canvasComment: true # false: publish keeps the canvas local and posts no PR/MR comment
+  mentionCanvas: true # false: nothing the review page posts names the canvas
+
 canvas:
   # A canvas stays current for a later head whose diff is identical to the one it was generated
   # from, as after merging the base branch in. Set false to mark the canvas outdated on every new

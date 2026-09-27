@@ -50,6 +50,11 @@ describe('createSettingsStore', () => {
       chatModel: 'gpt-5.2',
       chatTimeoutSec: 900,
       maxTurns: 6,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     const text = await readFile(store.file, 'utf8')
     expect(text).toContain('# Which agent answers in the AI Chat pane')
@@ -71,6 +76,11 @@ describe('createSettingsStore', () => {
       chatModel: null,
       chatTimeoutSec: 120,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
   })
 
@@ -175,6 +185,20 @@ describe('applySettings', () => {
     expect(text).toContain('layerView: all')
     expect(text).toContain('chatModel: null')
     expect(text).toContain('maxTurns: null')
+    expect(text).toContain('canvasComment: null')
+    expect(text).toContain('mentionCanvas: null')
+  })
+
+  it('keeps the sharing overrides a user wrote by hand across a save', () => {
+    const { text, settings } = applySettings(
+      `${SETTINGS_TEMPLATE}`.replace('canvasComment: null', 'canvasComment: false'),
+      {
+        chatAgent: 'codex',
+      }
+    )
+    expect(settings.canvasComment).toBe(false)
+    expect(text).toContain('canvasComment: false')
+    expect(text).toContain('# Whether publish posts the canvas')
   })
 
   it('saves the layer view under its comment, and refuses one it does not know', () => {
@@ -183,6 +207,30 @@ describe('applySettings', () => {
     expect(text).toContain('# How a review shows its layers')
     expect(text).toContain('layerView: one')
     expect(parseSettings('layerView: some\n')).toEqual(DEFAULT_SETTINGS)
+  })
+})
+
+describe('the review checkout settings', () => {
+  it('gives a file written before them the keys with their template comments', () => {
+    const { text, settings } = applySettings('chatAgent: claude\n', {
+      checkoutIdleDays: -1,
+      checkoutEnabled: false,
+      checkoutSweepMinutes: 30,
+    })
+    expect(settings).toMatchObject({ checkoutIdleDays: -1, checkoutEnabled: false, checkoutSweepMinutes: 30 })
+    expect(text).toContain('checkoutEnabled: false')
+    expect(text).toContain('# Days without a chat turn before a review checkout is removed.')
+    expect(text).toContain('checkoutIdleDays: -1')
+    expect(text).toContain('# How often, in minutes, pr-review serve looks for idle review checkouts.')
+  })
+
+  it('refuses an idle limit of zero and a sweep interval out of range', () => {
+    expect(parseSettings('checkoutIdleDays: 0\n')).toEqual(DEFAULT_SETTINGS)
+    expect(parseSettings('checkoutSweepMinutes: 1\n')).toEqual(DEFAULT_SETTINGS)
+    expect(parseSettings('checkoutIdleDays: -1\ncheckoutEnabled: false\n')).toMatchObject({
+      checkoutIdleDays: -1,
+      checkoutEnabled: false,
+    })
   })
 })
 
@@ -206,6 +254,11 @@ describe('two saves that arrive together', () => {
       chatModel: null,
       chatTimeoutSec: 900,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
   })
 

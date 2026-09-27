@@ -8,6 +8,7 @@ import { exportCanvas } from './canvas/export.js'
 import { importCanvas } from './canvas/import.js'
 import { CANVAS_ZIP_MAX_BYTES } from './canvas/zip.js'
 import type { ErrorCode } from './contract/api.js'
+import { CHECKOUT_IDLE_NEVER } from './contract/settings.js'
 import type { GenerationContext, PrepareTargetInput } from './contract/generation-context.js'
 import { isLocalKey, type LocalKey, type ReviewKey } from './contract/review-key.js'
 import { HARNESSES, type ReviewArtifact, ReviewArtifactSchema } from './contract/review-artifact.js'
@@ -609,5 +610,53 @@ export async function runImport(ctx: AppContext, argv: string[], io: CliIo): Pro
     options.currentHead = await fetchPrRefs(ctx.git, ctx.config.host, meta)
   }
   printJson(io, await importCanvas(ctx, options))
+  return EXIT.ok
+}
+
+/**
+ * `clean [--all] [--older-than <days>] [--dry-run]`: removes idle review checkouts, the ones with
+ * no chat turn for `checkoutIdleDays`, or every one with `--all`. A checkout a chat turn holds is
+ * left alone. Canvases and review state are never touched.
+ */
+export async function runClean(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      all: { type: 'boolean' },
+      'older-than': { type: 'string' },
+      'dry-run': { type: 'boolean' },
+    },
+    strict: true,
+  })
+  const all = values.all === true
+  const olderThan = values['older-than']
+  if (all && olderThan !== undefined) {
+    throw new UsageError('clean takes --all or --older-than <days>, not both')
+  }
+  let olderThanDays: number | undefined
+  if (olderThan !== undefined) {
+    olderThanDays = Number(olderThan)
+    if (!Number.isInteger(olderThanDays) || olderThanDays < 0) {
+      throw new UsageError('--older-than takes a whole number of days, 0 or more')
+    }
+  } else if (!all) {
+    const { checkoutIdleDays } = await ctx.settings.read()
+    if (checkoutIdleDays === CHECKOUT_IDLE_NEVER) {
+      io.stderr(
+        'pr-review clean: idle cleanup is off (checkoutIdleDays: -1), so nothing was removed. Use --all or --older-than <days>.'
+      )
+      printJson(io, { removed: [], skipped: [], dryRun: values['dry-run'] === true })
+      return EXIT.ok
+    }
+    olderThanDays = checkoutIdleDays
+  }
+  const result = await ctx.checkouts.sweep({ all, olderThanDays, dryRun: values['dry-run'] === true })
+  const brief = (list: typeof result.removed) =>
+    list.map(({ key, sha, lastUsedAt, dir }) => ({ key, sha, lastUsedAt, dir }))
+  printJson(io, {
+    removed: brief(result.removed),
+    skipped: brief(result.skipped),
+    dryRun: values['dry-run'] === true,
+  })
   return EXIT.ok
 }

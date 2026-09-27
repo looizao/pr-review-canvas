@@ -52,6 +52,7 @@ describe('mergeProjectConfig', () => {
       chat: { enabled: false },
       canvas: { keepForIdenticalDiff: true, incremental: true },
       selfReview: { maxCards: 6, linesPerCard: 100 },
+      sharing: { canvasComment: true, mentionCanvas: true },
     })
     expect(ProjectConfigSchema.parse(config)).toEqual(config)
     const allCaps = Object.fromEntries(Object.keys(TEXT_CAPS).map(k => [k, 1]))
@@ -102,6 +103,21 @@ describe('mergeProjectConfig', () => {
     })
     expect(mergeProjectConfig({ canvas: { keepForIdenticalDiff: 'no' } }).warnings[0]).toContain(
       'canvas.keepForIdenticalDiff'
+    )
+  })
+
+  it('reads the sharing settings and defaults both to on', () => {
+    expect(mergeProjectConfig({}).config.sharing).toEqual({ canvasComment: true, mentionCanvas: true })
+    expect(mergeProjectConfig({ sharing: { canvasComment: false } }).config.sharing).toEqual({
+      canvasComment: false,
+      mentionCanvas: true,
+    })
+    expect(mergeProjectConfig({ sharing: { mentionCanvas: false } }).config.sharing).toEqual({
+      canvasComment: true,
+      mentionCanvas: false,
+    })
+    expect(mergeProjectConfig({ sharing: { canvasComment: 'no' } }).warnings[0]).toContain(
+      'sharing.canvasComment'
     )
   })
 

@@ -82,7 +82,8 @@ When you then generate the pull request's canvas (`/pr-review-canvas <n>`), it t
 decks for that pull request, or for its branch, settled. The canvas does not ask a settled decision
 again unless the code contradicts your pick, and it raises the cards you skipped for reviewers.
 Publishing it also posts every **PR comment** justification as your own review, one comment on the
-code each concerns. Pass `--skip-self-review-comments` to `pr-review publish` to keep them off.
+code each concerns. Pass `--skip-self-review-comments` to `pr-review publish` to keep them off; `sharing.canvasComment:
+false` keeps them off too.
 
 ### Review side
 
@@ -221,6 +222,11 @@ agent's default. A chat model ID runs as the newest model of its family (`claude
 `opus`); write `pin:claude-opus-4-8` to use that exact model. See
 [Model families](docs/reference.md#model-families). You can also adjust the reply timeout and
 maximum turns. Click **Test agent** to check the connection, then **save**.
+
+AI Chat reads code from a review checkout: a copy of the repository at the reviewed commit,
+separate from your own checkout, so answers describe the pull request's code whatever branch you
+are on. The **Checkouts** tab of the settings dialog controls it, and `pr-review clean` removes
+idle ones. See [Review checkouts](docs/reference.md#review-checkouts).
 
 Switching chat agents starts a new thread and keeps earlier threads. Server flags `--chat-agent`
 and `--chat-model` override your saved chat preferences for that run.

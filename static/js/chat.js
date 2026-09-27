@@ -19,11 +19,11 @@ import {
   unseenLabel,
 } from './chat-scroll.js'
 import { runCommand, runControl, showCommandError } from './commands.js'
-import { postedCommentUrl, viewCommentHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, sendCommandsHtml } from './comment-link.js'
 import { esc, qs } from './dom.js'
 import { getRenderContext } from './layers.js'
 import { renderMarkdown } from './markdown.js'
-import { postToLabel } from './host.js'
+import { pendingComments } from './pending.js'
 import { splitChatAnswer, targetsFromFiles } from './proposed-comment.js'
 
 export const CHAT_WIDTH_KEY = 'pr-review.chat-width'
@@ -131,6 +131,12 @@ export const QUICK_QUESTIONS = [
   'Is this covered by tests?',
 ]
 
+/** @typedef {'post' | 'queue' | 'edit'} ProposedAct */
+
+/** What each proposed-comment button asks the page to do. */
+/** @type {Readonly<Record<string, ProposedAct>>} */
+const PROPOSED_ACTS = { 'proposed-post': 'post', 'proposed-queue': 'queue', 'proposed-edit': 'edit' }
+
 /**
  * @typedef {{
  *   root: HTMLElement,
@@ -139,7 +145,7 @@ export const QUICK_QUESTIONS = [
  *   storage?: Storage | null,
  *   api?: Partial<ChatApi>,
  *   reducedMotion?: boolean,
- *   onProposed?: (what: 'post' | 'edit', comment: ProposedComment, el: HTMLElement) => void,
+ *   onProposed?: (what: ProposedAct, comment: ProposedComment, el: HTMLElement) => void,
  * }} ChatOptions
  */
 
@@ -161,7 +167,7 @@ function withDefaults(overrides) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnHtml(role, bodyHtml, opts = {}) {
   return `<div class="turn ${role === 'assistant' ? 'a' : 'u'}">${turnInnerHtml(role, bodyHtml, opts)}</div>`
@@ -170,7 +176,7 @@ function turnHtml(role, bodyHtml, opts = {}) {
 /**
  * @param {ChatTurn['role']} role
  * @param {string} bodyHtml
- * @param {{ incomplete?: string }} [opts]
+ * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
  */
 function turnInnerHtml(role, bodyHtml, opts = {}) {
   const note =
@@ -179,18 +185,64 @@ function turnInnerHtml(role, bodyHtml, opts = {}) {
       : `<p class="muted small">the answer stopped early (${esc(opts.incomplete)})</p>`
   return (
     `<span class="role">${role === 'assistant' ? 'AI Chat' : 'You'}</span>` +
+    (opts.fallback === undefined ? '' : checkoutWarningHtml(opts.fallback)) +
     `<div class="prose">${bodyHtml}</div>${note}`
   )
 }
 
 /**
- * The card a proposed comment renders as. `post to github` goes through the same path as every
- * other post, so capability gating and the pending state apply here too.
+ * What the activity line says while a review checkout is created or moved.
+ * @param {{ sha: string, creating: boolean }} event
+ */
+export function checkoutActivityText(event) {
+  const sha = event.sha.slice(0, 7)
+  return event.creating ? `Creating the review checkout at ${sha}` : `Checking out ${sha}`
+}
+
+/**
+ * The warning a turn shows when its review checkout failed and it read the reader's checkout.
+ * @param {{ message: string, branch: string | null }} event
+ */
+export function checkoutWarningHtml(event) {
+  const where =
+    event.branch === null
+      ? 'your checkout'
+      : `your checkout on <span class="mono">${esc(event.branch)}</span>`
+  return (
+    `<p class="chat-warning small" role="status">The review checkout could not be updated, so AI Chat read ${where}. ` +
+    `Answers may describe another version of the code. <span class="muted">${esc(event.message)}</span></p>`
+  )
+}
+
+/** @typedef {{ postedUrl?: string | undefined, queued?: boolean }} SendState */
+
+/**
+ * The commands under a card. `add to review` leads, as it does on a diff-line comment, and both
+ * ways of sending go through the same paths as every other post and draft, so capability gating
+ * and the pending state apply here too. `data-send` names what the send commands show, so a
+ * change of state redraws only the cards it changed.
  * @param {ProposedComment} comment
  * @param {string} id the key the pane stores this card's comment under
- * @param {string} [postedUrl]
+ * @param {SendState} send
  */
-export function proposedCommentHtml(comment, id, postedUrl) {
+function proposedCommandsHtml(comment, id, send) {
+  const shown = send.postedUrl !== undefined ? 'posted' : send.queued === true ? 'queued' : 'open'
+  return (
+    `<span class="tbtns" data-send="${shown}">` +
+    sendCommandsHtml({ kind: 'proposed', id, ...send, leadWithQueue: true }) +
+    `<button class="cmd" type="button" data-act="proposed-edit" data-proposed="${esc(id)}" data-needs-post>edit</button>` +
+    `<button class="cmd" type="button" data-copy="${esc(comment.body)}">copy</button>` +
+    '</span>'
+  )
+}
+
+/**
+ * The card a proposed comment renders as.
+ * @param {ProposedComment} comment
+ * @param {string} id the key the pane stores this card's comment under
+ * @param {SendState} [send]
+ */
+export function proposedCommentHtml(comment, id, send = {}) {
   const range = comment.startLine === undefined ? `${comment.line}` : `${comment.startLine}–${comment.line}`
   const side = comment.side === 'old' ? ' (old side)' : ''
   return (
@@ -198,14 +250,20 @@ export function proposedCommentHtml(comment, id, postedUrl) {
     `<div class="proposed-h"><span class="lbl">proposed comment</span>` +
     `<span class="mono">${esc(comment.path)}:${esc(range)}${side}</span></div>` +
     `<div class="prose">${renderMarkdown(comment.body)}</div>` +
-    '<span class="tbtns">' +
-    (postedUrl === undefined
-      ? `<button class="cmd fill" type="button" data-act="proposed-post" data-proposed="${esc(id)}" data-needs-post>${postToLabel()}</button>`
-      : viewCommentHtml(postedUrl, true)) +
-    `<button class="cmd" type="button" data-act="proposed-edit" data-proposed="${esc(id)}" data-needs-post>edit</button>` +
-    `<button class="cmd" type="button" data-copy="${esc(comment.body)}">copy</button>` +
-    '</span></div>'
+    proposedCommandsHtml(comment, id, send) +
+    '</div>'
   )
+}
+
+/**
+ * Where a proposed comment stands against the posted comments and the pending review.
+ * @param {ProposedComment} comment
+ * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
+ * @returns {SendState}
+ */
+function sendStateOf(comment, posted, pending) {
+  return { postedUrl: postedCommentUrl(comment, posted), queued: isQueuedComment(comment, pending) }
 }
 
 /**
@@ -219,8 +277,9 @@ export function proposedCommentHtml(comment, id, postedUrl) {
  * @param {ReadonlySet<string>} paths
  * @param {string} [turnKey] the prefix of this turn's card keys
  * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} [posted]
+ * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [pending]
  */
-export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted = []) {
+export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted = [], pending = []) {
   let index = 0
   return splitChatAnswer(text, targets)
     .map(segment => {
@@ -231,7 +290,7 @@ export function answerHtml(text, targets, sink, paths, turnKey = 'turn', posted 
         const id = `${turnKey}-${index}`
         index += 1
         sink.set(id, segment.comment)
-        return proposedCommentHtml(segment.comment, id, postedCommentUrl(segment.comment, posted))
+        return proposedCommentHtml(segment.comment, id, sendStateOf(segment.comment, posted, pending))
       }
       return `<pre class="proposed-invalid"><code>${esc(segment.text)}</code></pre><p class="muted small">${esc(segment.reason)}</p>`
     })
@@ -393,7 +452,7 @@ export function wireChat(options) {
    * redrawn without looking it up again.
    * @param {ChatTurn['role']} role
    * @param {string} html
-   * @param {{ incomplete?: string }} [opts]
+   * @param {{ incomplete?: string, fallback?: ChatTurn['fallback'] }} [opts]
    * @returns {{ turn: HTMLElement, body: HTMLElement }}
    */
   const appendTurn = (role, html, opts = {}) => {
@@ -481,9 +540,20 @@ export function wireChat(options) {
               turnHtml(
                 turn.role,
                 turn.role === 'assistant'
-                  ? answerHtml(turn.text, targets, proposed, paths, `history-${i}`, postedComments())
+                  ? answerHtml(
+                      turn.text,
+                      targets,
+                      proposed,
+                      paths,
+                      `history-${i}`,
+                      postedComments(),
+                      pendingComments(session.state)
+                    )
                   : renderMarkdown(turn.text, { paths }),
-                turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }
+                {
+                  ...(turn.incomplete === undefined ? {} : { incomplete: turn.incomplete }),
+                  ...(turn.fallback === undefined ? {} : { fallback: turn.fallback }),
+                }
               )
             )
             .join('')
@@ -522,7 +592,15 @@ export function wireChat(options) {
         proposed.delete(key)
       }
     }
-    return answerHtml(text, targets, proposed, paths, turnKey, postedComments())
+    return answerHtml(
+      text,
+      targets,
+      proposed,
+      paths,
+      turnKey,
+      postedComments(),
+      pendingComments(session.state)
+    )
   }
 
   const send = async () => {
@@ -542,9 +620,11 @@ export function wireChat(options) {
     activity.setAttribute('aria-live', 'off')
     answer.turn.append(activity)
     const started = Date.now()
+    /** What the turn is waiting on: the answer, or a review checkout first. */
+    let phase = 'Preparing answer'
     const updateActivity = () => {
       const elapsed = Date.now() - started
-      activity.textContent = `Preparing answer${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
+      activity.textContent = `${phase}${'.'.repeat((Math.floor(elapsed / 400) % 3) + 1)} · ${Math.floor(elapsed / 1000)}s`
     }
     updateActivity()
     const timer = setInterval(updateActivity, 400)
@@ -571,6 +651,26 @@ export function wireChat(options) {
             if (event.event === 'turn' && typeof thread === 'string') {
               activeThread = thread
               void refreshThreads()
+              // The checkout, if there was one, is done once the turn starts.
+              phase = 'Preparing answer'
+              activity.classList.remove('checking-out')
+              updateActivity()
+              return
+            }
+            if (event.event === 'checkout') {
+              const checkout = /** @type {import('./contract-types.js').ChatCheckoutEvent} */ ({
+                event: 'checkout',
+                ...data,
+              })
+              if (checkout.status === 'preparing') {
+                phase = checkoutActivityText(checkout)
+                activity.classList.add('checking-out')
+                updateActivity()
+              } else {
+                answer.turn
+                  .querySelector('.role')
+                  ?.insertAdjacentHTML('afterend', checkoutWarningHtml(checkout))
+              }
               return
             }
             if (event.event === 'tool') {
@@ -695,10 +795,11 @@ export function wireChat(options) {
       return
     }
     const act = el.getAttribute('data-act')
-    if (act === 'proposed-post' || act === 'proposed-edit') {
+    const what = act === null ? undefined : PROPOSED_ACTS[act]
+    if (what !== undefined) {
       const comment = proposed.get(el.getAttribute('data-proposed') ?? '')
       if (comment !== undefined) {
-        options.onProposed?.(act === 'proposed-post' ? 'post' : 'edit', comment, el)
+        options.onProposed?.(what, comment, el)
       }
     }
   }
@@ -795,6 +896,29 @@ export function wireChat(options) {
     ask(next) {
       setContext(next)
       panel.open()
+    },
+    /**
+     * Draws each card's commands again when its comment was just posted, joined the review, or
+     * left it. The page calls this after every change of the local state, once the comments it
+     * draws from are up to date.
+     */
+    refreshProposed() {
+      const posted = postedComments()
+      const pending = pendingComments(session.state)
+      for (const card of Array.from(log.querySelectorAll('.proposed[data-proposed]'))) {
+        const id = card.getAttribute('data-proposed') ?? ''
+        const comment = proposed.get(id)
+        const tbtns = card.querySelector(':scope > .tbtns')
+        if (comment === undefined || tbtns === null) {
+          continue
+        }
+        const template = document.createElement('template')
+        template.innerHTML = proposedCommandsHtml(comment, id, sendStateOf(comment, posted, pending))
+        const next = template.content.firstElementChild
+        if (next !== null && next.getAttribute('data-send') !== tbtns.getAttribute('data-send')) {
+          tbtns.replaceWith(next)
+        }
+      }
     },
     /**
      * Sends one of the quick questions about a target.

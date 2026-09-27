@@ -47,6 +47,11 @@ export const ChatTurnSchema = z.object({
   context: ChatContextSchema.optional(),
   /** Why the turn ended, on an assistant turn that did not finish. */
   incomplete: z.string().optional(),
+  /**
+   * On an assistant turn whose review checkout failed: why, and the branch of the reader's
+   * checkout it read instead.
+   */
+  fallback: z.object({ message: z.string(), branch: z.string().nullable() }).optional(),
 })
 export type ChatTurn = z.infer<typeof ChatTurnSchema>
 
@@ -63,11 +68,29 @@ export interface ChatHistoryResponse {
 }
 
 /** The SSE frames the chat route writes, named the same on both sides. */
-export const CHAT_EVENTS = ['turn', 'chunk', 'thought', 'tool', 'done', 'error', 'cancelled'] as const
+export const CHAT_EVENTS = [
+  'turn',
+  'checkout',
+  'chunk',
+  'thought',
+  'tool',
+  'done',
+  'error',
+  'cancelled',
+] as const
 export type ChatEventName = (typeof CHAT_EVENTS)[number]
+
+/**
+ * A review checkout for one turn: `preparing` comes before it is created (`creating`) or moved to
+ * `sha`; `fallback` says it failed and the reader's checkout, on `branch`, is read instead.
+ */
+export type ChatCheckoutEvent =
+  | { event: 'checkout'; status: 'preparing'; sha: string; creating: boolean }
+  | { event: 'checkout'; status: 'fallback'; message: string; branch: string | null }
 
 export type ChatEvent =
   | { event: 'turn'; thread: string; agent: string; seeded: boolean }
+  | ChatCheckoutEvent
   | { event: 'chunk'; text: string }
   | { event: 'thought'; text: string }
   | { event: 'tool'; id: string; title: string; status: string }

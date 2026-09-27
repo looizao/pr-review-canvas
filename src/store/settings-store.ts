@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { type Document, isMap, isScalar, parseDocument } from 'yaml'
+import { type Document, isMap, isScalar, type Pair, parseDocument, type Scalar, type YAMLMap } from 'yaml'
 import { DEFAULT_SETTINGS, type Settings, type SettingsInput, SettingsSchema } from '../contract/settings.js'
 import { readText, writeTextAtomic } from './atomic-json.js'
 
@@ -38,6 +38,25 @@ chatTimeoutSec: 600
 
 # Cap on agent turns per message, or null for the agent's own default.
 maxTurns: null
+
+# Whether AI Chat reads a review checkout: a copy of the repository at the reviewed commit, kept
+# apart from your own checkout. false reads your checkout instead, whatever branch it is on.
+checkoutEnabled: true
+
+# Days without a chat turn before a review checkout is removed. -1 never removes one for that;
+# pr-review clean --all still does.
+checkoutIdleDays: 7
+
+# How often, in minutes, pr-review serve looks for idle review checkouts.
+checkoutSweepMinutes: 60
+
+# Whether publish posts the canvas as a PR/MR comment. null follows sharing.canvasComment in
+# pr-review.config.yml; true or false wins over it for you.
+canvasComment: null
+
+# Whether what the review page posts names the canvas. null follows sharing.mentionCanvas
+# in pr-review.config.yml; true or false wins over it for you.
+mentionCanvas: null
 `
 
 export interface SettingsStore {
@@ -135,6 +154,14 @@ function withChatKeys(raw: object): object {
   return out
 }
 
+/** The comment the template puts above each key; the template is a mapping of plain keys. */
+const TEMPLATE_COMMENTS = new Map(
+  (parseDocument(SETTINGS_TEMPLATE).contents as YAMLMap<Scalar<string>, unknown>).items.map(p => [
+    p.key.value,
+    p.key.commentBefore ?? null,
+  ])
+)
+
 /**
  * Renames a legacy chat key where it stands, so its position survives, and gives it the template's
  * comment, which says the key is for the chat only. A legacy key next to its new spelling goes.
@@ -143,7 +170,6 @@ function renameLegacyKeys(doc: Document): void {
   if (!isMap(doc.contents)) {
     return
   }
-  const templateKeys = parseDocument(SETTINGS_TEMPLATE).contents
   for (const [legacy, key] of Object.entries(LEGACY_KEYS)) {
     if (doc.has(key)) {
       doc.delete(legacy)
@@ -152,10 +178,7 @@ function renameLegacyKeys(doc: Document): void {
     const found = doc.contents.items.find(p => isScalar(p.key) && p.key.value === legacy)?.key
     if (isScalar(found)) {
       found.value = key
-      const template = isMap(templateKeys)
-        ? templateKeys.items.find(p => isScalar(p.key) && p.key.value === key)?.key
-        : undefined
-      found.commentBefore = isScalar(template) ? (template.commentBefore ?? null) : null
+      found.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
     }
   }
 }
@@ -172,16 +195,27 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
     doc = parseDocument(SETTINGS_TEMPLATE)
   }
   renameLegacyKeys(doc)
-  doc.set('version', 1)
-  doc.set('skin', settings.skin)
-  doc.set('theme', settings.theme)
-  doc.set('foldLevel', settings.foldLevel)
-  doc.set('layerView', settings.layerView)
-  doc.set('chatAgent', settings.chatAgent)
-  doc.set('chatModel', settings.chatModel)
-  doc.set('chatTimeoutSec', settings.chatTimeoutSec)
-  doc.set('maxTurns', settings.maxTurns)
+  // Every key the schema names, in its order, so a hand-edited file gains what it lacks.
+  for (const [key, value] of Object.entries(settings)) {
+    setKey(doc, key, value)
+  }
   return { text: String(doc), settings }
+}
+
+/**
+ * Sets a key, and gives it the template's comment when the file did not have it yet, so a file
+ * written before the key existed explains it the same way a new file does.
+ */
+function setKey(doc: Document, key: string, value: unknown): void {
+  if (doc.has(key)) {
+    doc.set(key, value)
+    return
+  }
+  const pair = doc.createPair(key, value) as Pair<Scalar<string>, unknown>
+  pair.key.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
+  pair.key.spaceBefore = true
+  // applySettings starts over from the template whenever the file is not a mapping.
+  ;(doc.contents as YAMLMap).items.push(pair)
 }
 
 function stripUndefined(input: SettingsInput): Partial<Settings> {
@@ -209,6 +243,15 @@ function stripUndefined(input: SettingsInput): Partial<Settings> {
   }
   if (input.maxTurns !== undefined) {
     out.maxTurns = input.maxTurns
+  }
+  if (input.checkoutEnabled !== undefined) {
+    out.checkoutEnabled = input.checkoutEnabled
+  }
+  if (input.checkoutIdleDays !== undefined) {
+    out.checkoutIdleDays = input.checkoutIdleDays
+  }
+  if (input.checkoutSweepMinutes !== undefined) {
+    out.checkoutSweepMinutes = input.checkoutSweepMinutes
   }
   return out
 }

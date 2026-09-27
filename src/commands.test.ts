@@ -6,6 +6,7 @@ import {
   EXIT,
   parsePrepareTarget,
   reportFailure,
+  runClean,
   runExport,
   runImport,
   runInstallSkill,
@@ -623,5 +624,46 @@ describe('deck validate and publish through the CLI layer', () => {
       deckUrl: 'http://localhost:3010/deck/42',
     })
     expect((await t.ctx.decks.readDeck(42))?.generator).toEqual({ agent: 'claude', model: 'm' })
+  })
+})
+
+describe('clean', () => {
+  async function useCheckout(key: number): Promise<void> {
+    const lease = await t.ctx.checkouts.lease(key)
+    await lease.moveTo(HEAD_SHA)
+    await lease.release()
+  }
+
+  it('removes checkouts idle past checkoutIdleDays and keeps recent ones', async () => {
+    let now = new Date('2026-09-01T00:00:00.000Z')
+    t = await makeTestContext({ now: () => now })
+    await useCheckout(41)
+    now = new Date('2026-09-09T00:00:00.000Z')
+    await useCheckout(42)
+    const io = fakeIo()
+    expect(await runClean(t.ctx, [], io)).toBe(EXIT.ok)
+    expect(lastJson(io)).toMatchObject({ removed: [{ key: 41 }], skipped: [], dryRun: false })
+    expect((await t.ctx.checkouts.list()).map(c => c.key)).toEqual([42])
+  })
+
+  it('removes nothing with idle cleanup off, and says to use --all', async () => {
+    t = await makeTestContext()
+    await useCheckout(42)
+    await t.ctx.settings.write({ checkoutIdleDays: -1 })
+    const io = fakeIo()
+    expect(await runClean(t.ctx, [], io)).toBe(EXIT.ok)
+    expect(lastJson(io)).toEqual({ removed: [], skipped: [], dryRun: false })
+    expect(io.err.join('\n')).toContain('Use --all or --older-than <days>')
+    expect(await runClean(t.ctx, ['--all', '--dry-run'], fakeIo())).toBe(EXIT.ok)
+    expect(await t.ctx.checkouts.list()).toHaveLength(1)
+    expect(await runClean(t.ctx, ['--older-than', '0'], fakeIo())).toBe(EXIT.ok)
+    expect(await t.ctx.checkouts.list()).toEqual([])
+  })
+
+  it('refuses --all together with --older-than, and a day count that is not a whole number', async () => {
+    t = await makeTestContext()
+    await expect(runClean(t.ctx, ['--all', '--older-than', '3'], fakeIo())).rejects.toThrow(UsageError)
+    await expect(runClean(t.ctx, ['--older-than', '1.5'], fakeIo())).rejects.toThrow(UsageError)
+    await expect(runClean(t.ctx, ['--older-than=-2'], fakeIo())).rejects.toThrow(UsageError)
   })
 })

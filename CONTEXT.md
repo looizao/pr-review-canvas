@@ -81,6 +81,10 @@ _Avoid_: Approved decision, resolved attention point
 The settled decisions whose picked side differs from what the code does now, written out as instructions for a coding agent to apply. The author reads it at the end of the deck and hands it to the fix skill.
 _Avoid_: Rejections, fix prompt
 
+**Review checkout**:
+A copy of the repository at the reviewed commit, kept apart from the reader's own checkout, which the AI chat reads code from. It follows the commit being chatted about, and is removed once nobody has chatted about that review for a while; it comes back on the next chat turn. A review of uncommitted work has none: the chat reads the reader's own checkout, because that is the work under review.
+_Avoid_: PR checkout, reader's checkout, working tree, materialized head
+
 **Illustrative sample**:
 An attributed walkthrough of selected changes from a public pull request, with editorial layer groupings and scripted chat examples. It demonstrates concepts without claiming to be a complete generated canvas.
 _Avoid_: Live review, live AI chat

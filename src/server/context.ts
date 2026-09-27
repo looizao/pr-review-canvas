@@ -5,6 +5,12 @@ import { type AgentRunner, createAgentRunner } from '../acpx/acpx.js'
 import { type AgentDirectory, createAgentDirectory } from '../acpx/agents.js'
 import { createPreflightProbe, type PreflightProbe } from '../acpx/preflight.js'
 import { type ChatManager, createChatManager } from '../chat/chat-manager.js'
+import {
+  type CheckoutGit,
+  createCheckoutGit,
+  createReviewCheckouts,
+  type ReviewCheckouts,
+} from '../chat/checkouts.js'
 import type { PromptOverrides } from '../project-config.js'
 import { loadSeedTemplate } from '../chat/seed.js'
 import { createTranscriptStore, type TranscriptStore } from '../chat/threads.js'
@@ -61,6 +67,8 @@ export interface AppContext {
   preflight: PreflightProbe
   chat: ChatManager
   transcripts: TranscriptStore
+  /** The review checkouts AI Chat reads code from, one per review. */
+  checkouts: ReviewCheckouts
   now: () => Date
   version: string
   staticDir: string
@@ -130,6 +138,12 @@ export interface ChatSet {
   preflight: PreflightProbe
   chat: ChatManager
   transcripts: TranscriptStore
+  checkouts: ReviewCheckouts
+}
+
+/** Where the review checkouts of one repository live, next to its canvases. */
+export function checkoutsRoot(dataDir: string, config: Pick<RuntimeConfig, 'repo'>): string {
+  return path.join(repoDir(dataDir, config.repo), 'checkouts')
 }
 
 /** The chat side of the context, built over the same stores. Shared by the real context and tests. */
@@ -138,15 +152,23 @@ export function createChatSet(
   runner: AgentRunner,
   stores: StoreSet,
   now: () => Date,
-  prompts?: PromptOverrides
+  git: Git,
+  opts: { prompts?: PromptOverrides | undefined; checkoutGit?: CheckoutGit | undefined } = {}
 ): ChatSet {
+  const { prompts } = opts
   const settings = createSettingsStore(config.dataDir)
+  const checkouts = createReviewCheckouts({
+    root: checkoutsRoot(config.dataDir, config),
+    git: opts.checkoutGit ?? createCheckoutGit(config.repoRoot),
+    now,
+  })
   const preflight = createPreflightProbe(runner, now)
   const transcripts = createTranscriptStore(key => stores.prs.prDir(key))
   return {
     settings,
     preflight,
     transcripts,
+    checkouts,
     agents: createAgentDirectory({ runner, preflight, cwd: config.repoRoot, now }),
     chat: createChatManager({
       runner,
@@ -157,6 +179,8 @@ export function createChatSet(
       repoRoot: config.repoRoot,
       overrides: config.chatOverrides,
       loadSeedTemplate: () => loadSeedTemplate(undefined, { repoRoot: config.repoRoot, overrides: prompts }),
+      checkouts,
+      currentBranch: () => git.currentBranch(),
       now,
     }),
   }
@@ -177,13 +201,9 @@ export function createAppContext(opts: CreateAppContextOptions): AppContext {
     capabilities: createCapabilityProbe(() => host.probeCapabilities(gh, repo), now),
     fetch: opts.fetch ?? ((input, init) => globalThis.fetch(input, init)),
     ...stores,
-    ...createChatSet(
-      opts.config,
-      opts.runner ?? createAgentRunner(),
-      stores,
-      now,
-      opts.projectConfig.config.prompts
-    ),
+    ...createChatSet(opts.config, opts.runner ?? createAgentRunner(), stores, now, git, {
+      prompts: opts.projectConfig.config.prompts,
+    }),
     now,
     version: readPackageVersion(),
     staticDir: STATIC_DIR,

@@ -362,6 +362,7 @@ export function wireReview(root, session, opts = {}) {
     }
     refreshPendingBar(root, state, session.headSha)
     refreshComposerCommands(root, state.pending.length > 0)
+    opts.chat?.()?.refreshProposed()
     applyCapabilityGating(root, session.capabilities)
   }
   const unsubscribe = session.subscribe(onState)
@@ -1333,9 +1334,9 @@ export function wireReview(root, session, opts = {}) {
 
   return {
     /**
-     * What the chat's proposed-comment card does: post it straight away, or open the same
-     * composer the rest of the page uses, prefilled.
-     * @param {'post' | 'edit'} what
+     * What the chat's proposed-comment card does: post it straight away, add it to the pending
+     * review, or open the same composer the rest of the page uses, prefilled.
+     * @param {import('./chat.js').ProposedAct} what
      * @param {import('./proposed-comment.js').ProposedComment} comment
      * @param {HTMLElement} el
      */
@@ -1368,21 +1369,31 @@ export function wireReview(root, session, opts = {}) {
         openComposer(row, options, 'row')
         return
       }
+      const target = {
+        path: comment.path,
+        line: comment.line,
+        side: comment.side,
+        body: comment.body,
+        ...(comment.startLine === undefined || comment.startLine === comment.line
+          ? {}
+          : { startLine: comment.startLine }),
+      }
+      // The card draws its commands from the state these change: see `refreshProposed`.
+      if (what === 'queue') {
+        void runCommand(
+          el,
+          async () => {
+            await session.addPending(target)
+            toast(root, 'comment added to your review')
+          },
+          { pendingLabel: 'adding…' }
+        )
+        return
+      }
       void runCommand(
         el,
         async () => {
-          const input = {
-            kind: /** @type {const} */ ('inline'),
-            path: comment.path,
-            line: comment.line,
-            side: comment.side,
-            body: comment.body,
-            ...(comment.startLine === undefined || comment.startLine === comment.line
-              ? {}
-              : { startLine: comment.startLine }),
-          }
-          const answer = await postComment(input)
-          replacePostButton(el, answer.comment.url)
+          await postComment({ kind: /** @type {const} */ ('inline'), ...target })
           toast(root, 'comment posted to github')
         },
         { pendingLabel: 'posting…' }

@@ -3,10 +3,9 @@
 /** @typedef {import('./contract-types.js').Point} Point */
 /** @typedef {import('./contract-types.js').PrState} PrState */
 import { askButtonHtml } from './ask.js'
-import { viewCommentHtml } from './comment-link.js'
+import { sendCommandsHtml } from './comment-link.js'
 import { esc } from './dom.js'
 import { pendingForPoint } from './pending.js'
-import { postToLabel } from './host.js'
 import { layerAnchorId, pointAnchorId } from './keys.js'
 import { renderMarkdown } from './markdown.js'
 
@@ -48,11 +47,23 @@ export function squareHtml(p) {
 }
 
 /**
+ * Whether a point's comment names the canvas it came from. Off when `sharing.mentionCanvas` is
+ * off; `app.js` sets it once per render, before the cards that read it are built.
+ */
+let mentionCanvas = true
+
+/** @param {boolean} on */
+export function setMentionCanvas(on) {
+  mentionCanvas = on
+}
+
+/**
  * The point as a GitHub comment: the title, the body, and where it is anchored.
  * @param {Point} p
  */
 export function pointToMarkdown(p) {
-  return `**${p.title}**\n\n${p.body}\n\n_${pointLocation(p)} · ${p.kind} · ${p.level} · from the pr-review canvas_`
+  const source = mentionCanvas ? ' · from the pr-review canvas' : ''
+  return `**${p.title}**\n\n${p.body}\n\n_${pointLocation(p)} · ${p.kind} · ${p.level}${source}_`
 }
 
 /**
@@ -64,27 +75,6 @@ export function pointToMarkdown(p) {
  */
 export function pointContext(p) {
   return { kind: 'point', fingerprint: p.fingerprint }
-}
-
-/**
- * What a point offers for getting its text onto the forge: the link to the comment it was posted
- * as, the note that it is waiting in the review, or the two ways to send it. Unlike the box on a
- * diff line, a point keeps both ways while a review is open: its text is written in advance, so
- * firing one off on its own is a use of its own, not a comment jumping the queue.
- * @param {Point} p
- * @param {{ postedUrl?: string | undefined, queued?: boolean }} opts
- */
-function pointSendHtml(p, opts) {
-  if (opts.postedUrl !== undefined) {
-    return viewCommentHtml(opts.postedUrl)
-  }
-  if (opts.queued === true) {
-    return '<span class="pill pending queued">in your review</span>'
-  }
-  return (
-    `<button class="cmd" type="button" data-act="point-post" data-point="${esc(p.id)}" data-needs-post>${postToLabel()}</button>` +
-    `<button class="cmd" type="button" data-act="point-queue" data-point="${esc(p.id)}">add to review</button>`
-  )
 }
 
 /**
@@ -103,7 +93,7 @@ export function pointCommandsHtml(p, opts = {}) {
   return (
     `<span class="tbtns" data-queued="${opts.queued === true ? '1' : '0'}">` +
     `<button class="cmd" type="button" data-copy="${esc(pointToMarkdown(p))}">copy</button>` +
-    pointSendHtml(p, opts) +
+    sendCommandsHtml({ kind: 'point', id: p.id, postedUrl: opts.postedUrl, queued: opts.queued }) +
     askButtonHtml(pointContext(p)) +
     toggle +
     '</span>'

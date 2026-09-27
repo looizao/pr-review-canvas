@@ -174,6 +174,40 @@ describe('publish', () => {
     expect(t.ctx.config.host.shareCanvas).not.toHaveBeenCalled()
   })
 
+  it('keeps the canvas local when the config turns the canvas comment off, and the user file wins', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    const shareCanvas = vi.fn(async () => 'https://github.com/acme/widgets/pull/42#issuecomment-1')
+    t.ctx.config.host = { ...t.ctx.config.host, shareCanvas }
+    const project = t.ctx.projectConfig.config
+    t.ctx.projectConfig = {
+      ...t.ctx.projectConfig,
+      config: { ...project, sharing: { ...project.sharing, canvasComment: false } },
+    }
+
+    const off = await publish(t.ctx, canvasDir, OPTS)
+    expect(off.sharing).toEqual({ status: 'off' })
+    expect(off.selfReview).toEqual({ status: 'skipped' })
+    expect(off.reviewUrl).toMatch(/\/review\/42$/)
+    expect(await t.ctx.canvases.exists(HEAD_SHA)).toBe(true)
+    expect(shareCanvas).not.toHaveBeenCalled()
+
+    await t.ctx.settings.write({})
+    await writeFile(
+      t.ctx.settings.file,
+      (await readFile(t.ctx.settings.file, 'utf8')).replace('canvasComment: null', 'canvasComment: true')
+    )
+    expect((await publish(t.ctx, canvasDir, OPTS)).sharing.status).toBe('shared')
+
+    t.ctx.projectConfig = { ...t.ctx.projectConfig, config: project }
+    await writeFile(
+      t.ctx.settings.file,
+      (await readFile(t.ctx.settings.file, 'utf8')).replace('canvasComment: true', 'canvasComment: false')
+    )
+    expect((await publish(t.ctx, canvasDir, OPTS)).sharing).toEqual({ status: 'off' })
+    expect(shareCanvas).toHaveBeenCalledTimes(1)
+  })
+
   it('refuses an invalid model with the report, logs the attempt, and writes no review.json', async () => {
     const canvasDir = await prepared()
     const output = artifactToModelOutput(syntheticArtifact())
