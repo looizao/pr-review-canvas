@@ -347,20 +347,31 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     }
 
     let answer = ''
+    let textAfterTool = false
     let incomplete: string | undefined
     let ended = false
     try {
       yield { event: 'turn', thread: thread.name, agent: settings.chatAgent, seeded }
       for await (const event of run.events) {
         switch (event.type) {
-          case 'chunk':
-            answer += event.text
-            yield { event: 'chunk', text: event.text }
+          case 'chunk': {
+            let text = event.text
+            if (text !== '') {
+              // Tool calls separate text runs; ordinary token chunks must still join verbatim.
+              if (textAfterTool && /\S$/.test(answer) && /^\S/.test(text)) {
+                text = ` ${text}`
+              }
+              textAfterTool = false
+            }
+            answer += text
+            yield { event: 'chunk', text }
             break
+          }
           case 'thought':
             yield { event: 'thought', text: event.text }
             break
           case 'tool':
+            textAfterTool = true
             yield { event: 'tool', id: event.id, title: event.title, status: event.status }
             break
           case 'done':
