@@ -57,6 +57,16 @@ when regenerating for a new head.
 
 ### Reviewing before the pull request exists
 
+Run the installed skill in Claude Code or Codex:
+
+```text
+/pr-review-canvas branch          # the current branch against the default branch
+/pr-review-canvas uncommitted     # the same, with your working-tree edits and new files on top
+```
+
+Start `pr-review serve` and open **http://localhost:3010/review/branch** or
+**http://localhost:3010/review/uncommitted**.
+
 There are two reviews of the work in a clone, and they are separate targets:
 
 ```bash
@@ -335,6 +345,25 @@ Both modes read the project rulebook and use the same validation and review cont
 affects canvas generation; chat answers the reviewer's selected question.
 
 ### Prompt templates
+
+Set the `prompts` map in `pr-review.config.yml` to use your own templates:
+
+```yaml
+prompts:
+    generation-format.md: review-prompts/generation-format.md
+    generation-surfacing.md: review-prompts/generation-surfacing.md
+    chat-seed.md: review-prompts/chat-seed.md
+```
+
+For an npm global install, copy the bundled templates to start editing:
+
+```bash
+mkdir -p review-prompts
+cp "$(npm root -g)/@vintasoftware/pr-review-canvas/prompts/"*.md review-prompts/
+```
+
+Edit the copies and configure the templates you want to replace. Commit the config and
+referenced files together.
 
 The `prompts` map in `pr-review.config.yml` accepts these keys:
 
@@ -725,6 +754,25 @@ regenerations in between. When a mark follows, the page names the canvas you mad
 machine lacks that canvas or cannot rebuild either diff, no marks follow.
 
 ## AI Chat
+
+Install `acpx` globally to enable chat inside the canvas:
+
+```bash
+npm install -g acpx@latest
+acpx --version
+pr-review doctor --all-checks
+```
+
+Install and sign in to Claude Code or Codex on the same machine. Start or restart
+`pr-review serve`, then open **settings** and choose a **Chat agent** under **AI Chat**.
+The chat uses that agent's account. Click **Test agent** to check the connection, then **save**.
+Chat is optional; reviewing canvases does not require `acpx`.
+
+Leave **Chat model** blank to use the agent's default, or enter a model ID. See
+[model families](#model-families) for version selection. Switching agents starts a new thread
+and keeps earlier threads. `--chat-agent` and `--chat-model` override saved preferences for
+that server run. Canvas generation models are configured separately in
+[`generation.models`](#project-config).
 
 **Ask** on a layer, file, attention point, or line selection chooses the context for your message.
 Choosing another target replaces it; **clear** returns to the whole PR. The `a` key asks about
