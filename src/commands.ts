@@ -225,6 +225,12 @@ async function validateFile(
   return { ok: result.ok, errors: result.errors }
 }
 
+const VALIDATE_OPTIONS = {
+  canvas: { type: 'string' },
+  human: { type: 'boolean' },
+  fix: { type: 'boolean' },
+} as const
+
 /**
  * `validate <model.json|review.json> --canvas <dir> [--human] [--fix]`: the report as one JSON
  * line, or as lines. `--fix` first trims the titles that are over their cap, clips, shrinks, or
@@ -234,7 +240,7 @@ async function validateFile(
 export async function runValidate(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values, positionals } = parseArgs({
     args: argv,
-    options: { canvas: { type: 'string' }, human: { type: 'boolean' }, fix: { type: 'boolean' } },
+    options: VALIDATE_OPTIONS,
     allowPositionals: true,
     strict: true,
   })
@@ -325,22 +331,46 @@ function parseHarness(raw: string | undefined): (typeof HARNESSES)[number] {
   return hit
 }
 
+const PUBLISH_OPTIONS = {
+  agent: { type: 'string' },
+  model: { type: 'string' },
+  harness: { type: 'string' },
+  'allow-stale': { type: 'boolean' },
+} as const
+
+/**
+ * The canvas dir a validate (`--canvas`) or publish (`<canvasDir>`) command line names, read before
+ * the context is built so the data dir can follow it. Never throws: the command itself reports a
+ * bad command line.
+ */
+export function namedCanvasDir(command: string, argv: string[]): string | undefined {
+  if (command === 'validate') {
+    const { canvas } = parseArgs({
+      args: argv,
+      options: VALIDATE_OPTIONS,
+      allowPositionals: true,
+      strict: false,
+    }).values
+    return typeof canvas === 'string' ? canvas : undefined
+  }
+  if (command === 'publish') {
+    return parseArgs({ args: argv, options: PUBLISH_OPTIONS, allowPositionals: true, strict: false })
+      .positionals[0]
+  }
+  return undefined
+}
+
 export async function runPublish(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values, positionals } = parseArgs({
     args: argv,
-    options: {
-      agent: { type: 'string' },
-      model: { type: 'string' },
-      harness: { type: 'string' },
-      'allow-stale': { type: 'boolean' },
-    },
+    options: PUBLISH_OPTIONS,
     allowPositionals: true,
     strict: true,
   })
   const canvasDir = positionals[0]
   if (canvasDir === undefined || positionals.length > 1) {
     throw new UsageError(
-      'publish takes one directory: pr-review publish <canvasDir> --agent <id> --harness <id>'
+      'publish takes one directory: pr-review publish <canvasDir> --agent <id> --harness <id> [--data-dir <dir>]'
     )
   }
   if (values.agent === undefined || values.agent === '') {

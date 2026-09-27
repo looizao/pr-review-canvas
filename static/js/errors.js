@@ -95,6 +95,10 @@ export const ERROR_CARDS = {
     title: 'The pull request moved on',
     action: 'Reload the page: the head commit changed since this page was drawn.',
   },
+  CANVAS_ELSEWHERE: {
+    title: 'The canvas is in another data directory',
+    action: 'Publish the canvasDir that prepare printed, with the --data-dir prepare used or none.',
+  },
   MODEL_INVALID: {
     title: 'The generated canvas did not pass validation',
     action: 'Run the pr-review-canvas skill again; it prints one line per problem.',

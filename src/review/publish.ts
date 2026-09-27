@@ -52,11 +52,13 @@ export class ModelInvalidError extends Error {
   }
 }
 
+type PublishErrorCode = 'NOT_FOUND' | 'CANVAS_STALE' | 'CANVAS_ELSEWHERE'
+
 export class PublishError extends Error {
-  readonly code: 'NOT_FOUND' | 'CANVAS_STALE'
+  readonly code: PublishErrorCode
   readonly hint: string
 
-  constructor(code: 'NOT_FOUND' | 'CANVAS_STALE', message: string, hint: string) {
+  constructor(code: PublishErrorCode, message: string, hint: string) {
     super(message)
     this.name = 'PublishError'
     this.code = code
@@ -203,6 +205,16 @@ export async function publish(
   opts: PublishOptions
 ): Promise<PublishResult> {
   const context = await readContext(canvasDir)
+  // The canvas is stored by the data dir, not by the directory given: if they disagree, the
+  // canvas would land in another data dir than the one it was prepared in.
+  const storedDir = ctx.canvases.canvasDir(context.headSha)
+  if (path.resolve(canvasDir) !== storedDir) {
+    throw new PublishError(
+      'CANVAS_ELSEWHERE',
+      `${canvasDir} is not the canvas dir of ${context.headSha.slice(0, 7)} in ${ctx.config.dataDir}; publishing would write ${storedDir}`,
+      'publish the canvasDir prepare printed, with the --data-dir prepare used or none'
+    )
+  }
   if (!opts.allowStale) {
     const head = await currentHead(ctx, context)
     if (head.moved) {

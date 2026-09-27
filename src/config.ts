@@ -12,6 +12,8 @@ export interface ServeFlags {
   port?: number | undefined
   repo?: string | undefined
   dataDir?: string | undefined
+  /** The canvas validate or publish names; without `dataDir` or `PR_REVIEW_DATA_DIR`, its data dir is used. */
+  canvasDir?: string | undefined
   fixtureCanvas?: string | undefined
   /** Wins over `.pr-review/settings.yml` for this run; the settings dialog reports it. */
   chatAgent?: string | undefined
@@ -131,7 +133,11 @@ export async function loadRuntimeConfig(
   const commonDir = await resolveCommonDir(git)
   const { repo, host } = await resolveOrigin(git, env)
   const port = flags.port ?? parsePort(readEnv(env, 'PR_REVIEW_PORT'), DEFAULT_PORT)
-  const dataDir = resolveDataDir({ override: flags.dataDir ?? readEnv(env, 'PR_REVIEW_DATA_DIR'), commonDir })
+  const dataDir = resolveDataDir({
+    override: flags.dataDir ?? readEnv(env, 'PR_REVIEW_DATA_DIR'),
+    canvasDir: flags.canvasDir === undefined ? undefined : path.resolve(cwd, flags.canvasDir),
+    commonDir,
+  })
   return {
     port,
     repoRoot,
