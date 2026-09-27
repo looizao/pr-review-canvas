@@ -15,7 +15,9 @@ import { setChatEnabled } from './ask.js'
 import { wireFoldReveal } from './code-folds.js'
 import { renderDiff } from './diff-renderer.js'
 import { renderHeader } from './header.js'
-import { askTargetFor, nextUnreviewedTarget, toast, wireReview } from './interactions.js'
+import { carriedOverBarHtml } from './empty-state.js'
+import { askTargetFor, nextUnreviewedTarget, padUnderStickyBar, toast, wireReview } from './interactions.js'
+import { renderChatShell, wireChat } from './chat.js'
 import {
   cardOf,
   defineLayerElements,
@@ -27,6 +29,7 @@ import {
   setCardCollapsed,
   setRenderContext,
 } from './layers.js'
+import { initOneLayer } from './one-layer.js'
 import { renderOverview } from './overview.js'
 import { createReviewSession } from './review-session.js'
 import { setSelfReview } from './self-review.js'
@@ -73,6 +76,7 @@ function bundleFor(state, canvas = artifact) {
     chat: { enabled: false, acpx: true },
     largePr: false,
     selfReview: false,
+    mentionCanvas: true,
     warnings: [],
   })
 }
@@ -346,6 +350,27 @@ function click(root, selector) {
   return el
 }
 
+/**
+ * The synthetic canvas with a second semantic layer after Run path. It takes `src/new.ts` out of
+ * Other, so each chunk still has one layer, as publish checks.
+ */
+function withSecondLayer() {
+  const [runPath, other] = artifact.layers
+  if (runPath === undefined || other === undefined) {
+    throw new Error('fixture changed')
+  }
+  const moved = (/** @type {{ path: string }} */ f) => f.path === 'src/new.ts'
+  const second = {
+    ...runPath,
+    id: 'second',
+    key: 'second',
+    title: 'Second',
+    files: other.files.filter(moved),
+  }
+  const rest = { ...other, files: other.files.filter(f => !moved(f)) }
+  return { ...artifact, layers: [runPath, second, rest] }
+}
+
 /** @type {Array<{ stop: () => void }>} */
 const wirings = []
 
@@ -369,6 +394,63 @@ describe('card toggles', () => {
     expect(otherCard?.querySelector('.file-body')?.hasAttribute('hidden')).toBe(false)
     click(root, 'article.file#file-src_app_ts .file-h .chev')
     expect(card?.querySelector('.file-body')?.hasAttribute('hidden')).toBe(false)
+  })
+
+  it('toggles a file card from its name, but not when the click ends a selection in it', () => {
+    const { root } = setup()
+    const body = root.querySelector('article.file#file-src_app_ts > .file-body')
+    const title = root.querySelector('article.file#file-src_app_ts .file-h .path')
+    click(root, 'article.file#file-src_app_ts .file-h .path')
+    expect(body?.hasAttribute('hidden')).toBe(true)
+    click(root, 'article.file#file-src_app_ts .file-h .path')
+    expect(body?.hasAttribute('hidden')).toBe(false)
+
+    const text = title?.firstChild
+    if (text === null || text === undefined) {
+      throw new Error('file title has no text')
+    }
+    window.getSelection()?.setBaseAndExtent(text, 0, text, 3)
+    click(root, 'article.file#file-src_app_ts .file-h .path')
+    expect(body?.hasAttribute('hidden')).toBe(false)
+    // A selection in the title does not stop the chevron.
+    click(root, 'article.file#file-src_app_ts .file-h .chev')
+    expect(body?.hasAttribute('hidden')).toBe(true)
+    window.getSelection()?.removeAllRanges()
+  })
+
+  it('leaves the card as it was after a double or triple click selects the file name', () => {
+    const { root } = setup()
+    const body = root.querySelector('article.file#file-src_app_ts > .file-body')
+    const title = root.querySelector('article.file#file-src_app_ts .file-h .path')
+    if (!(title instanceof HTMLElement) || title.firstChild === null) {
+      throw new Error('file title has no text')
+    }
+    const text = title.firstChild
+    /** The clicks a browser sends for one press sequence; from the second on, the name is selected. */
+    const clicks = (/** @type {number} */ count) => {
+      for (let detail = 1; detail <= count; detail++) {
+        if (detail === 2) {
+          window.getSelection()?.setBaseAndExtent(text, 0, text, 3)
+        }
+        title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }))
+      }
+      window.getSelection()?.removeAllRanges()
+    }
+    clicks(2)
+    expect(body?.hasAttribute('hidden')).toBe(false)
+    clicks(3)
+    expect(body?.hasAttribute('hidden')).toBe(false)
+    clicks(1)
+    expect(body?.hasAttribute('hidden')).toBe(true)
+    clicks(2)
+    expect(body?.hasAttribute('hidden')).toBe(true)
+
+    // A click that ended a drag flipped nothing, so a second click right after it undoes nothing.
+    window.getSelection()?.setBaseAndExtent(text, 0, text, 3)
+    title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    title.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }))
+    window.getSelection()?.removeAllRanges()
+    expect(body?.hasAttribute('hidden')).toBe(true)
   })
 
   it('collapses a layer section from its own chevron', () => {
@@ -490,6 +572,43 @@ describe('reviewed state', () => {
     expect(nextUnreviewedTarget(root, session, 'overview', 'layer')?.id).toBe('layer-run-path')
     // The Other layer is skipped, and there is nothing after the last semantic layer.
     expect(nextUnreviewedTarget(root, session, 'layer-run-path', 'layer')).toBeNull()
+  })
+
+  describe('the last open file of a layer', () => {
+    const lastOpen = {
+      ...BASE,
+      reviewed: {
+        'layer:run-path/file:src_app_ts': /** @type {const} */ (true),
+        'layer:run-path/file:src_new_name_ts': /** @type {const} */ (true),
+      },
+    }
+    /** @param {HTMLElement} root */
+    const markLast = async root => {
+      const box = root.querySelector('#file-src_app_test_ts input[data-reviewed-id]')
+      if (!(box instanceof HTMLInputElement)) {
+        throw new Error('no checkbox')
+      }
+      box.checked = true
+      box.dispatchEvent(new Event('change', { bubbles: true }))
+      await flush()
+    }
+
+    it('moves on to the next layer when every layer shows', async () => {
+      const { root } = setup({ artifact: withSecondLayer(), state: lastOpen })
+      await markLast(root)
+      expect(root.querySelector('.is-focused')?.id).toBe('file-src_new_ts')
+    })
+
+    it('stays in its layer when one layer shows at a time', async () => {
+      const { root, calls } = setup({ artifact: withSecondLayer(), state: lastOpen })
+      wirings.push(initOneLayer(root, { view: 'one' }))
+      click(root, 'nav.rail a[href="#layer-run-path"]')
+      await markLast(root)
+      expect(calls).toEqual([['reviewed', { id: 'layer:run-path/file:src_app_test_ts', reviewed: true }]])
+      expect(root.querySelector('.is-focused')).toBeNull()
+      expect(root.querySelector('#layer-run-path')?.hasAttribute('hidden')).toBe(false)
+      expect(root.querySelector('#layer-second')?.hasAttribute('hidden')).toBe(true)
+    })
   })
 
   it('unmarks a layer from the command under its files', async () => {
@@ -1299,7 +1418,9 @@ describe('keyboard', () => {
 
   it('steps from the card at the top of the screen once the focused one is scrolled away', () => {
     const { root } = setup()
-    root.querySelector('#main')?.insertAdjacentHTML('afterbegin', '<div class="stale-bar">outdated</div>')
+    root
+      .querySelector('#main')
+      ?.insertAdjacentHTML('afterbegin', '<div class="stale-bar outdated-bar">outdated</div>')
     /** Viewport tops by id, as if the reader had scrolled; everything else is not drawn. */
     /** @type {Record<string, number>} */
     let tops = {
@@ -1312,7 +1433,7 @@ describe('keyboard', () => {
     }
     /** @this {Element} */
     function fakeRect() {
-      const bar = this.classList.contains('stale-bar')
+      const bar = this.classList.contains('outdated-bar')
       const top = bar ? 0 : tops[this.id]
       return top === undefined ? new DOMRect() : new DOMRect(0, top, 100, bar ? 40 : 100)
     }
@@ -1322,14 +1443,47 @@ describe('keyboard', () => {
       key('n')
       const focused = root.querySelector('.is-focused')
       expect(focused?.id).toBe('file-src_new_name_ts')
-      // The card scrolls to just under the bar, which would cover its heading otherwise.
-      expect(focused instanceof HTMLElement ? focused.style.scrollMarginTop : '').toBe('48px')
+      // The page's scroll padding clears the bar; the card keeps a small gap under it.
+      expect(focused instanceof HTMLElement ? focused.style.scrollMarginTop : '').toBe('8px')
       // The focused card is on screen, so p steps from it.
       key('p')
       expect(root.querySelector('.is-focused')?.id).toBe('file-src_app_ts')
       tops = { ...tops, 'file-src_app_ts': -700, 'file-src_new_name_ts': -400, 'file-src_app_test_ts': 20 }
       key('j')
       expect(root.querySelector('.is-focused')?.id).toBe('layer-other')
+    } finally {
+      rect.mockRestore()
+    }
+  })
+
+  it('scrolls a card to the top of the screen under a note, which does not stick', () => {
+    const { root } = setup()
+    root
+      .querySelector('#main')
+      ?.insertAdjacentHTML(
+        'afterbegin',
+        carriedOverBarHtml({ canvasHeadSha: 'c'.repeat(40), currentHeadSha: 'a'.repeat(40) })
+      )
+    /** @type {Record<string, number>} */
+    const tops = {
+      overview: -1500,
+      'layer-run-path': -900,
+      'file-src_app_ts': 30,
+      'file-src_new_name_ts': 400,
+    }
+    /** @this {Element} */
+    function fakeRect() {
+      const bar = this.classList.contains('stale-bar')
+      const top = bar ? 0 : tops[this.id]
+      return top === undefined ? new DOMRect() : new DOMRect(0, top, 100, bar ? 40 : 100)
+    }
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(fakeRect)
+    try {
+      // The file 30px down is the next card: the note covers nothing, so it takes no room.
+      key('n')
+      const focused = root.querySelector('.is-focused')
+      expect(focused?.id).toBe('file-src_app_ts')
+      expect(focused instanceof HTMLElement ? focused.style.scrollMarginTop : '').toBe('8px')
     } finally {
       rect.mockRestore()
     }
@@ -1351,21 +1505,7 @@ describe('keyboard', () => {
   })
 
   it('leaves the point alone once R moves the ring to the next layer', async () => {
-    const [runPath, other] = artifact.layers
-    if (runPath === undefined || other === undefined) {
-      throw new Error('fixture changed')
-    }
-    // A second layer takes a file out of Other, so each chunk still has one layer, as publish checks.
-    const moved = (/** @type {{ path: string }} */ f) => f.path === 'src/new.ts'
-    const second = {
-      ...runPath,
-      id: 'second',
-      key: 'second',
-      title: 'Second',
-      files: other.files.filter(moved),
-    }
-    const rest = { ...other, files: other.files.filter(f => !moved(f)) }
-    const { root, calls } = setup({ artifact: { ...artifact, layers: [runPath, second, rest] } })
+    const { root, calls } = setup({ artifact: withSecondLayer() })
     key(']')
     expect(root.querySelector('.is-focused')?.id).toBe('point-p-1')
     key('R')
@@ -1534,6 +1674,45 @@ describe('capability gating and sign-off', () => {
     click(root, '[data-act="signoff-post"]')
     await flush()
     expect(root.querySelector('#signoff-dialog .cmd-err')?.textContent).toBe('502 github is down')
+  })
+})
+
+describe('padUnderStickyBar', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    document.documentElement.style.removeProperty('scroll-padding-top')
+  })
+
+  it('keeps the page scroll padding at the bar height as it wraps, and clears it on stop', () => {
+    /** @type {() => void} */
+    let resized = () => {}
+    const disconnect = vi.fn()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(/** @type {() => void} */ callback) {
+          resized = callback
+        }
+        observe() {}
+        disconnect = disconnect
+      }
+    )
+    let height = 40
+    const bar = document.createElement('div')
+    vi.spyOn(bar, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 100, height))
+    const stop = padUnderStickyBar(document, bar)
+    expect(document.documentElement.style.scrollPaddingTop).toBe('40px')
+    height = 72
+    resized()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('72px')
+    stop()
+    expect(disconnect).toHaveBeenCalledOnce()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('')
+  })
+
+  it('leaves the page alone with no bar', () => {
+    padUnderStickyBar(document, null)()
+    expect(document.documentElement.style.scrollPaddingTop).toBe('')
   })
 })
 
@@ -1751,6 +1930,7 @@ describe('the AI Chat commands', () => {
         /** @param {unknown} context */
         ask: context => calls.push(['ask', context]),
         focusInput: () => calls.push(['focus', null]),
+        refreshProposed: () => undefined,
       },
     }
   }
@@ -1817,41 +1997,86 @@ describe('the AI Chat commands', () => {
     expect(opened).toEqual(['settings'])
   })
 
-  it('posts a proposed comment at the line it names', async () => {
-    const { root, wiring, calls } = setup()
-    const card = document.createElement('div')
-    card.className = 'proposed'
-    card.innerHTML = '<span class="tbtns"><button id="post">post to github</button></span>'
-    root.appendChild(card)
-    const button = card.querySelector('#post')
-    if (!(button instanceof HTMLElement)) {
-      throw new Error('no button')
+  /**
+   * The page and the real AI Chat pane on one root, with an answer that proposes one comment.
+   * @param {string} comment the JSON inside the answer's comment block
+   */
+  async function setupWithChat(comment) {
+    setChatEnabled(true)
+    /** @type {import('./interactions.js').ChatHandle | null} */
+    let chat = null
+    const page = setup({ chat: () => chat })
+    page.root.querySelector('.layout')?.insertAdjacentHTML('beforeend', renderChatShell({ enabled: true }))
+    chat = wireChat({
+      root: page.root,
+      prNumber: 42,
+      session: page.session,
+      storage: null,
+      reducedMotion: true,
+      api: {
+        fetchThreads: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        createThread: async () => ({ threads: [], activeThread: null, agent: 'claude' }),
+        fetchThreadHistory: async () => ({ name: 't', turns: [] }),
+        cancelChat: async () => ({ cancelled: true }),
+        streamChat: async (_pr, _input, opts) => {
+          opts.onEvent({ event: 'chunk', data: { text: `\`\`\`comment\n${comment}\n\`\`\`\n` } })
+        },
+      },
+      onProposed: (what, proposed, el) => page.wiring.onProposedComment(what, proposed, el),
+    })
+    const box = page.root.querySelector('#msg')
+    if (!(box instanceof HTMLTextAreaElement)) {
+      throw new Error('no chat box')
     }
-    wiring.onProposedComment(
-      'post',
-      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
-      button
+    box.value = 'x'
+    page.root
+      .querySelector('#chat-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flush()
+    const handle = chat
+    wirings.push({ stop: () => handle?.stop() })
+    return page
+  }
+
+  /** @param {ParentNode} root */
+  const cardCommands = root =>
+    Array.from(root.querySelectorAll('.proposed .tbtns > *')).map(el => el.textContent)
+
+  it('draws a proposed card from the review: queued, then back when the draft is deleted', async () => {
+    const { root, calls } = await setupWithChat(
+      '{"path":"src/app.ts","line":3,"startLine":2,"body":"Rename."}'
     )
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    click(root, '[data-act="proposed-queue"]')
+    await flush()
+    expect(calls).toEqual([
+      [
+        'pending-add',
+        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+      ],
+    ])
+    expect(cardCommands(root)).toEqual(['in your review', 'edit', 'copy'])
+    click(root, '[data-act="pending-delete"][data-pending-id="p1"]')
+    await flush()
+    expect(cardCommands(root)).toEqual(['add to review', 'post to github', 'edit', 'copy'])
+    setChatEnabled(false)
+  })
+
+  it('draws a proposed card as posted once it goes out on its own', async () => {
+    const { root, calls } = await setupWithChat('{"path":"src/app.ts","line":3,"body":"One line."}')
+    click(root, '[data-act="proposed-post"]')
     await flush()
     expect(calls).toEqual([
       [
         'comment',
-        {
-          kind: 'inline',
-          path: 'src/app.ts',
-          line: 3,
-          startLine: 2,
-          side: 'new',
-          body: 'Rename.',
-          headSha: HEAD,
-        },
+        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
       ],
     ])
-    expect(card.querySelector('.tbtns a')?.textContent).toBe('view comment')
-    expect(card.querySelector('.tbtns a')?.getAttribute('href')).toBe(
+    expect(cardCommands(root)).toEqual(['view comment', 'edit', 'copy'])
+    expect(root.querySelector('.proposed .tbtns a')?.getAttribute('href')).toBe(
       'https://github.com/acme/widgets/pull/42#discussion_r5001'
     )
-    expect(card.querySelector('#post')).toBeNull()
+    setChatEnabled(false)
   })
 
   it('opens the composer prefilled when the reader edits a proposed comment', () => {
@@ -1914,22 +2139,6 @@ describe('askTargetFor', () => {
     expect(askTargetFor(null, null)).toEqual({ kind: 'pr' })
     expect(askTargetFor(root.querySelector('#overview'), null)).toEqual({ kind: 'pr' })
     setChatEnabled(false)
-  })
-})
-
-describe('posting a proposed comment on one line', () => {
-  it('sends no range when the comment names a single line', async () => {
-    const { root, wiring, calls } = setup()
-    const button = document.createElement('button')
-    root.appendChild(button)
-    wiring.onProposedComment('post', { path: 'src/app.ts', line: 3, side: 'new', body: 'One line.' }, button)
-    await flush()
-    expect(calls).toEqual([
-      [
-        'comment',
-        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
-      ],
-    ])
   })
 })
 

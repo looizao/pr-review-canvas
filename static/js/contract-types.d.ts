@@ -21,6 +21,7 @@ export type {
   StateResponse,
 } from '../../src/contract/api.js'
 export type {
+  ChatCheckoutEvent,
   ChatEvent,
   ChatHistoryResponse,
   ChatThreadsResponse,
@@ -58,6 +59,7 @@ export type {
   AppearanceInput,
   AppearanceResponse,
   ChatAgent,
+  CheckoutsResponse,
   Settings,
   SettingsInput,
   SettingsResponse,

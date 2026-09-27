@@ -2,7 +2,10 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  checkoutListHtml,
+  formatBytes,
   MODEL_SUGGESTIONS,
+  SETTINGS_TAB_KEY,
   modelOptionsHtml,
   openSettingsDialog,
   readSettingsForm,
@@ -18,10 +21,15 @@ const SETTINGS = {
     theme: 'auto',
     foldLevel: 'light',
     layerView: 'all',
-    agent: 'claude',
-    model: null,
+    chatAgent: 'claude',
+    chatModel: null,
     chatTimeoutSec: 600,
     maxTurns: null,
+    checkoutEnabled: true,
+    checkoutIdleDays: 7,
+    checkoutSweepMinutes: 60,
+    canvasComment: null,
+    mentionCanvas: null,
   },
   overrides: {},
   file: '/repo/.pr-review/settings.yml',
@@ -32,6 +40,7 @@ const SETTINGS = {
     maxRepairRounds: 3,
     inlineDiffMaxLines: 1500,
     smallPrHunks: 10,
+    generationModels: { claude: 'opus' },
     keepForIdenticalDiff: true,
     layers: 8,
     highRisk: 2,
@@ -68,7 +77,15 @@ async function open(api = {}, onSaved = () => undefined) {
       fetchSettings: async () => SETTINGS,
       fetchAgents: async () => AGENTS,
       saveSettings: async () => SETTINGS,
-      probeAgent: async () => ({ id: 'claude', ok: true, ms: 1250, reply: 'OK', at: '', cached: false }),
+      probeAgent: async id => ({
+        id: asChatAgent(id),
+        ok: true,
+        ms: 1250,
+        reply: 'OK',
+        at: '',
+        cached: false,
+      }),
+      fetchCheckouts: async () => ({ root: '/repo/.pr-review/repos/acme__widgets/checkouts', checkouts: [] }),
       ...api,
     },
     onSaved,
@@ -87,6 +104,9 @@ function el(where, selector) {
   }
   return found
 }
+
+/** The id the dialog asked about, as the probe route would echo it. */
+const asChatAgent = (/** @type {string} */ id) => /** @type {import('./contract-types.js').ChatAgent} */ (id)
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
@@ -122,6 +142,27 @@ describe('settingsDialogHtml', () => {
     expect(html).toContain('/repo/.pr-review/settings.yml')
   })
 
+  it('labels the chat fields as AI Chat, apart from the canvas generation models', () => {
+    const html = settingsDialogHtml(SETTINGS, AGENTS)
+    expect(html).toContain('role="tab" class="settings-tab" id="settings-tab-chat"')
+    expect(html).toContain('<label for="set-chat-agent">Chat agent</label>')
+    expect(html).toContain('<label for="set-chat-model">Chat model</label>')
+    expect(html).toContain('They do not change which model generates canvases')
+    expect(html).toContain('<h4>Canvas generation</h4>')
+    expect(html).toContain(
+      'canvas generation models: <span class="mono">claude → opus</span>, any other agent keeps the session\'s model'
+    )
+  })
+
+  it('lists each canvas generation model the project sets, by agent', () => {
+    const project = { ...SETTINGS.project, generationModels: { claude: 'opus', codex: '<gpt>' } }
+    const html = settingsDialogHtml({ ...SETTINGS, project }, AGENTS)
+    expect(html).toContain(
+      'canvas generation models: <span class="mono">claude → opus</span>, <span class="mono">codex → &lt;gpt&gt;</span>, ' +
+        "any other agent keeps the session's model"
+    )
+  })
+
   it('says when the defaults are in use because there is no project file', () => {
     const html = settingsDialogHtml(
       { ...SETTINGS, project: { ...SETTINGS.project, file: null, rulebook: null } },
@@ -135,7 +176,7 @@ describe('settingsDialogHtml', () => {
     const html = settingsDialogHtml(
       {
         ...SETTINGS,
-        overrides: { agent: 'codex' },
+        overrides: { chatAgent: 'codex' },
         project: { ...SETTINGS.project, chatEnabled: false },
       },
       AGENTS
@@ -148,13 +189,18 @@ describe('settingsDialogHtml', () => {
         AGENTS
       )
     ).toContain('canvas kept for an identical diff: no')
-    expect(html).toContain('--agent codex')
-    expect(html).not.toContain('--model')
+    expect(html).toContain('--chat-agent codex')
+    expect(html).not.toContain('--chat-model')
   })
 
   it('names the serve flags that win over the file', () => {
-    const html = settingsDialogHtml({ ...SETTINGS, overrides: { agent: 'codex', model: 'x' } }, AGENTS)
-    expect(html).toContain('--agent codex --model x')
+    const html = settingsDialogHtml(
+      { ...SETTINGS, overrides: { chatAgent: 'codex', chatModel: 'x' } },
+      AGENTS
+    )
+    expect(html).toContain(
+      'overrides the AI Chat settings in this file for now: <code class="flag">--chat-agent codex</code> <code class="flag">--chat-model x</code>'
+    )
   })
 
   it('offers both layer views with the saved one selected', () => {
@@ -183,10 +229,13 @@ describe('readSettingsForm', () => {
     expect(readSettingsForm(holder)).toEqual({
       foldLevel: 'light',
       layerView: 'all',
-      agent: 'claude',
-      model: null,
+      chatAgent: 'claude',
+      chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
   })
 
@@ -217,7 +266,7 @@ describe('openSettingsDialog', () => {
     const dialog = await open()
     expect(dialog.id).toBe(SETTINGS_DIALOG_ID)
     expect(dialog.hasAttribute('open')).toBe(true)
-    expect(el(dialog, '#set-agent')).toBeTruthy()
+    expect(el(dialog, '#set-chat-agent')).toBeTruthy()
   })
 
   it('holds only the reading level when the project turns chat off, and asks for no agents', async () => {
@@ -231,7 +280,7 @@ describe('openSettingsDialog', () => {
     })
     expect(asked).toBe(false)
     expect(el(dialog, '#set-fold-level')).toBeTruthy()
-    expect(dialog.querySelector('#set-agent')).toBeNull()
+    expect(dialog.querySelector('#set-chat-agent')).toBeNull()
     expect(dialog.querySelector('[data-act="settings-probe"]')).toBeNull()
   })
 
@@ -261,9 +310,9 @@ describe('openSettingsDialog', () => {
           return SETTINGS
         },
       },
-      data => saved.push(data.settings.agent)
+      data => saved.push(data.settings.chatAgent)
     )
-    const agent = el(dialog, '#set-agent')
+    const agent = el(dialog, '#set-chat-agent')
     if (!(agent instanceof HTMLSelectElement)) {
       throw new Error('no select')
     }
@@ -273,10 +322,13 @@ describe('openSettingsDialog', () => {
     expect(saved[0]).toEqual({
       foldLevel: 'light',
       layerView: 'all',
-      agent: 'codex',
-      model: null,
+      chatAgent: 'codex',
+      chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
     expect(saved[1]).toBe('claude')
     expect(dialog.hasAttribute('open')).toBe(false)
@@ -284,13 +336,13 @@ describe('openSettingsDialog', () => {
 
   it('swaps the model suggestions when the agent changes', async () => {
     const dialog = await open()
-    const agent = el(dialog, '#set-agent')
+    const agent = el(dialog, '#set-chat-agent')
     if (!(agent instanceof HTMLSelectElement)) {
       throw new Error('no select')
     }
     agent.value = 'codex'
     agent.dispatchEvent(new Event('change', { bubbles: true }))
-    expect(el(dialog, '#model-list').innerHTML).toContain(MODEL_SUGGESTIONS.codex[0] ?? '')
+    expect(el(dialog, '#chat-model-list').innerHTML).toContain(MODEL_SUGGESTIONS.codex[0] ?? '')
   })
 
   it('reports how long the agent took to answer a probe', async () => {
@@ -302,8 +354,8 @@ describe('openSettingsDialog', () => {
 
   it('reports a probe that failed', async () => {
     const dialog = await open({
-      probeAgent: async () => ({
-        id: 'codex',
+      probeAgent: async id => ({
+        id: asChatAgent(id),
         ok: false,
         ms: 10,
         reply: '',
@@ -313,6 +365,11 @@ describe('openSettingsDialog', () => {
         cached: false,
       }),
     })
+    const agent = el(dialog, '#set-chat-agent')
+    if (!(agent instanceof HTMLSelectElement)) {
+      throw new Error('no chat agent select')
+    }
+    agent.value = 'codex'
     el(dialog, '[data-act="settings-probe"]').click()
     await flush()
     expect(dialog.querySelector('.probe-result')?.textContent).toBe('codex failed: not logged in')
@@ -342,16 +399,22 @@ describe('the dialog with parts missing', () => {
   it('reads the values the reader typed', () => {
     const holder = document.createElement('div')
     holder.innerHTML = settingsDialogHtml(
-      { ...SETTINGS, settings: { ...SETTINGS.settings, model: 'gpt-5.2', maxTurns: 6, chatTimeoutSec: 120 } },
+      {
+        ...SETTINGS,
+        settings: { ...SETTINGS.settings, chatModel: 'gpt-5.2', maxTurns: 6, chatTimeoutSec: 120 },
+      },
       AGENTS
     )
     expect(readSettingsForm(holder)).toEqual({
       foldLevel: 'light',
       layerView: 'all',
-      agent: 'claude',
-      model: 'gpt-5.2',
+      chatAgent: 'claude',
+      chatModel: 'gpt-5.2',
       chatTimeoutSec: 120,
       maxTurns: 6,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
     })
   })
 
@@ -364,14 +427,16 @@ describe('the dialog with parts missing', () => {
   })
 
   it('names a model-only override', () => {
-    expect(settingsDialogHtml({ ...SETTINGS, overrides: { model: 'x' } }, AGENTS)).toContain('--model x')
+    expect(settingsDialogHtml({ ...SETTINGS, overrides: { chatModel: 'x' } }, AGENTS)).toContain(
+      '--chat-model x'
+    )
   })
 
   it('does nothing for a change that is not the agent select', async () => {
     const dialog = await open()
-    const model = el(dialog, '#set-model')
+    const model = el(dialog, '#set-chat-model')
     model.dispatchEvent(new Event('change', { bubbles: true }))
-    expect(el(dialog, '#model-list').innerHTML).toContain(MODEL_SUGGESTIONS.claude[0] ?? '')
+    expect(el(dialog, '#chat-model-list').innerHTML).toContain(MODEL_SUGGESTIONS.claude[0] ?? '')
   })
 
   it('reports a probe failure that carries only a code', async () => {
@@ -443,9 +508,149 @@ describe('the probe with the dialog cut down', () => {
   it('does not fail when the result line is gone', async () => {
     const dialog = await open()
     dialog.querySelector('.probe-result')?.remove()
-    dialog.querySelector('#set-agent')?.remove()
+    dialog.querySelector('#set-chat-agent')?.remove()
     el(dialog, '[data-act="settings-probe"]').click()
     await flush()
     expect(dialog.querySelector('.cmd-err')).toBeNull()
+  })
+})
+
+describe('the settings tabs', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  /** @param {HTMLElement} dialog */
+  const visiblePanels = dialog =>
+    [...dialog.querySelectorAll('[role="tabpanel"]')].filter(p => !p.hasAttribute('hidden')).map(p => p.id)
+
+  it('opens on Reading, shows one panel at a time, and remembers the last tab', async () => {
+    const dialog = await open()
+    expect([...dialog.querySelectorAll('[role="tab"]')].map(t => t.textContent)).toEqual([
+      'Reading',
+      'AI Chat',
+      'Checkouts',
+      'Project',
+    ])
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+    el(dialog, '#settings-tab-project').click()
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-project'])
+    expect(el(dialog, '#settings-tab-project').getAttribute('aria-selected')).toBe('true')
+    expect(localStorage.getItem(SETTINGS_TAB_KEY)).toBe('project')
+    dialog.close()
+    const again = await open()
+    expect(visiblePanels(again)).toEqual(['settings-panel-project'])
+  })
+
+  it('moves between tabs with the arrow keys', async () => {
+    const dialog = await open()
+    const reading = el(dialog, '#settings-tab-reading')
+    reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-project'])
+    expect(document.activeElement?.id).toBe('settings-tab-project')
+    const project = el(dialog, '#settings-tab-project')
+    project.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+    // Other keys, and arrows outside the tab list, leave the tab where it is.
+    reading.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    el(dialog, '#set-fold-level').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+    )
+    expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
+  })
+
+  it('says so when the checkouts cannot be listed', async () => {
+    const dialog = await open({
+      fetchCheckouts: async () => {
+        throw new Error('gone')
+      },
+    })
+    el(dialog, '#settings-tab-checkouts').click()
+    await flush()
+    expect(el(dialog, '.checkout-list').textContent).toBe('could not list the checkouts: gone')
+  })
+
+  it('lists the checkouts only once their tab is shown', async () => {
+    let asked = 0
+    const dialog = await open({
+      fetchCheckouts: async () => {
+        asked += 1
+        return {
+          root: '/data/checkouts',
+          checkouts: [
+            {
+              key: 42,
+              sha: 'a'.repeat(40),
+              lastUsedAt: '2026-09-20T12:30:00.000Z',
+              locked: true,
+              bytes: 5 * 1024 * 1024,
+            },
+          ],
+        }
+      },
+    })
+    expect(asked).toBe(0)
+    el(dialog, '#settings-tab-checkouts').click()
+    await flush()
+    expect(asked).toBe(1)
+    const list = el(dialog, '.checkout-list').textContent ?? ''
+    expect(list).toContain('#42 (in use)')
+    expect(list).toContain('aaaaaaa')
+    expect(list).toContain('2026-09-20 12:30')
+    expect(list).toContain('5 MB')
+  })
+
+  it('shows the saved checkout settings, and reads the fields into the saved settings', async () => {
+    const dialog = await open({
+      fetchSettings: async () => ({
+        ...SETTINGS,
+        settings: { ...SETTINGS.settings, checkoutEnabled: false },
+      }),
+    })
+    expect(/** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled')).checked).toBe(false)
+    const enabled = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-enabled'))
+    const idle = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-idle'))
+    const sweep = /** @type {HTMLInputElement} */ (el(dialog, '#set-checkout-sweep'))
+    enabled.checked = false
+    idle.value = '-1'
+    sweep.value = '30'
+    expect(readSettingsForm(dialog)).toMatchObject({
+      checkoutEnabled: false,
+      checkoutIdleDays: -1,
+      checkoutSweepMinutes: 30,
+    })
+  })
+
+  it('has no AI Chat or Checkouts tab when the project turns chat off', () => {
+    const holder = document.createElement('div')
+    holder.innerHTML = settingsDialogHtml(SETTINGS, null, 'checkouts')
+    expect([...holder.querySelectorAll('[role="tab"]')].map(t => t.textContent)).toEqual([
+      'Reading',
+      'Project',
+    ])
+    expect(holder.querySelector('#settings-panel-reading')?.hasAttribute('hidden')).toBe(false)
+  })
+})
+
+describe('checkoutListHtml', () => {
+  it('says there are none yet', () => {
+    expect(checkoutListHtml({ root: '/x', checkouts: [] })).toContain('No review checkouts yet')
+  })
+
+  it('names local reviews by what they are', () => {
+    const html = checkoutListHtml({
+      root: '/x',
+      checkouts: [
+        {
+          key: 'branch',
+          sha: 'b'.repeat(40),
+          lastUsedAt: '2026-09-20T12:00:00.000Z',
+          locked: false,
+          bytes: 10,
+        },
+      ],
+    })
+    expect(html).toContain('Branch review')
+    expect(formatBytes(3 * 1024 * 1024 * 1024)).toBe('3 GB')
   })
 })

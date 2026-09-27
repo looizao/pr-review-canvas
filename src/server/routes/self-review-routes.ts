@@ -12,7 +12,7 @@ import type { AppContext } from '../context.js'
 import { AppError } from '../errors.js'
 import { oneAtATime } from '../one-at-a-time.js'
 import { parseTargetKey, requirePrNumber } from './api.js'
-import { postOnPr, readBody, requireSameHead } from './review-routes.js'
+import { mentionsCanvas, postOnPr, readBody, requireSameHead } from './review-routes.js'
 
 /** Settling changes what every reviewer reads, so only the pull request's author may do it. */
 async function requireAuthor(ctx: AppContext, pr: Pr): Promise<void> {
@@ -92,7 +92,7 @@ export function selfReviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
             path: point.path,
             line: point.line,
             side: point.side ?? 'new',
-            body: settlementCommentBody(point, input.reason),
+            body: settlementCommentBody(point, input.reason, await mentionsCanvas(ctx)),
             pointFingerprint: point.fingerprint,
             headSha: pr.headSha,
           })

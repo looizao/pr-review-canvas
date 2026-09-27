@@ -17,8 +17,19 @@ export const DefaultLayerSchema = z.object({
 })
 export type DefaultLayer = z.infer<typeof DefaultLayerSchema>
 
+export const GenerationModelsSchema = z.record(z.string().min(1), z.string().min(1))
+export type GenerationModels = z.infer<typeof GenerationModelsSchema>
+
 export const HighRiskRuleSchema = z.object({ pattern: z.string().min(1), label: z.string().min(1) })
 export type HighRiskRule = z.infer<typeof HighRiskRuleSchema>
+
+export const SharingSchema = z.object({
+  /** Publish posts the canvas as a PR/MR comment. False keeps the canvas on this machine. */
+  canvasComment: z.boolean(),
+  /** What the review page posts names the canvas. False drops every mention and credit. */
+  mentionCanvas: z.boolean(),
+})
+export type Sharing = z.infer<typeof SharingSchema>
 
 const cap = () => z.number().int().positive().optional()
 
@@ -65,6 +76,12 @@ export const ProjectConfigSchema = z.object({
     /** A change set with at most this many hunks is "small": one layer unless concerns differ. */
     smallPrHunks: z.number().int().positive(),
     caps: z.object(capsShape).optional(),
+    /**
+     * The model each agent generates canvases with, keyed by the agent id publish records
+     * (`claude`, `codex`, ...). Claude defaults to Opus; an agent with no entry keeps the
+     * session's model.
+     */
+    models: GenerationModelsSchema,
   }),
   /** Which paths count as tests, for the layering rules and the `isTest` flag on a file. */
   tests: z.object({ patterns: z.array(z.string().min(1)) }),
@@ -82,6 +99,8 @@ export const ProjectConfigSchema = z.object({
      */
     incremental: z.boolean(),
   }),
+  /** What publish and the review page put on the PR/MR. `.pr-review/settings.yml` can override both. */
+  sharing: SharingSchema,
 })
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>
 
@@ -99,6 +118,7 @@ const PartialProjectConfigSchema = z.object({
       inlineDiffMaxLines: z.number().int().positive().optional(),
       smallPrHunks: z.number().int().positive().optional(),
       caps: z.object(capsShape).optional(),
+      models: GenerationModelsSchema.optional(),
     })
     .optional(),
   tests: z.object({ patterns: z.array(z.string().min(1)).optional() }).optional(),
@@ -106,16 +126,26 @@ const PartialProjectConfigSchema = z.object({
   canvas: z
     .object({ keepForIdenticalDiff: z.boolean().optional(), incremental: z.boolean().optional() })
     .optional(),
+  sharing: z
+    .object({ canvasComment: z.boolean().optional(), mentionCanvas: z.boolean().optional() })
+    .optional(),
 })
 
 export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   version: 1,
   layers: [],
   highRisk: [],
-  generation: { mode: 'strict', maxRepairRounds: 3, inlineDiffMaxLines: 1500, smallPrHunks: 10 },
+  generation: {
+    mode: 'strict',
+    maxRepairRounds: 3,
+    inlineDiffMaxLines: 1500,
+    smallPrHunks: 10,
+    models: { claude: 'opus' },
+  },
   tests: { patterns: [...DEFAULT_TEST_PATTERNS] },
   chat: { enabled: true },
   canvas: { keepForIdenticalDiff: true, incremental: true },
+  sharing: { canvasComment: true, mentionCanvas: true },
 }
 
 export interface LoadedProjectConfig {
@@ -145,6 +175,8 @@ export function mergeProjectConfig(raw: unknown): { config: ProjectConfig; warni
     inlineDiffMaxLines:
       user.generation?.inlineDiffMaxLines ?? DEFAULT_PROJECT_CONFIG.generation.inlineDiffMaxLines,
     smallPrHunks: user.generation?.smallPrHunks ?? DEFAULT_PROJECT_CONFIG.generation.smallPrHunks,
+    // Per agent: a project that names only codex still generates with Opus on Claude.
+    models: { ...DEFAULT_PROJECT_CONFIG.generation.models, ...user.generation?.models },
   }
   if (user.generation?.caps !== undefined) {
     generation.caps = user.generation.caps
@@ -160,6 +192,10 @@ export function mergeProjectConfig(raw: unknown): { config: ProjectConfig; warni
       keepForIdenticalDiff:
         user.canvas?.keepForIdenticalDiff ?? DEFAULT_PROJECT_CONFIG.canvas.keepForIdenticalDiff,
       incremental: user.canvas?.incremental ?? DEFAULT_PROJECT_CONFIG.canvas.incremental,
+    },
+    sharing: {
+      canvasComment: user.sharing?.canvasComment ?? DEFAULT_PROJECT_CONFIG.sharing.canvasComment,
+      mentionCanvas: user.sharing?.mentionCanvas ?? DEFAULT_PROJECT_CONFIG.sharing.mentionCanvas,
     },
   }
   if (user.rulebook !== undefined) {

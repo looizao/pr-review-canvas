@@ -144,6 +144,8 @@ export function sharingNote(sharing, done) {
       return `${done}; the canvas comment is updated for reviewers`
     case 'local':
       return `${done} in this canvas`
+    case 'off':
+      return `${done} in this canvas; the canvas comment is off`
     case 'failed':
       return `${done} here, but the canvas comment was not updated: ${sharing.warning}`
   }

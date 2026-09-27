@@ -163,6 +163,8 @@ export function fillSignoffDialog(dialog, preview) {
   const area = dialog.querySelector('textarea')
   if (area instanceof HTMLTextAreaElement) {
     area.value = preview.body
+    // An empty body means the project keeps the canvas out of what is posted: the reviewer writes it.
+    area.placeholder = preview.body === '' ? 'write your review' : ''
     area.removeAttribute('aria-busy')
     area.focus()
   }

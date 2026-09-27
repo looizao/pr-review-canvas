@@ -1,7 +1,6 @@
 ---
 name: pr-review-canvas
-model: sonnet
-description: Generate a review canvas for a GitHub pull request or GitLab merge request, for the work in this clone before a pull request exists, or for two refs, with the pr-review tool. Runs `pr-review prepare`, writes the layered model.json the prompt asks for, and runs `pr-review publish` to validate and automatically share it as a compressed PR/MR comment. Use when the user runs `/pr-review-canvas <pr-number>`, `/pr-review-canvas branch`, `/pr-review-canvas uncommitted`, `/pr-review-canvas --base <ref> --head <ref>`, or asks for a review canvas for a PR or MR, for their branch, or for what they have not committed.
+description: Generate a review canvas for a GitHub pull request or GitLab merge request, for the work in this clone before a pull request exists, or for two refs, with the pr-review tool. Runs `pr-review prepare`, writes the layered model.json the prompt asks for, and runs `pr-review publish` to validate it and, unless the config turns sharing off, share it as a compressed PR/MR comment. Use when the user runs `/pr-review-canvas <pr-number>`, `/pr-review-canvas branch`, `/pr-review-canvas uncommitted`, `/pr-review-canvas --base <ref> --head <ref>`, or asks for a review canvas for a PR or MR, for their branch, or for what they have not committed.
 ---
 
 # pr-review-canvas
@@ -27,12 +26,21 @@ it), so you start a fresh `model.json`. Run every `pr-review` command from the r
 
 ### Model choice
 
-Use a mid-tier model, such as Sonnet, by default. If the prepared diff changes authentication,
-access policy, or protected health information (PHI) handling, use a more capable model, such as
-Opus, for the generation and validation steps when available. When delegating to another agent,
-pass it the prepared prompt and context paths; it writes the same model file. Honor an explicit
-user model choice. If the host cannot select models, keep its selected model.
-Record the model that actually generated the canvas when publishing.
+The project picks the default model. The AI Chat settings (`chatAgent`, `chatModel`, and
+`serve --chat-agent/--chat-model`) are for the chat pane and never pick your model. Prepare prints
+the project's `generation.models` as
+`models`, keyed by agent id (the `--agent` you publish with): `{ "claude": "opus" }`. That entry is
+the default, so Claude generates with Opus unless the project names another model. Generate with
+the model under your own agent id. When `models` has no entry for your agent, keep the model you
+run on. If the prepared diff changes authentication, access policy, or protected health
+information (PHI) handling, use a more capable model, such as Opus, for the generation and
+validation steps when available, unless the project's model is already that capable. Honor an
+explicit user model choice over all of these.
+
+When the model to use is not the one you run on, delegate generation and validation to a subagent
+on that model: pass it the prepared prompt and context paths; it writes the same model file. If the
+host cannot select models, or does not offer the named one, keep its selected model and tell the
+user. Record the model that actually generated the canvas when publishing.
 
 ### 1. Prepare
 
@@ -74,6 +82,7 @@ Progress goes to stderr. The last stdout line is JSON:
     "mergeBaseSha": "...",
     "promptPath": "...",
     "contextPath": "...",
+    "models": { "claude": "opus" },
     "status": "prepared"
 }
 ```
@@ -150,8 +159,11 @@ pr-review publish <canvasDir> --agent <your agent id> --model <model id if you k
 On success the last line is `{ "status": "published", "headSha", "reviewJsonPath", "attempts",
 "reviewUrl", "sharing" }` (`reviewUrl` is absent only for a `--base/--head` run; a local run
 points at `/review/branch` or `/review/uncommitted`).
-For PR/MR runs, publish automatically creates or updates your canvas comment using the host CLI login.
-Always inspect `sharing.status`: local validation success does not mean remote sharing succeeded.
+For PR/MR runs, publish creates or updates your canvas comment using the host CLI login, unless
+`sharing.canvasComment` is off in `pr-review.config.yml` or `canvasComment: false` is set in
+`.pr-review/settings.yml` (the personal file wins). Publish reads the config itself; do not post
+the canvas any other way. Always inspect `sharing.status`: local validation success does not mean
+remote sharing succeeded.
 
 For a local run there is nothing to share: `sharing.status` is `"local"`. Report `reviewUrl` and
 tell the user to start `pr-review serve` to read the canvas. If publish prints `CANVAS_STALE`, the
@@ -178,6 +190,8 @@ prepare again; pass `--allow-stale` only when the user asks for the canvas of th
 For a PR/MR run, report the local `reviewUrl` (start it with `pr-review serve`) and inspect `sharing`:
 
 - `status: "shared"`: link to `sharing.url` and say the canvas was shared automatically.
+- `status: "off"`: the config keeps canvases local, so nothing was posted. Say so, give the local
+  `reviewUrl`, and do not suggest uploading the canvas to the PR/MR or offer to share it.
 - `status: "failed"`: clearly warn that automatic sharing failed, quote `sharing.warning`, and
   give the absolute `sharing.zipPath`. Tell the user to open the PR/MR, edit its description,
   drag the ZIP into the editor, wait for upload to finish, and save. Replace any older canvas
@@ -206,7 +220,7 @@ its commit is on no branch, so generate a fresh one for the PR.
 The canvas is ready for its author before it is ready for reviewers. End your report of a PR/MR or
 local run by asking the user to self-review before requesting review: start `pr-review serve`,
 open `reviewUrl`, and settle each attention point marked **yours** with a one-line reason. Settling updates the canvas comment for a PR/MR run, so reviewers
-see only what is left. Say how many points you marked for the author and how many for the
+see only what is left; when `sharing.status` was `"off"`, the settlements stay in the local canvas. Say how many points you marked for the author and how many for the
 reviewer. Do not settle points yourself: the reason is the author's to give.
 
 ## Rules the validator enforces (and models tend to break)
@@ -242,6 +256,6 @@ reviewer. Do not settle points yourself: the reason is the author's to give.
 After new commits, run this skill again for the PR number. The run updates the canvas of the
 nearest earlier commit instead of writing one from nothing, and the reviewer's progress on the
 untouched files follows it. Add `--force` to regenerate a canvas for the same commit, or to start
-over from a blank page. Publish updates your canvas comment; follow the sharing-result instructions
-above if it fails. Reviewers click **refresh** to load it. A canvas for a different
+over from a blank page. Publish updates your canvas comment, unless sharing is off; follow the
+sharing-result instructions above. Reviewers click **refresh** to load it. A canvas for a different
 PR head shows **Canvas is outdated**; an older canvas remains readable with posting disabled.

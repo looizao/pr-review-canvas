@@ -180,7 +180,8 @@ export function cardForReviewedId(root, id) {
 
 /**
  * Where the reader goes after marking something reviewed: the first layer or file that is still
- * open, after the one they just finished.
+ * open, after the one they just finished. One layer at a time, that card must be on screen: the
+ * reader leaves a layer by the rail or the keys, never by finishing it.
  * @param {ParentNode} root
  * @param {ReviewSession} session
  * @param {string} fromId the anchor id of the card that was just marked
@@ -196,7 +197,8 @@ export function nextUnreviewedTarget(root, session, fromId, kind) {
     }
     const id = item.kind === 'file' ? reviewedId(item.layerKey, item.path) : reviewedId(item.layerKey)
     if (!session.isReviewed(id)) {
-      return root.querySelector(`#${cssEscape(item.id)}`)
+      const card = root.querySelector(`#${cssEscape(item.id)}`)
+      return card !== null && inHiddenSection(card) ? null : card
     }
   }
   return null
@@ -225,6 +227,31 @@ export function askTargetFor(focused, selection) {
 }
 
 /**
+ * Keeps the page's scroll padding at the height of the sticky outdated bar, which changes as the
+ * bar wraps. Every scroll to a target then stops under the bar: a rail or canvas link the browser
+ * follows on its own, back and forward, and the step keys. Returns the undo.
+ * @param {Document} doc
+ * @param {Element | null} bar
+ * @returns {() => void}
+ */
+export function padUnderStickyBar(doc, bar) {
+  if (bar === null) {
+    return () => {}
+  }
+  const page = doc.documentElement
+  const pad = () => {
+    page.style.scrollPaddingTop = `${bar.getBoundingClientRect().height}px`
+  }
+  const observer = new ResizeObserver(pad)
+  observer.observe(bar)
+  pad()
+  return () => {
+    observer.disconnect()
+    page.style.removeProperty('scroll-padding-top')
+  }
+}
+
+/**
  * Wires the whole review screen. Returns a stop function, so a re-render never leaves two sets
  * of listeners behind.
  * @param {HTMLElement} root
@@ -246,6 +273,9 @@ export function wireReview(root, session, opts = {}) {
   /** @type {HTMLElement | null} */
   let focusedEl = null
   let pendingG = false
+  /** The card toggle the last single click flipped, so the second click of a double-click can undo it. */
+  /** @type {HTMLElement | null} */
+  let toggledByClick = null
   let composerSeq = 0
   let signoffOpening = 0
 
@@ -334,6 +364,7 @@ export function wireReview(root, session, opts = {}) {
     }
     refreshPendingBar(root, state, session.headSha)
     refreshComposerCommands(root, state.pending.length > 0)
+    opts.chat?.()?.refreshProposed()
     applyCapabilityGating(root, session.capabilities)
   }
   const unsubscribe = session.subscribe(onState)
@@ -359,9 +390,10 @@ export function wireReview(root, session, opts = {}) {
 
   /** The height of the outdated-canvas bar, which sticks to the top of the screen over the cards. */
   const stickyTop = () => {
-    const bar = root.querySelector('.stale-bar')
+    const bar = root.querySelector('.outdated-bar')
     return bar === null ? 0 : bar.getBoundingClientRect().height
   }
+  const stopPaddingUnderBar = padUnderStickyBar(doc, root.querySelector('.outdated-bar'))
 
   /** @param {string} id */
   const byId = id => root.querySelector(`#${cssEscape(id)}`)
@@ -378,7 +410,8 @@ export function wireReview(root, session, opts = {}) {
     if (el instanceof HTMLElement) {
       focusedEl = el
       el.classList.add('is-focused')
-      el.style.scrollMarginTop = `${stickyTop() + FOCUS_GAP}px`
+      // The page's scroll padding already clears the outdated bar; this is the gap under it.
+      el.style.scrollMarginTop = `${FOCUS_GAP}px`
       // Scrolls first, which opens a collapsed card, closed details, or a hidden layer around the
       // element: a hidden element cannot take the focus.
       scrollIntoViewSafe(el, block)
@@ -867,8 +900,24 @@ export function wireReview(root, session, opts = {}) {
 
   /** @type {Record<string, (el: HTMLElement, event: MouseEvent) => void>} */
   const actions = {
-    'toggle-card': el => {
+    'toggle-card': (el, event) => {
+      // A double or triple click selects the file name. Its first click already flipped the card,
+      // so the second one flips it back and the third does nothing.
+      if (event.detail > 1) {
+        if (event.detail === 2 && toggledByClick === el) {
+          setCardCollapsed(el)
+        }
+        toggledByClick = null
+        return
+      }
+      // A file's title toggles its card too, but not at the end of a drag that selected its text.
+      const picked = window.getSelection()
+      if (picked !== null && !picked.isCollapsed && el.contains(picked.anchorNode)) {
+        toggledByClick = null
+        return
+      }
       setCardCollapsed(el)
+      toggledByClick = el
     },
     'mark-layer': el => {
       const id = el.getAttribute('data-reviewed-id') ?? ''
@@ -1279,9 +1328,9 @@ export function wireReview(root, session, opts = {}) {
 
   return {
     /**
-     * What the chat's proposed-comment card does: post it straight away, or open the same
-     * composer the rest of the page uses, prefilled.
-     * @param {'post' | 'edit'} what
+     * What the chat's proposed-comment card does: post it straight away, add it to the pending
+     * review, or open the same composer the rest of the page uses, prefilled.
+     * @param {import('./chat.js').ProposedAct} what
      * @param {import('./proposed-comment.js').ProposedComment} comment
      * @param {HTMLElement} el
      */
@@ -1314,21 +1363,31 @@ export function wireReview(root, session, opts = {}) {
         openComposer(row, options, 'row')
         return
       }
+      const target = {
+        path: comment.path,
+        line: comment.line,
+        side: comment.side,
+        body: comment.body,
+        ...(comment.startLine === undefined || comment.startLine === comment.line
+          ? {}
+          : { startLine: comment.startLine }),
+      }
+      // The card draws its commands from the state these change: see `refreshProposed`.
+      if (what === 'queue') {
+        void runCommand(
+          el,
+          async () => {
+            await session.addPending(target)
+            toast(root, 'comment added to your review')
+          },
+          { pendingLabel: 'adding…' }
+        )
+        return
+      }
       void runCommand(
         el,
         async () => {
-          const input = {
-            kind: /** @type {const} */ ('inline'),
-            path: comment.path,
-            line: comment.line,
-            side: comment.side,
-            body: comment.body,
-            ...(comment.startLine === undefined || comment.startLine === comment.line
-              ? {}
-              : { startLine: comment.startLine }),
-          }
-          const answer = await postComment(input)
-          replacePostButton(el, answer.comment.url)
+          await postComment({ kind: /** @type {const} */ ('inline'), ...target })
           toast(root, 'comment posted to github')
         },
         { pendingLabel: 'posting…' }
@@ -1349,6 +1408,7 @@ export function wireReview(root, session, opts = {}) {
       doc.removeEventListener('pointercancel', onPointerUp)
       doc.removeEventListener('keydown', /** @type {EventListener} */ (onKeyDown))
       stopCardReveal()
+      stopPaddingUnderBar()
     },
   }
 }

@@ -17,7 +17,8 @@ const PATHS = {
   baseDir: '/data/canvases/aaa/derived/base',
   patchDir: '/data/canvases/aaa/derived/patches',
   repoRoot: '/repo',
-}
+  code: { kind: 'reader-checkout', cwd: '/repo' },
+} as const
 
 describe('renderSeed', () => {
   it('fills every token of the shipped template', async () => {
@@ -39,6 +40,35 @@ describe('renderSeed', () => {
 
   it('leaves a token the data does not name alone, so a template typo is visible', () => {
     expect(renderSeed('{{NOPE}}', artifact, PATHS)).toBe('{{NOPE}}')
+  })
+})
+
+describe('where the code is', () => {
+  it('names the review checkout as the working directory, and the lockfile caveat', async () => {
+    const seed = renderSeed(await loadSeedTemplate(), artifact, {
+      ...PATHS,
+      code: { kind: 'checkout', cwd: '/data/checkouts/42', sha: 'b'.repeat(40) },
+    })
+    expect(seed).toContain('Your working directory, `/data/checkouts/42`, is a checkout of the')
+    expect(seed).toContain('Git submodules are not checked out')
+    expect(seed).toContain('`bbbbbbb`')
+    expect(seed).toContain("reader's checkout at `/repo`")
+    expect(seed).toContain('may not be what the pull request uses')
+    expect(seed).not.toContain('/data/canvases/aaa/derived/head')
+  })
+
+  it('says the working tree is the work under review for uncommitted work', async () => {
+    const seed = renderSeed(await loadSeedTemplate(), artifact, {
+      ...PATHS,
+      code: { kind: 'working-tree', cwd: '/repo' },
+    })
+    expect(seed).toContain('uncommitted edits included')
+  })
+
+  it("warns that the reader's checkout may be on another branch without a review checkout", async () => {
+    const seed = renderSeed(await loadSeedTemplate(), artifact, PATHS)
+    expect(seed).toContain('may be on')
+    expect(seed).toContain('another branch')
   })
 })
 

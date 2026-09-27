@@ -528,6 +528,15 @@ export function fetchAgents(opts = {}) {
 }
 
 /**
+ * The review checkouts AI Chat reads code from, for the settings dialog.
+ * @param {{ fetchImpl?: typeof fetch }} [opts]
+ * @returns {Promise<import('./contract-types.js').CheckoutsResponse>}
+ */
+export function fetchCheckouts(opts = {}) {
+  return fetchJson('/api/checkouts', { fetchImpl: opts.fetchImpl })
+}
+
+/**
  * @param {string} id
  * @param {{ fetchImpl?: typeof fetch }} [opts]
  * @returns {Promise<import('./contract-types.js').AgentProbeResult>}

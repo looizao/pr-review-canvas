@@ -16,14 +16,86 @@
   settled, and the ones the author has not settled yet.
 - Settlements survive regenerating the same commit, and follow carried points into an incremental
   canvas. **Refresh** imports a canvas the author revised at the same commit.
+- The sharing switches apply to settling too: with `canvasComment` off, settling shares nothing,
+  and with `mentionCanvas` off, the posted reason drops its `from the pr-review canvas` credit.
 - The skill ends by handing the author the self-review.
+
+### Sharing
+
+- `sharing.canvasComment: false` in `pr-review.config.yml` keeps canvases local: `publish` posts
+  no PR/MR comment and reports `sharing.status: "off"`, and the skill reports the local canvas.
+- `sharing.mentionCanvas: false` keeps the canvas out of what the review page posts: attention
+  point comments drop their `from the pr-review canvas` credit, and the sign-off dialog opens with
+  an empty body. Posting comments and reviews from the page still works.
+- `canvasComment` and `mentionCanvas` in `.pr-review/settings.yml` override either switch for one
+  person; `null`, the default, follows the project.
+
+### Canvas generation
+
+- `generation.models` in `pr-review.config.yml` sets the model each agent generates canvases with,
+  keyed by agent id (`claude: opus`). `prepare` prints it as `models`. Claude generates with Opus
+  unless the project names another model; any other agent with no entry keeps the session's model.
+  The skill no longer pins Sonnet.
+- The settings dialog lists the project's canvas generation models under **Canvas generation** in
+  the read-only project config, and shows the chat fields as **Chat agent** and **Chat model**
+  under an **AI Chat** heading. The header's generator pill reads
+  `canvas by <agent> · <model> · <harness>`.
+
+### AI Chat
+
+- AI Chat reads code from a review checkout: a detached git worktree of the repository at
+  the reviewed commit, kept in the data directory. Files the pull request did not change now come
+  from the pull request's base instead of whatever branch you have checked out. The uncommitted
+  review still reads your working tree. The chat pane shows the checkout while it runs, and
+  warns when a failed checkout made it read your own.
+- `checkoutEnabled`, `checkoutIdleDays` (`-1` never removes), and `checkoutSweepMinutes` in
+  `.pr-review/settings.yml`. `serve` removes idle checkouts on that schedule.
+- Threads started before this version begin a new agent session on their next turn.
+- The settings dialog is split into **Reading**, **AI Chat**, **Checkouts**, and **Project** tabs,
+  and remembers the last one. **Checkouts** lists the current review checkouts.
+- The chat keys in `.pr-review/settings.yml` are now `chatAgent` and `chatModel`. A file with the
+  old `agent` and `model` keys still reads the same, and the next save renames them in place.
+- A proposed comment card offers **add to review** next to **post to github**, the way an attention
+  point does, and shows **in your review** once queued.
+
+### CLI
+
+- `pr-review clean [--all | --older-than <days>] [--dry-run]` removes idle review checkouts.
+- `pr-review` and `pr-review --help` list each command in its own block, wrapped to the terminal,
+  so a flag no longer breaks in the middle of a word. `pr-review <command> --help` prints that
+  command's block and the shared flags.
+- `pr-review doctor` prints a checklist, with `ok` or `failed` on each check, for a person or an
+  agent. `--json` prints the same report as one JSON line, now with a `cli` field naming `gh` or
+  `glab`.
+- `serve --chat-agent` and `--chat-model` replace `--agent` and `--model`, which still work and
+  print a deprecation notice.
 
 ### Review interface
 
 - A **Show layers** field in **settings**, saved as `layerView` in `.pr-review/settings.yml`. At
   `one at a time` the canvas shows the overview or one layer. The rail moves between them, `j` and
-  `k` step through the layers, and a link into a layer shows that layer. The default, `all`, keeps
-  the canvas as one page.
+  `k` step through the layers, and a link into a layer shows that layer. A review mark does not
+  move on to the next layer. The default, `all`, keeps the canvas as one page.
+- Collapse toggles draw a chevron icon in place of the `>` character.
+- Click a file's name to collapse or open its card. A double or triple click that selects the name
+  leaves the card as it was.
+- The **Canvas still applies** note scrolls away with the page. Only the **Canvas is outdated**
+  warning stays pinned to the top. A rail or canvas link stops the layer under it, and what scrolls
+  under it stays hidden in dark themes.
+- The bars above the overview span the full reading column, so they no longer stop short when AI
+  Chat is minimized.
+- **Canvas is outdated**, **Canvas still applies**, and **Review progress carried over** each have
+  a **dismiss** command. A dismissed bar stays closed after a reload, and shows again when the
+  commits it names change.
+
+### Server
+
+- `serve` opens the canvas in the default browser once the port is bound. Pass `--no-open` to skip
+  this. The browser also stays closed when `CI` is set.
+
+### Breaking changes
+
+- `pr-review doctor` prints a checklist instead of a JSON line. Pass `--json` for the JSON line.
 
 ## 0.5.0
 

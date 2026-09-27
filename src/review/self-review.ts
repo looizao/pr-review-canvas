@@ -71,9 +71,17 @@ export function withSettlement(
   return { ...artifact, settled, revisedAt }
 }
 
-/** The comment a settled point's reason is posted as, on the point's line. */
-export function settlementCommentBody(point: Pick<Point, 'title'>, reason: string): string {
-  return `**Settled by the author:** ${point.title}\n\n${reason.trim()}\n\n_from the pr-review canvas self-review_`
+/**
+ * The comment a settled point's reason is posted as, on the point's line. The credit line is left
+ * out when `sharing.mentionCanvas` is off.
+ */
+export function settlementCommentBody(
+  point: Pick<Point, 'title'>,
+  reason: string,
+  mentionCanvas: boolean
+): string {
+  const credit = mentionCanvas ? '\n\n_from the pr-review canvas self-review_' : ''
+  return `**Settled by the author:** ${point.title}\n\n${reason.trim()}${credit}`
 }
 
 /**

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { isMap, parseDocument } from 'yaml'
+import { type Document, isMap, isScalar, type Pair, parseDocument, type Scalar, type YAMLMap } from 'yaml'
 import { DEFAULT_SETTINGS, type Settings, type SettingsInput, SettingsSchema } from '../contract/settings.js'
 import { readText, writeTextAtomic } from './atomic-json.js'
 
@@ -7,7 +7,8 @@ export const SETTINGS_FILE = 'settings.yml'
 
 /** Written once, the first time the file is needed, so the user can edit it by hand too. */
 export const SETTINGS_TEMPLATE = `# Personal pr-review settings. Gitignored: this file is yours, not the project's.
-# Project-wide settings (layers, caps, chat.enabled) live in pr-review.config.yml at the repo root.
+# Project-wide settings (layers, caps, canvas generation models, chat.enabled) live in
+# pr-review.config.yml at the repo root.
 version: 1
 
 # The look of the page: terminal or github.
@@ -24,17 +25,38 @@ foldLevel: light
 # them.
 layerView: all
 
-# Which agent answers in the AI Chat pane: claude or codex.
-agent: claude
+# Which agent answers in the AI Chat pane: claude or codex. Canvas generation does not read
+# this; generation.models in pr-review.config.yml sets the canvas generation models.
+chatAgent: claude
 
-# Model id for that agent, or null for the agent's own default.
-model: null
+# The model AI Chat runs, or null for the chat agent's own default. Canvas generation does not
+# read this either.
+chatModel: null
 
 # How long one chat turn may take, in seconds.
 chatTimeoutSec: 600
 
 # Cap on agent turns per message, or null for the agent's own default.
 maxTurns: null
+
+# Whether AI Chat reads a review checkout: a copy of the repository at the reviewed commit, kept
+# apart from your own checkout. false reads your checkout instead, whatever branch it is on.
+checkoutEnabled: true
+
+# Days without a chat turn before a review checkout is removed. -1 never removes one for that;
+# pr-review clean --all still does.
+checkoutIdleDays: 7
+
+# How often, in minutes, pr-review serve looks for idle review checkouts.
+checkoutSweepMinutes: 60
+
+# Whether publish posts the canvas as a PR/MR comment. null follows sharing.canvasComment in
+# pr-review.config.yml; true or false wins over it for you.
+canvasComment: null
+
+# Whether what the review page posts names the canvas. null follows sharing.mentionCanvas
+# in pr-review.config.yml; true or false wins over it for you.
+mentionCanvas: null
 `
 
 export interface SettingsStore {
@@ -110,9 +132,55 @@ export function parseSettings(text: string): Settings {
   if (typeof raw !== 'object' || raw === null) {
     return DEFAULT_SETTINGS
   }
-  const merged = { ...DEFAULT_SETTINGS, ...raw, version: 1 }
+  const merged = { ...DEFAULT_SETTINGS, ...withChatKeys(raw), version: 1 }
   const parsed = SettingsSchema.safeParse(merged)
   return parsed.success ? parsed.data : DEFAULT_SETTINGS
+}
+
+/**
+ * The chat keys of files written before they were named for the chat: `agent` became `chatAgent`
+ * and `model` became `chatModel`. A file that has both spellings keeps the new one.
+ */
+const LEGACY_KEYS = { agent: 'chatAgent', model: 'chatModel' } as const
+
+function withChatKeys(raw: object): object {
+  const out: Record<string, unknown> = { ...raw }
+  for (const [legacy, key] of Object.entries(LEGACY_KEYS)) {
+    if (legacy in out && !(key in out)) {
+      out[key] = out[legacy]
+    }
+    delete out[legacy]
+  }
+  return out
+}
+
+/** The comment the template puts above each key; the template is a mapping of plain keys. */
+const TEMPLATE_COMMENTS = new Map(
+  (parseDocument(SETTINGS_TEMPLATE).contents as YAMLMap<Scalar<string>, unknown>).items.map(p => [
+    p.key.value,
+    p.key.commentBefore ?? null,
+  ])
+)
+
+/**
+ * Renames a legacy chat key where it stands, so its position survives, and gives it the template's
+ * comment, which says the key is for the chat only. A legacy key next to its new spelling goes.
+ */
+function renameLegacyKeys(doc: Document): void {
+  if (!isMap(doc.contents)) {
+    return
+  }
+  for (const [legacy, key] of Object.entries(LEGACY_KEYS)) {
+    if (doc.has(key)) {
+      doc.delete(legacy)
+      continue
+    }
+    const found = doc.contents.items.find(p => isScalar(p.key) && p.key.value === legacy)?.key
+    if (isScalar(found)) {
+      found.value = key
+      found.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
+    }
+  }
 }
 
 /** The new file text and the settings it holds, given the old text and the changed fields. */
@@ -126,16 +194,28 @@ export function applySettings(text: string, input: SettingsInput): { text: strin
   if (doc.errors.length > 0 || !isMap(doc.contents)) {
     doc = parseDocument(SETTINGS_TEMPLATE)
   }
-  doc.set('version', 1)
-  doc.set('skin', settings.skin)
-  doc.set('theme', settings.theme)
-  doc.set('foldLevel', settings.foldLevel)
-  doc.set('layerView', settings.layerView)
-  doc.set('agent', settings.agent)
-  doc.set('model', settings.model)
-  doc.set('chatTimeoutSec', settings.chatTimeoutSec)
-  doc.set('maxTurns', settings.maxTurns)
+  renameLegacyKeys(doc)
+  // Every key the schema names, in its order, so a hand-edited file gains what it lacks.
+  for (const [key, value] of Object.entries(settings)) {
+    setKey(doc, key, value)
+  }
   return { text: String(doc), settings }
+}
+
+/**
+ * Sets a key, and gives it the template's comment when the file did not have it yet, so a file
+ * written before the key existed explains it the same way a new file does.
+ */
+function setKey(doc: Document, key: string, value: unknown): void {
+  if (doc.has(key)) {
+    doc.set(key, value)
+    return
+  }
+  const pair = doc.createPair(key, value) as Pair<Scalar<string>, unknown>
+  pair.key.commentBefore = TEMPLATE_COMMENTS.get(key) ?? null
+  pair.key.spaceBefore = true
+  // applySettings starts over from the template whenever the file is not a mapping.
+  ;(doc.contents as YAMLMap).items.push(pair)
 }
 
 function stripUndefined(input: SettingsInput): Partial<Settings> {
@@ -152,17 +232,26 @@ function stripUndefined(input: SettingsInput): Partial<Settings> {
   if (input.layerView !== undefined) {
     out.layerView = input.layerView
   }
-  if (input.agent !== undefined) {
-    out.agent = input.agent
+  if (input.chatAgent !== undefined) {
+    out.chatAgent = input.chatAgent
   }
-  if (input.model !== undefined) {
-    out.model = input.model === '' ? null : input.model
+  if (input.chatModel !== undefined) {
+    out.chatModel = input.chatModel === '' ? null : input.chatModel
   }
   if (input.chatTimeoutSec !== undefined) {
     out.chatTimeoutSec = input.chatTimeoutSec
   }
   if (input.maxTurns !== undefined) {
     out.maxTurns = input.maxTurns
+  }
+  if (input.checkoutEnabled !== undefined) {
+    out.checkoutEnabled = input.checkoutEnabled
+  }
+  if (input.checkoutIdleDays !== undefined) {
+    out.checkoutIdleDays = input.checkoutIdleDays
+  }
+  if (input.checkoutSweepMinutes !== undefined) {
+    out.checkoutSweepMinutes = input.checkoutSweepMinutes
   }
   return out
 }

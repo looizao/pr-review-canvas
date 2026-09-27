@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import type { GenerationModels, Sharing } from '../project-config.js'
+import type { ReviewKey } from './review-key.js'
 import { DEFAULT_FOLD_LEVEL, FOLD_LEVELS } from '../../static/js/fold-levels.js'
 import { DEFAULT_LAYER_VIEW, LAYER_VIEWS } from '../../static/js/layer-views.js'
 import { DEFAULT_SKIN, isSkin, SKINS, type Skin } from '../../static/js/skin.js'
@@ -24,6 +26,24 @@ export function isChatAgent(value: string): value is ChatAgent {
 export const CHAT_TIMEOUT_MIN_SEC = 30
 export const CHAT_TIMEOUT_MAX_SEC = 3600
 
+/** `checkoutIdleDays` that turns the idle cleanup of review checkouts off. */
+export const CHECKOUT_IDLE_NEVER = -1
+export const CHECKOUT_IDLE_MAX_DAYS = 365
+export const CHECKOUT_SWEEP_MIN_MINUTES = 5
+export const CHECKOUT_SWEEP_MAX_MINUTES = 1440
+
+const CheckoutIdleDaysSchema = z
+  .number()
+  .int()
+  .min(CHECKOUT_IDLE_NEVER)
+  .max(CHECKOUT_IDLE_MAX_DAYS)
+  .refine(days => days !== 0, { message: 'checkoutIdleDays is -1 or at least 1' })
+const CheckoutSweepMinutesSchema = z
+  .number()
+  .int()
+  .min(CHECKOUT_SWEEP_MIN_MINUTES)
+  .max(CHECKOUT_SWEEP_MAX_MINUTES)
+
 export const SettingsSchema = z.object({
   version: z.literal(1),
   skin: z.enum(SKINS),
@@ -32,10 +52,22 @@ export const SettingsSchema = z.object({
   foldLevel: z.enum(FOLD_LEVELS),
   /** Whether a review shows every layer on one page, or the overview or one layer at a time. */
   layerView: z.enum(LAYER_VIEWS),
-  agent: z.enum(CHAT_AGENTS),
-  model: z.string().min(1).nullable(),
+  /** The agent that answers in AI Chat. Canvas generation does not read it. */
+  chatAgent: z.enum(CHAT_AGENTS),
+  /** The model AI Chat runs, or null for the agent's default. Canvas generation does not read it. */
+  chatModel: z.string().min(1).nullable(),
   chatTimeoutSec: z.number().int().min(CHAT_TIMEOUT_MIN_SEC).max(CHAT_TIMEOUT_MAX_SEC),
   maxTurns: z.number().int().positive().max(100).nullable(),
+  /** Whether AI Chat reads a review checkout at the reviewed commit, or the reader's own checkout. */
+  checkoutEnabled: z.boolean(),
+  /** Days without a chat turn before a review checkout is removed; -1 never removes one for that. */
+  checkoutIdleDays: CheckoutIdleDaysSchema,
+  /** How often `serve` looks for idle review checkouts. */
+  checkoutSweepMinutes: CheckoutSweepMinutesSchema,
+  /** Overrides `sharing.canvasComment` in pr-review.config.yml; null follows the project. */
+  canvasComment: z.boolean().nullable(),
+  /** Overrides `sharing.mentionCanvas` in pr-review.config.yml; null follows the project. */
+  mentionCanvas: z.boolean().nullable(),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -45,22 +77,41 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   foldLevel: DEFAULT_FOLD_LEVEL,
   layerView: DEFAULT_LAYER_VIEW,
-  agent: 'claude',
-  model: null,
+  chatAgent: 'claude',
+  chatModel: null,
   chatTimeoutSec: 600,
   maxTurns: null,
+  checkoutEnabled: true,
+  checkoutIdleDays: 7,
+  checkoutSweepMinutes: 60,
+  canvasComment: null,
+  mentionCanvas: null,
 }
 
-/** What `PUT /api/settings` accepts: every field optional, the rest stays as it was. */
-export const SettingsInputSchema = z.object({
+/** The project's sharing rules with this user's overrides applied: a set personal key wins. */
+export function resolveSharing(project: Sharing, settings: Settings): Sharing {
+  return {
+    canvasComment: settings.canvasComment ?? project.canvasComment,
+    mentionCanvas: settings.mentionCanvas ?? project.mentionCanvas,
+  }
+}
+
+/**
+ * What `PUT /api/settings` accepts: every field optional, the rest stays as it was. Unknown keys
+ * are refused, so a body with the old `agent` or `model` fails instead of saving nothing.
+ */
+export const SettingsInputSchema = z.strictObject({
   skin: z.enum(SKINS).optional(),
   theme: z.enum(THEMES).optional(),
   foldLevel: z.enum(FOLD_LEVELS).optional(),
   layerView: z.enum(LAYER_VIEWS).optional(),
-  agent: z.enum(CHAT_AGENTS).optional(),
-  model: z.string().max(200).nullable().optional(),
+  chatAgent: z.enum(CHAT_AGENTS).optional(),
+  chatModel: z.string().max(200).nullable().optional(),
   chatTimeoutSec: z.number().int().min(CHAT_TIMEOUT_MIN_SEC).max(CHAT_TIMEOUT_MAX_SEC).optional(),
   maxTurns: z.number().int().positive().max(100).nullable().optional(),
+  checkoutEnabled: z.boolean().optional(),
+  checkoutIdleDays: CheckoutIdleDaysSchema.optional(),
+  checkoutSweepMinutes: CheckoutSweepMinutesSchema.optional(),
 })
 export type SettingsInput = z.infer<typeof SettingsInputSchema>
 
@@ -99,10 +150,10 @@ export type AppearanceInput = z.infer<typeof AppearanceInputSchema>
 /** How the page is painted right now, as the server has it saved. */
 export type AppearanceResponse = Appearance
 
-/** A `serve --agent/--model` flag wins over the file, and the dialog says so. */
+/** A `serve --chat-agent/--chat-model` flag wins over the file, and the dialog says so. */
 export interface SettingsOverrides {
-  agent?: ChatAgent
-  model?: string
+  chatAgent?: ChatAgent
+  chatModel?: string
 }
 
 export interface SettingsResponse {
@@ -119,6 +170,8 @@ export interface SettingsResponse {
     maxRepairRounds: number
     inlineDiffMaxLines: number
     smallPrHunks: number
+    /** `generation.models`: the model each agent generates canvases with. AI Chat does not read it. */
+    generationModels: GenerationModels
     /** Whether a canvas still stands for a later head with an identical diff. */
     keepForIdenticalDiff: boolean
     layers: number
@@ -155,4 +208,19 @@ export interface AgentProbeResult {
   /** When this result was produced; results are reused for ten minutes. */
   at: string
   cached: boolean
+}
+
+/** `GET /api/checkouts`: the review checkouts of this repository, newest use first. */
+export interface CheckoutsResponse {
+  /** The folder they live in. */
+  root: string
+  checkouts: Array<{
+    key: ReviewKey
+    sha: string
+    lastUsedAt: string
+    /** True while a chat turn holds it. */
+    locked: boolean
+    /** Bytes on disk, `.git` excluded. */
+    bytes: number
+  }>
 }

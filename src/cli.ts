@@ -10,6 +10,7 @@ import {
   printErrorEnvelope,
   reportFailure,
   runDoctor,
+  runClean,
   runExport,
   runImport,
   runInstallSkill,
@@ -21,6 +22,7 @@ import {
 import { ConfigError, loadRuntimeConfig, parsePort, readEnv, resolveRepoRoot } from './config.js'
 import { type ReviewArtifact, ReviewArtifactSchema } from './contract/review-artifact.js'
 import { createGit } from './git/git.js'
+import { printUsage } from './help.js'
 import { createHostClient } from './host/client.js'
 import { loadProjectConfig } from './project-config.js'
 import { checkSkill } from './review/doctor.js'
@@ -41,33 +43,8 @@ const SUBCOMMANDS = [
   'install-skill',
   'doctor',
   'upgrade',
+  'clean',
 ] as const
-
-const USAGE = `usage: pr-review <command> [flags]
-
-  serve [--port 3010] [--repo <dir>] [--data-dir <dir>] [--fixture-canvas <review.json>]
-        [--agent claude|codex] [--model <id>]   (chat only; wins over .pr-review/settings.yml)
-  prepare (--pr <n> | --branch | --uncommitted | --base <ref> --head <ref>) [--force]
-          [--base <ref>] [--repo <dir>] [--data-dir <dir>]
-                   (--branch reviews the current branch against the default branch, and
-                    --uncommitted reviews it with the working tree's edits and new files on top.
-                    Both are for work with no PR yet, take --base <ref> to compare against
-                    another branch, and show at /review/branch and /review/uncommitted.)
-  validate <model.json|review.json> --canvas <dir> [--human] [--fix] [--repo <dir>] [--data-dir <dir>]
-                   (--fix trims over-cap titles in place and reports each one)
-  publish <canvasDir> --agent <id> [--model <id>] --harness claude-code|codex|other [--allow-stale]
-  install-skill [--claude-dir .claude/skills] [--codex-dir .agents/skills] [--force] [--repo <dir>]
-  export (--pr <n> | --head <ref|sha>) [--out <file|dir>] [--repo <dir>] [--data-dir <dir>]
-                   (both flags: the named commit is exported and the number stamps the zip)
-  import <zip> [--pr <n>] [--force] [--repo <dir>] [--data-dir <dir>]
-  doctor [--all-checks] [--repo <dir>] [--data-dir <dir>]
-  upgrade [--yes] [--only package,acpx,skill] [--repo <dir>]
-                   (updates pr-review and acpx with npm, and refreshes the project's skill copies;
-                    lists the changes and asks first unless --yes)
-
-Every command prints one JSON line on success and { "error": { code, message, hint } } on failure.
-Exit codes: 0 ok, 1 error, 2 usage, 4 gh/glab missing or not logged in, 5 invalid model output.
-`
 
 const io: CliIo = {
   stdout: line => process.stdout.write(`${line}\n`),
@@ -80,8 +57,9 @@ async function buildContext(
   extra: {
     port?: string | undefined
     fixtureCanvas?: string | undefined
-    agent?: string | undefined
-    model?: string | undefined
+    chatAgent?: string | undefined
+    chatModel?: string | undefined
+    noOpen?: boolean | undefined
   } = {}
 ): Promise<AppContext> {
   const cwd = process.cwd()
@@ -92,8 +70,9 @@ async function buildContext(
       port: extra.port === undefined ? undefined : parsePort(extra.port, 0),
       dataDir,
       fixtureCanvas: extra.fixtureCanvas,
-      agent: extra.agent,
-      model: extra.model,
+      chatAgent: extra.chatAgent,
+      chatModel: extra.chatModel,
+      noOpen: extra.noOpen,
     },
     process.env,
     git,
@@ -122,16 +101,24 @@ async function serve(argv: string[]): Promise<number> {
       repo: { type: 'string' },
       'data-dir': { type: 'string' },
       'fixture-canvas': { type: 'string' },
+      'chat-agent': { type: 'string' },
+      'chat-model': { type: 'string' },
+      // Deprecated spellings of --chat-agent and --chat-model.
       agent: { type: 'string' },
       model: { type: 'string' },
+      'no-open': { type: 'boolean' },
     },
     strict: true,
   })
+  if (values.agent !== undefined || values.model !== undefined) {
+    io.stderr('pr-review serve: --agent and --model are deprecated; use --chat-agent and --chat-model')
+  }
   const ctx = await buildContext(values.repo, values['data-dir'], {
     port: values.port,
     fixtureCanvas: values['fixture-canvas'],
-    agent: values.agent,
-    model: values.model,
+    chatAgent: values['chat-agent'] ?? values.agent,
+    chatModel: values['chat-model'] ?? values.model,
+    noOpen: values['no-open'],
   })
   const skill = await checkSkill(ctx.config.repoRoot)
   if (!skill.ok) io.stderr(`pr-review doctor: ${skill.detail}. ${skill.hint ?? ''}`)
@@ -153,7 +140,8 @@ async function doctorCommand(argv: string[]): Promise<number> {
       dataDirOverride: dataDir ?? readEnv(process.env, 'PR_REVIEW_DATA_DIR'),
     },
     rest,
-    io
+    io,
+    process.stdout
   )
 }
 
@@ -214,12 +202,16 @@ export async function main(argv: string[]): Promise<number> {
   // `pnpm review -- --port 3011` forwards the `--` itself; drop it so parseArgs sees the flags.
   const [command, ...rest] = argv.filter(a => a !== '--')
   if (command === undefined || command === '--help' || command === '-h') {
-    process.stderr.write(USAGE)
+    printUsage(process.stderr, readPackageVersion())
     return command === undefined ? EXIT.usage : EXIT.ok
   }
   if (!(SUBCOMMANDS as readonly string[]).includes(command)) {
     printErrorEnvelope(io, 'BAD_REQUEST', `unknown command: ${command}`, 'run pr-review --help')
     return EXIT.usage
+  }
+  if (rest.includes('--help') || rest.includes('-h')) {
+    printUsage(process.stderr, readPackageVersion(), command)
+    return EXIT.ok
   }
   try {
     switch (command) {
@@ -243,6 +235,8 @@ export async function main(argv: string[]): Promise<number> {
             return await runExport(ctx, own, io)
           case 'import':
             return await runImport(ctx, own, io)
+          case 'clean':
+            return await runClean(ctx, own, io)
           default:
             return await runPublish(ctx, own, io)
         }

@@ -163,6 +163,34 @@ describe('settling an attention point', () => {
     })
   })
 
+  it('follows the sharing switches: no canvas comment, and a reason without the canvas credit', async () => {
+    const forge = gh()
+    t = await withCanvas(forge)
+    t.ctx.projectConfig = {
+      ...t.ctx.projectConfig,
+      config: { ...t.ctx.projectConfig.config, sharing: { canvasComment: false, mentionCanvas: false } },
+    }
+    const body = await answer(
+      await settle(t, '42', 'fp-2', {
+        settled: true,
+        reason: 'Covered by e2e.',
+        comment: true,
+        headSha: HEAD_SHA,
+      })
+    )
+    expect(body.sharing).toEqual({ status: 'off' })
+    expect((await t.ctx.canvases.readArtifact(HEAD_SHA))?.settled).toEqual(body.settled)
+    expect(forge.calls.some(c => c.kind === 'post' && c.path.startsWith('repos/acme/widgets/issues/'))).toBe(
+      false
+    )
+    const inline = forge.calls.find(
+      c => c.kind === 'post' && c.path === 'repos/acme/widgets/pulls/42/comments'
+    )
+    expect(inline?.body).toMatchObject({
+      body: '**Settled by the author:** other() has no test\n\nCovered by e2e.',
+    })
+  })
+
   it('reopens a settled point and shares the canvas without it', async () => {
     const forge = gh()
     t = await withCanvas(forge)

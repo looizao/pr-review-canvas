@@ -1,5 +1,6 @@
 // @ts-check
 /** @typedef {import('./contract-types.js').PrBundle} PrBundle */
+import { DISMISS_BAR_HTML } from './bar-dismissal.js'
 import { esc } from './dom.js'
 
 export const DROP_ZONE_ID = 'zip'
@@ -175,16 +176,29 @@ export function staleSummary(stale, local) {
 }
 
 /**
+ * A bar above the canvas. `name` is the facts it states, which is what a dismissal of it keeps.
+ * @param {string} kind the class that styles it
+ * @param {string} name
+ * @param {string} text the bar's HTML
+ * @returns {string}
+ */
+function barHtml(kind, name, text) {
+  return `<div class="stale-bar ${kind}" role="status" data-bar="${esc(name)}"><span class="bar-text">${text}</span>${DISMISS_BAR_HTML}</div>`
+}
+
+/**
  * The bar that stays on screen while a stale canvas is shown, so the reader is never misled about
- * which commit the diffs come from.
+ * which commit the diffs come from, until they dismiss it for this pair of commits.
  * @param {NonNullable<PrBundle['stale']>} stale
  * @param {PrBundle['local']} [local]
  * @returns {string}
  */
 export function staleBarHtml(stale, local) {
-  return (
-    `<div class="stale-bar" role="status"><strong>Canvas is outdated.</strong> You are reading an older commit. ${esc(staleSummary(stale, local))} ` +
-    '<button class="cmd" type="button" id="stale-generate" aria-haspopup="dialog">generate for current head</button></div>'
+  return barHtml(
+    'outdated-bar',
+    `outdated:${stale.canvasHeadSha}:${stale.currentHeadSha}`,
+    `<strong>Canvas is outdated.</strong> You are reading an older commit. ${esc(staleSummary(stale, local))} ` +
+      '<button class="cmd" type="button" id="stale-generate" aria-haspopup="dialog">generate for current head</button>'
   )
 }
 
@@ -201,10 +215,12 @@ export function carriedOverBarHtml(carried) {
   // is no number of commits away from the canvas's commit, so the note says nothing about it.
   const behind = carried.commitsBehind
   const distance = behind === undefined ? '' : `, ${behind} commit${behind === 1 ? '' : 's'} later,`
-  return (
-    `<div class="stale-bar carried-over-bar" role="status"><strong>Canvas still applies.</strong> ` +
-    `${esc(`It was generated for ${canvas}; the head ${head}${distance} has the identical diff.`)} ` +
-    '<button class="cmd" type="button" id="stale-generate" aria-haspopup="dialog">regenerate anyway</button></div>'
+  return barHtml(
+    'carried-over-bar',
+    `carried-over:${carried.canvasHeadSha}:${carried.currentHeadSha}`,
+    '<strong>Canvas still applies.</strong> ' +
+      `${esc(`It was generated for ${canvas}; the head ${head}${distance} has the identical diff.`)} ` +
+      '<button class="cmd" type="button" id="stale-generate" aria-haspopup="dialog">regenerate anyway</button>'
   )
 }
 
@@ -213,15 +229,17 @@ export function carriedOverBarHtml(carried) {
  * already-ticked layers look like a bug. The sha is the canvas the marks were made on, which may
  * be several generations back when the reviewer marked nothing on the canvases in between.
  * @param {string} markedCanvasSha
+ * @param {string} canvasSha the canvas the marks followed onto
  * @returns {string}
  */
-export function marksCarriedBarHtml(markedCanvasSha) {
-  return (
-    '<div class="stale-bar carried-over-bar" role="status"><strong>Review progress carried over.</strong> ' +
-    esc(
-      `You marked these on the canvas of ${markedCanvasSha.slice(0, 7)}; a file whose diff has not changed since keeps its mark, and a layer keeps its own when it still holds exactly those files.`
-    ) +
-    '</div>'
+export function marksCarriedBarHtml(markedCanvasSha, canvasSha) {
+  return barHtml(
+    'carried-over-bar',
+    `marks-carried:${markedCanvasSha}:${canvasSha}`,
+    '<strong>Review progress carried over.</strong> ' +
+      esc(
+        `You marked these on the canvas of ${markedCanvasSha.slice(0, 7)}; a file whose diff has not changed since keeps its mark, and a layer keeps its own when it still holds exactly those files.`
+      )
   )
 }
 

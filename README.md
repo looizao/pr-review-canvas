@@ -59,8 +59,9 @@ Start the canvas server from the project you want to review:
 pr-review serve
 ```
 
-Open **http://localhost:3010**, enter a PR number (or follow a link to a local review), and
-leave the terminal running while you review. Stop the server with **Ctrl+C**. To use another port, run `pr-review serve --port 3011`.
+The server opens **http://localhost:3010** in your browser (pass `--no-open` to skip this). Enter a
+PR number (or follow a link to a local review), and leave the terminal running while you review.
+Stop the server with **Ctrl+C**. To use another port, run `pr-review serve --port 3011`.
 
 ## Install
 
@@ -103,7 +104,8 @@ project's `.gitignore`. Restart your coding agent if the skill does not appear. 
 
 `doctor` checks Git, your GitHub or GitLab remote, the matching CLI (`gh` or `glab`) and its login,
 write access to the local canvas directory, and whether installed skills match the current package.
-It prints a JSON report with a result for each check and suggested fixes for failures.
+It prints a checklist, with `ok` or `failed` on each check and a hint under each failure, so a
+person and an agent read the same report. `--json` prints that report as one JSON line.
 `doctor --all-checks` also checks that `acpx` runs and reports its version. Exit code `0` means all
 checks passed.
 
@@ -121,7 +123,7 @@ pr-review doctor --all-checks
 ```
 
 Install and sign in to either Claude Code or Codex on the same machine. Start (or restart)
-the review server, then choose your agent in **settings**. The chat uses that agent's account.
+the review server, then choose the chat agent in **settings**. The chat uses that agent's account.
 You can review canvases without installing `acpx`.
 
 ## Advanced usage
@@ -153,6 +155,7 @@ page. See [Incremental canvases](docs/reference.md#incremental-canvases).
 When the saved canvas describes a different PR head, **Canvas is outdated** appears at
 the top. You can still read the older canvas, with its commit and distance shown; posting
 from that view is disabled. Click **refresh** to check GitHub or GitLab for changes and a newer canvas.
+Click **dismiss** to close the bar until the head moves again.
 
 A head whose diff is identical to the canvas's does not outdate it: after **Update branch**
 merged `main` in without touching the changed files, for example, the canvas still applies
@@ -172,23 +175,41 @@ in the settings dialog to choose how much code a review hides when it opens. Set
 to **one at a time** in the same dialog to read the overview or a single layer at once, moving
 between layers with the rail or the `j` and `k` keys.
 
-For AI Chat, open **settings**, choose Claude Code or Codex, and optionally enter a model ID.
-Leave the model blank to use the agent's default. A model ID runs as the newest model of its family
-(`claude-opus-4-8` runs as `opus`); write `pin:claude-opus-4-8` to use that exact model. See
+Two separate settings pick models, and neither affects the other:
+
+| What it controls  | Where you set it                                                              | Scope   |
+| ----------------- | ----------------------------------------------------------------------------- | ------- |
+| AI Chat           | **Chat agent** and **Chat model** in **settings** (`.pr-review/settings.yml`) | You     |
+| Canvas generation | `generation.models` in `pr-review.config.yml`                                 | Project |
+
+For AI Chat, open **settings** and, under **AI Chat**, choose Claude Code or Codex as the
+**Chat agent** and optionally enter a **Chat model** ID. Leave the chat model blank to use the
+agent's default. A chat model ID runs as the newest model of its family (`claude-opus-4-8` runs as
+`opus`); write `pin:claude-opus-4-8` to use that exact model. See
 [Model families](docs/reference.md#model-families). You can also adjust the reply timeout and
 maximum turns. Click **Test agent** to check the connection, then **save**.
 
-Switching agents starts a new thread and keeps earlier threads. Server flags `--agent` and
-`--model` override your saved chat preferences for that run.
+AI Chat reads code from a review checkout: a copy of the repository at the reviewed commit,
+separate from your own checkout, so answers describe the pull request's code whatever branch you
+are on. The **Checkouts** tab of the settings dialog controls it, and `pr-review clean` removes
+idle ones. See [Review checkouts](docs/reference.md#review-checkouts).
+
+Switching chat agents starts a new thread and keeps earlier threads. Server flags `--chat-agent`
+and `--chat-model` override your saved chat preferences for that run.
 
 ### Shared project settings
 
 Edit `pr-review.config.yml` at the repository root and commit it to share settings with your team.
-It controls review rules, layers, generation mode, test file patterns, prompt templates, and
+It controls review rules, layers, generation mode and canvas generation models, test file patterns, prompt templates, and
 whether AI Chat is enabled. The settings dialog displays this configuration; edit the file to
 change it. See the [configuration reference](docs/reference.md#project-config).
 
 Canvas generation follows the [skill's model rules](skills/pr-review-canvas/SKILL.md#model-choice).
+Claude generates canvases with Opus by default. Set `generation.models` to pick another model for an
+agent in this project, for example `claude: sonnet` or `codex: gpt-6-sol`. Any other agent with no
+entry keeps the model of the session that runs the skill.
+The skill passes the value to its host as written, so chat model families and `pin:` do not apply,
+and the chat settings do not change it. The settings dialog lists it under **Canvas generation**.
 
 ### Project prompt templates
 
@@ -247,7 +268,8 @@ changing behavior, leaving a margin above CI's 95% minimum. Cover meaningful fai
 cases rather than lowering thresholds. Each CI job uploads `coverage-node-<version>` with branch
 locations and a summary; locally, these reports are in `coverage/` after `pnpm coverage`.
 
-Run `pr-review --help` for CLI commands. Local data goes in the project's `.pr-review/`
+Run `pr-review --help` for CLI commands, or `pr-review <command> --help` for one command's flags.
+Local data goes in the project's `.pr-review/`
 directory; keep it out of Git.
 
 See [Publishing to npm](docs/publishing.md) for release checks and first-publish instructions.

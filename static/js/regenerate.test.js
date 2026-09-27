@@ -35,6 +35,7 @@ function bundle(status, over = {}) {
     chat: { enabled: true, acpx: true },
     largePr: false,
     selfReview: false,
+    mentionCanvas: true,
     warnings: [],
   }
   if (status === 'ready') {

@@ -79,6 +79,9 @@ describe('what a reader sees', () => {
       'point settled; the canvas comment is updated for reviewers'
     )
     expect(sharingNote({ status: 'local' }, 'point reopened')).toBe('point reopened in this canvas')
+    expect(sharingNote({ status: 'off' }, 'point settled')).toBe(
+      'point settled in this canvas; the canvas comment is off'
+    )
     expect(sharingNote({ status: 'failed', warning: 'no network', zipPath: '/z' }, 'point settled')).toBe(
       'point settled here, but the canvas comment was not updated: no network'
     )

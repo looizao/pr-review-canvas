@@ -27,6 +27,8 @@ export type SettleInput = z.input<typeof SettleInputSchema>
 export type CanvasSharing =
   | { status: 'shared'; url: string }
   | { status: 'failed'; warning: string; zipPath: string }
+  /** The config turns the canvas comment off: nothing was posted. */
+  | { status: 'off' }
 
 /** The answer of `PUT /prs/:n/points/:fingerprint/settled`. */
 export interface SettleResponse {

@@ -2,14 +2,20 @@
 // The chat and settings routes end to end through Hono, with an in-memory agent.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ChatBusyError } from '../../chat/chat-manager.js'
+import { CheckoutBusyError } from '../../chat/checkouts.js'
 import { ChatContextError } from '../../chat/context.js'
 import type { ErrorEnvelope, HealthResponse } from '../../contract/api.js'
 import type { ChatEvent, ChatHistoryResponse, ChatThreadsResponse } from '../../contract/chat.js'
-import type { AgentProbeResult, AgentsResponse, SettingsResponse } from '../../contract/settings.js'
+import type {
+  AgentProbeResult,
+  AgentsResponse,
+  CheckoutsResponse,
+  SettingsResponse,
+} from '../../contract/settings.js'
 import { DEFAULT_PROJECT_CONFIG } from '../../project-config.js'
 import { createFakeRunner, type FakeRunner } from '../../testing/fake-runner.js'
 import { makeTestContext, type TestContext } from '../../testing/fakes.js'
-import { ghFor42, gitFor42, syntheticArtifact } from '../../testing/synthetic.js'
+import { ghFor42, gitFor42, HEAD_SHA, syntheticArtifact } from '../../testing/synthetic.js'
 import { createApp } from '../app.js'
 import { AppError } from '../errors.js'
 import { replayFrom, toChatError } from './chat-routes.js'
@@ -90,7 +96,8 @@ describe('POST /api/prs/:n/chat', () => {
     expect(res.headers.get('content-type')).toBe('text/event-stream; charset=utf-8')
     expect(res.headers.get('cache-control')).toBe('no-store')
     expect(await res.text()).toBe(
-      `event: turn\ndata: {"thread":"${T1}","agent":"claude","seeded":true}\n\n` +
+      `event: checkout\ndata: {"status":"preparing","sha":"${HEAD_SHA}","creating":true}\n\n` +
+        `event: turn\ndata: {"thread":"${T1}","agent":"claude","seeded":true}\n\n` +
         'event: chunk\ndata: {"text":"Yes. "}\n\n' +
         'event: chunk\ndata: {"text":"The behavior is covered at `src/a.ts:10`."}\n\n' +
         'event: done\ndata: {"stopReason":"end_turn"}\n\n'
@@ -113,7 +120,7 @@ describe('POST /api/prs/:n/chat', () => {
     t = await context({ runner: createFakeRunner({ delayMs: 20 }) })
     await warmDerived()
     const first = sendChat({ message: 'one', context: { kind: 'pr' } })
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await expect.poll(() => t.ctx.chat.busy(42)).toBe(true)
     const second = await sendChat({ message: 'two', context: { kind: 'pr' } })
     expect(second.status).toBe(409)
     const envelope = await json<ErrorEnvelope>(second)
@@ -132,7 +139,12 @@ describe('POST /api/prs/:n/chat', () => {
       throw new Error('the turn answered without a stream')
     }
     const reader = body.getReader()
-    await reader.read()
+    const decoder = new TextDecoder()
+    let read = ''
+    while (!read.includes('event: turn')) {
+      const { value } = await reader.read()
+      read += decoder.decode(value)
+    }
     await reader.cancel()
     expect(runner.cancelled).toEqual([T1])
     await expect.poll(() => t.ctx.chat.busy(42)).toBe(false)
@@ -207,10 +219,23 @@ describe('the chat thread routes', () => {
   })
 })
 
+describe('GET /api/checkouts', () => {
+  it('lists the review checkouts with their commit, last use, and size', async () => {
+    await warmDerived()
+    await (await sendChat({ message: 'is this covered?', context: { kind: 'pr' } })).text()
+    const res = await createApp(t.ctx).request('/api/checkouts', { headers: LOCAL })
+    const body = await json<CheckoutsResponse>(res)
+    expect(body.root).toBe(t.ctx.checkouts.root)
+    expect(body.checkouts).toEqual([
+      { key: 42, sha: HEAD_SHA, lastUsedAt: '2026-09-10T12:00:00.000Z', locked: false, bytes: 40 },
+    ])
+  })
+})
+
 describe('the settings routes', () => {
   it('returns the personal settings, the flags that win over them, and the project config', async () => {
     t = await context()
-    t.ctx.config.chatOverrides.agent = 'codex'
+    t.ctx.config.chatOverrides.chatAgent = 'codex'
     const res = await createApp(t.ctx).request('/api/settings', { headers: LOCAL })
     const body = await json<SettingsResponse>(res)
     expect(body.settings).toEqual({
@@ -219,12 +244,17 @@ describe('the settings routes', () => {
       theme: 'auto',
       foldLevel: 'light',
       layerView: 'all',
-      agent: 'claude',
-      model: null,
+      chatAgent: 'claude',
+      chatModel: null,
       chatTimeoutSec: 600,
       maxTurns: null,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
-    expect(body.overrides).toEqual({ agent: 'codex' })
+    expect(body.overrides).toEqual({ chatAgent: 'codex' })
     expect(body.file).toContain('settings.yml')
     expect(body.project).toEqual({
       file: '/repo/pr-review.config.yml',
@@ -233,6 +263,7 @@ describe('the settings routes', () => {
       maxRepairRounds: 3,
       inlineDiffMaxLines: 1500,
       smallPrHunks: 10,
+      generationModels: { claude: 'opus' },
       keepForIdenticalDiff: true,
       layers: 0,
       highRisk: 0,
@@ -246,8 +277,8 @@ describe('the settings routes', () => {
       headers: POST,
       body: JSON.stringify({
         foldLevel: 'aggressive',
-        agent: 'codex',
-        model: 'gpt-5.2',
+        chatAgent: 'codex',
+        chatModel: 'gpt-5.2',
         chatTimeoutSec: 300,
         maxTurns: 4,
       }),
@@ -258,13 +289,18 @@ describe('the settings routes', () => {
       theme: 'auto',
       foldLevel: 'aggressive',
       layerView: 'all',
-      agent: 'codex',
-      model: 'gpt-5.2',
+      chatAgent: 'codex',
+      chatModel: 'gpt-5.2',
       chatTimeoutSec: 300,
       maxTurns: 4,
+      checkoutEnabled: true,
+      checkoutIdleDays: 7,
+      checkoutSweepMinutes: 60,
+      canvasComment: null,
+      mentionCanvas: null,
     })
     const again = await app.request('/api/settings', { headers: LOCAL })
-    expect((await json<SettingsResponse>(again)).settings.agent).toBe('codex')
+    expect((await json<SettingsResponse>(again)).settings.chatAgent).toBe('codex')
   })
 
   it('rejects a setting outside its range', async () => {
@@ -274,6 +310,19 @@ describe('the settings routes', () => {
       body: JSON.stringify({ chatTimeoutSec: 1 }),
     })
     expect(res.status).toBe(400)
+  })
+
+  it('refuses the old agent and model keys instead of saving nothing, and names the new ones', async () => {
+    const app = createApp(t.ctx)
+    const res = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: POST,
+      body: JSON.stringify({ agent: 'codex' }),
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.stringify(await res.json())).toContain('chatAgent')
+    const again = await app.request('/api/settings', { headers: LOCAL })
+    expect((await json<SettingsResponse>(again)).settings.chatAgent).toBe('claude')
   })
 
   it('lists the agents with whether each can run', async () => {
@@ -320,6 +369,7 @@ describe('with chat turned off in the project config', () => {
     const routes: Array<[string, RequestInit]> = [
       ['/api/settings/agents', { headers: LOCAL }],
       ['/api/settings/agents/claude/probe', { method: 'POST', headers: POST }],
+      ['/api/checkouts', { headers: LOCAL }],
       ['/api/prs/42/chat/threads', { headers: LOCAL }],
       ['/api/prs/42/chat/threads', { method: 'POST', headers: POST }],
       [`/api/prs/42/chat/threads/${T1}/history`, { headers: LOCAL }],
@@ -473,6 +523,9 @@ describe('the health check with chat off', () => {
 describe('toChatError', () => {
   it('maps every way a turn can be refused', () => {
     expect(toChatError(new ChatBusyError()).code).toBe('CHAT_BUSY')
+    // Another process's answer cannot be stopped from this page, so the hint does not say to.
+    expect(toChatError(new CheckoutBusyError(42))).toMatchObject({ code: 'CHAT_BUSY', status: 409 })
+    expect(toChatError(new CheckoutBusyError(42)).hint).toContain('another pr-review serve')
     expect(toChatError(new ChatContextError('no such file')).status).toBe(400)
     const app = new AppError('CANVAS_NOT_FOUND', 'gone', 404)
     expect(toChatError(app)).toBe(app)

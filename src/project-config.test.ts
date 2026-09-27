@@ -30,7 +30,7 @@ describe('mergeProjectConfig', () => {
       rulebook: 'docs/REVIEW.md',
       layers: [{ id: 'one', title: 'One', description: 'd', paths: ['a/**'] }],
       highRisk: [{ pattern: '**/x', label: 'x' }],
-      generation: { maxRepairRounds: 5, caps: { rationale: 500 } },
+      generation: { maxRepairRounds: 5, caps: { rationale: 500 }, models: { codex: 'gpt-6-sol' } },
       chat: { enabled: false },
     })
     expect(warnings).toEqual([])
@@ -44,11 +44,13 @@ describe('mergeProjectConfig', () => {
         maxRepairRounds: 5,
         inlineDiffMaxLines: 1500,
         smallPrHunks: 10,
+        models: { claude: 'opus', codex: 'gpt-6-sol' },
         caps: { rationale: 500 },
       },
       tests: { patterns: [...DEFAULT_TEST_PATTERNS] },
       chat: { enabled: false },
       canvas: { keepForIdenticalDiff: true, incremental: true },
+      sharing: { canvasComment: true, mentionCanvas: true },
     })
     expect(ProjectConfigSchema.parse(config)).toEqual(config)
     const allCaps = Object.fromEntries(Object.keys(TEXT_CAPS).map(k => [k, 1]))
@@ -67,7 +69,14 @@ describe('mergeProjectConfig', () => {
       maxRepairRounds: 3,
       inlineDiffMaxLines: 1500,
       smallPrHunks: 10,
+      models: { claude: 'opus' },
     })
+    expect(
+      mergeProjectConfig({ generation: { models: { claude: 'sonnet' } } }).config.generation.models
+    ).toEqual({
+      claude: 'sonnet',
+    })
+    expect(mergeProjectConfig({ generation: { models: { claude: '' } } }).warnings[0]).toContain('invalid')
     expect(mergeProjectConfig({ generation: { smallPrHunks: 25 } }).config.generation.smallPrHunks).toBe(25)
   })
 
@@ -92,6 +101,21 @@ describe('mergeProjectConfig', () => {
     })
     expect(mergeProjectConfig({ canvas: { keepForIdenticalDiff: 'no' } }).warnings[0]).toContain(
       'canvas.keepForIdenticalDiff'
+    )
+  })
+
+  it('reads the sharing settings and defaults both to on', () => {
+    expect(mergeProjectConfig({}).config.sharing).toEqual({ canvasComment: true, mentionCanvas: true })
+    expect(mergeProjectConfig({ sharing: { canvasComment: false } }).config.sharing).toEqual({
+      canvasComment: false,
+      mentionCanvas: true,
+    })
+    expect(mergeProjectConfig({ sharing: { mentionCanvas: false } }).config.sharing).toEqual({
+      canvasComment: true,
+      mentionCanvas: false,
+    })
+    expect(mergeProjectConfig({ sharing: { canvasComment: 'no' } }).warnings[0]).toContain(
+      'sharing.canvasComment'
     )
   })
 
