@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>What's New in PR Review Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+<style>
+:root {
+  --paper: #f7f7f2;
+  --ink: #252821;
+  --muted: #686c62;
+  --line: #dcded3;
+  --accent: #50643f;
+  --purple: #6d5985;
+  --lime: #d9edb6;
+  /* GitHub-skin colors the app itself uses */
+  --gh-border: #d0d7de;
+  --gh-soft: #f6f8fa;
+  --gh-blue: #0969da;
+  --gh-green: #1f883d;
+  --gh-red: #cf222e;
+  --gh-violet: #8250df;
+  --gh-brown: #9a6700;
+  --sans: 'Inter', 'Noto Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Noto Sans Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #e9e9e2; overflow: hidden; }
+body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+#stage {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  background: var(--paper); overflow: hidden; transform-origin: 0 0;
+}
+code, .mono { font-family: var(--mono); font-size: .9em; }
+.mono, code, .code-inline, .diff, .term, .yml, .url, .key, .file-h { font-variant-ligatures: none; }
+
+/* ---------- persistent chrome ---------- */
+#chrome-top { position: absolute; left: 120px; top: 54px; display: flex; align-items: center; gap: 14px; font-size: 20px; color: var(--muted); }
+#chrome-top svg { width: 34px; height: 34px; }
+#chrome-top b { color: var(--ink); font-weight: 600; }
+#chapters { position: absolute; left: 120px; right: 120px; bottom: 52px; display: flex; gap: 14px; }
+#chapters .ch { flex: 1; font-size: 15px; color: var(--muted); }
+#chapters .ch i { display: block; height: 4px; border-radius: 2px; background: var(--line); margin-bottom: 10px; overflow: hidden; }
+#chapters .ch i b { display: block; height: 100%; width: 0; background: var(--accent); }
+#chapters .ch.on { color: var(--ink); font-weight: 600; }
+
+/* ---------- scenes ---------- */
+.scene { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+.copy { position: absolute; left: 120px; top: 190px; width: 600px; }
+.kicker { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.kicker::before { content: ''; width: 26px; height: 3px; background: currentColor; border-radius: 2px; }
+.copy h2 { margin: 22px 0 0; font-size: 60px; line-height: 1.06; font-weight: 600; letter-spacing: -.035em; }
+.copy h2 em { font-style: normal; color: var(--purple); }
+.copy .lede { margin: 26px 0 0; font-size: 25px; line-height: 1.5; color: #3d4137; }
+.notes { list-style: none; margin: 40px 0 0; padding: 0; display: grid; gap: 14px; }
+.notes li { position: relative; padding-left: 30px; font-size: 21px; line-height: 1.45; color: #3d4137; }
+.notes li::before { content: ''; position: absolute; left: 2px; top: 11px; width: 12px; height: 12px; border-radius: 3px; background: var(--lime); border: 2px solid var(--accent); }
+.notes code { white-space: nowrap; }
+.notes li.warn::before { background: #ffe1dc; border-color: #b44a45; }
+
+/* ---------- app mocks ---------- */
+.card { position: absolute; background: #fff; border: 1px solid var(--gh-border); border-radius: 14px; box-shadow: 0 34px 70px -30px rgba(37,40,33,.35), 0 2px 6px rgba(37,40,33,.06); overflow: hidden; font-size: 17px; }
+.win-bar { height: 44px; background: var(--gh-soft); border-bottom: 1px solid var(--gh-border); display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+.win-bar i { width: 12px; height: 12px; border-radius: 50%; background: #d8dbd0; }
+.win-bar .url { margin-left: 14px; font: 14px var(--mono); color: var(--muted); background: #fff; border: 1px solid var(--gh-border); border-radius: 8px; padding: 4px 12px; }
+.link { color: var(--gh-blue); }
+.btn { display: inline-block; background: var(--gh-green); color: #fff; border-radius: 7px; padding: 6px 14px; font-weight: 500; font-size: 15px; }
+.pill { display: inline-block; border-radius: 999px; padding: 3px 12px; font-size: 14px; font-weight: 600; }
+.pill.brown { background: var(--gh-brown); color: #fff; }
+.chip { display: inline-block; border: 1px solid var(--gh-border); border-radius: 999px; padding: 1px 10px; font-size: 14px; color: #57606a; }
+.code-inline { font-family: var(--mono); font-size: .86em; background: #eff1f3; border: 1px solid #e1e4e8; border-radius: 6px; padding: 1px 5px; }
+
+/* chat pane */
+.chat { display: flex; flex-direction: column; }
+.chat-h { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--gh-border); }
+.chat-h b { font-size: 21px; }
+.chat-h .sel { flex: 1; border: 1px solid var(--gh-border); border-radius: 7px; padding: 5px 12px; font-size: 15px; }
+.chat-ctx { padding: 12px 22px; border-bottom: 1px solid var(--gh-border); font-size: 15px; color: #57606a; }
+.chat-ctx .mono { border: 1px solid var(--gh-border); border-radius: 5px; padding: 1px 7px; color: var(--ink); }
+.thread { flex: 1; padding: 22px; display: flex; flex-direction: column; gap: 22px; }
+.turn { border-left: 3px solid var(--gh-border); padding: 2px 0 2px 16px; line-height: 1.5; }
+.turn.a { border-color: var(--gh-violet); }
+.role { display: block; font-size: 13px; font-weight: 700; color: #57606a; margin-bottom: 4px; }
+.turn.a .role { color: var(--gh-blue); }
+.activity { font-size: 15px; color: var(--gh-blue); }
+.elapsed { font-size: 14px; color: #6e7781; margin-top: 10px; }
+.chat-in { padding: 18px 22px; border-top: 1px solid var(--gh-border); }
+.chat-in .box { border: 1px solid var(--gh-border); border-radius: 8px; height: 78px; padding: 12px 14px; color: #6e7781; font-size: 16px; }
+.chat-in .box.typing { color: var(--ink); }
+.chat-in .row { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 14px; color: #6e7781; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
+.proposed { margin-top: 14px; background: var(--gh-soft); border: 1px solid var(--gh-border); border-radius: 10px; padding: 12px 14px; }
+.proposed-h { font-size: 13px; font-weight: 700; color: #57606a; display: flex; gap: 10px; }
+.proposed-h .mono { font-weight: 400; }
+.proposed .body { margin: 8px 0 10px; }
+.tbtns { display: flex; align-items: center; gap: 12px; font-size: 15px; position: relative; height: 32px; }
+.tbtns > span { display: flex; align-items: center; gap: 12px; position: absolute; left: 0; top: 0; height: 32px; }
+.toast { position: absolute; border: 1px solid var(--gh-border); background: #fff; border-radius: 8px; padding: 10px 16px; font-size: 15px; box-shadow: 0 8px 24px -10px rgba(0,0,0,.25); }
+
+/* diff */
+.file-h { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--gh-border); background: #fff; font-family: var(--mono); font-size: 16px; font-weight: 600; }
+.file-h .grow { flex: 1; }
+.chev { width: 18px; height: 18px; color: #57606a; transition: none; }
+.add-n { color: var(--gh-green); background: #dafbe1; border-radius: 999px; padding: 0 9px; font-size: 13px; }
+.del-n { color: var(--gh-red); background: #ffebe9; border-radius: 999px; padding: 0 9px; font-size: 13px; }
+.diff { font-family: var(--mono); font-size: 15px; }
+.diff .r { display: grid; grid-template-columns: 52px 52px 1fr; line-height: 30px; }
+.diff .r > span:nth-child(-n+2) { color: #6e7781; text-align: right; padding-right: 12px; border-right: 1px solid #eaeef2; }
+.diff .r > span:last-child { padding-left: 14px; white-space: pre; }
+.diff .h { background: #ddf4ff; color: #57606a; }
+.diff .d { background: #ffebe9; }
+.diff .a { background: #dafbe1; }
+.kw { color: #cf222e; } .fn { color: #8250df; } .st { color: #0a3069; }
+.pending { margin: 10px 14px 14px; background: #fff8c5; border: 1px dashed #d4a72c; border-radius: 8px; padding: 12px 14px; font-size: 16px; }
+.pending .meta { font-size: 14px; color: #57606a; margin-bottom: 4px; }
+.banner { display: flex; align-items: center; gap: 12px; background: #fff8c5; border: 1px solid #d4a72c; border-radius: 10px; padding: 12px 16px; font-size: 16px; }
+.banner .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gh-brown); }
+.banner .grow { flex: 1; }
+
+/* settings dialog */
+.dlg { padding: 30px 34px; }
+.dlg h3 { margin: 0 0 18px; font-size: 26px; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--gh-border); position: relative; }
+.tabs span { padding: 10px 16px; font-size: 17px; color: #57606a; }
+.tabs .ink { position: absolute; bottom: -1px; height: 3px; background: var(--gh-violet); border-radius: 2px; left: 0; width: 0; }
+.panels { position: relative; height: 470px; margin-top: 22px; }
+.panel { position: absolute; inset: 0; }
+.field { display: grid; grid-template-columns: 250px 1fr; align-items: center; gap: 14px; margin-bottom: 16px; font-size: 18px; }
+.input { border: 1px solid var(--gh-border); border-radius: 8px; padding: 9px 14px; font-size: 17px; display: flex; justify-content: space-between; }
+.input::after { content: '▾'; color: #6e7781; }
+.input.num::after { content: ''; }
+.hint { font-size: 14px; color: #57606a; margin: -6px 0 16px 264px; line-height: 1.45; }
+.new { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--lime); border-radius: 999px; padding: 2px 8px; margin-left: 8px; vertical-align: 2px; }
+.check { width: 20px; height: 20px; border-radius: 5px; background: var(--gh-blue); color: #fff; font-size: 14px; display: inline-grid; place-items: center; }
+table.co { width: 100%; border-collapse: collapse; font-size: 16px; margin-top: 8px; }
+table.co th { text-align: left; font-size: 14px; color: #57606a; border-bottom: 1px solid var(--gh-border); padding: 7px 8px; }
+table.co td { padding: 9px 8px; border-bottom: 1px solid #eaeef2; }
+.proj { background: var(--gh-soft); border: 1px solid var(--gh-border); border-radius: 10px; padding: 18px 22px; line-height: 2; font-size: 17px; }
+.proj b { display: block; line-height: 1.6; margin-top: 4px; }
+
+/* terminal and config file */
+.term { background: #22251f; color: #e9eadf; border-radius: 14px; font: 18px/1.6 var(--mono); box-shadow: 0 34px 70px -30px rgba(37,40,33,.5); overflow: hidden; }
+.term .tb { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: #2d3129; color: #9da190; font-size: 14px; }
+.term .tb i { width: 12px; height: 12px; border-radius: 50%; background: #4a4f43; }
+.term .tb span { margin-left: 10px; }
+.term .body { padding: 18px 24px; white-space: pre; }
+.term .p { color: var(--lime); }
+.term .dim { color: #9da190; }
+.term .ok { color: #9fd08b; }
+.term .hl { background: rgba(217,237,182,.18); border-radius: 4px; box-shadow: 0 0 0 2px rgba(217,237,182,.18); }
+.term .tcaret { display: inline-block; width: 10px; height: 1.15em; background: var(--lime); vertical-align: -4px; }
+.yml { background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 30px 60px -30px rgba(37,40,33,.3); overflow: hidden; }
+.yml .fn-h { padding: 12px 20px; border-bottom: 1px solid var(--line); font: 15px var(--mono); color: var(--muted); background: #fbfbf8; }
+.yml .body { padding: 18px 24px; font: 20px/1.7 var(--mono); white-space: pre; }
+.yk { color: var(--purple); } .yv { color: var(--accent); font-weight: 700; } .yc { color: #8c9083; }
+
+/* layer view */
+.app-h { padding: 16px 24px; border-bottom: 1px solid var(--gh-border); display: flex; align-items: baseline; gap: 12px; }
+.app-h .t { font-size: 22px; font-weight: 700; }
+.app-h .n { font-size: 22px; color: #57606a; }
+.rail { position: absolute; left: 0; top: 108px; bottom: 0; width: 250px; border-right: 1px solid var(--gh-border); padding: 16px 12px; }
+.rail .it { position: relative; padding: 9px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 16px; }
+.rail .it small { display: block; color: #6e7781; font-size: 13px; }
+.rail .sec { font-size: 14px; font-weight: 700; color: #57606a; margin: 16px 12px 6px; }
+.rail .hi { position: absolute; left: 12px; right: 12px; height: 56px; border-radius: 8px; background: #ddf4ff; border-left: 4px solid var(--gh-blue); }
+.views { position: absolute; left: 250px; right: 0; top: 108px; bottom: 0; overflow: hidden; }
+.view { position: absolute; left: 28px; right: 28px; top: 26px; }
+.lcard { border: 1px solid var(--gh-border); border-radius: 12px; overflow: hidden; }
+.lcard .lh { background: var(--gh-soft); padding: 14px 20px; border-bottom: 1px solid var(--gh-border); }
+.lcard .lh small { display: block; font-size: 13px; font-weight: 600; color: #57606a; }
+.lcard .lh b { font-size: 23px; }
+.lcard .lb { padding: 16px 20px; line-height: 1.55; }
+.lcard .lb .lbl { font-size: 13px; font-weight: 700; color: #57606a; margin-top: 12px; }
+.key { position: absolute; width: 64px; height: 64px; border-radius: 12px; background: #fff; border: 1px solid #c6c9bd; border-bottom-width: 5px; display: grid; place-items: center; font: 600 30px var(--mono); color: var(--ink); box-shadow: 0 10px 20px -10px rgba(0,0,0,.3); }
+
+/* vignettes */
+.vig { position: absolute; }
+.vig h4 { margin: 0 0 16px; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.vig .cap { margin-top: 16px; font-size: 18px; color: var(--muted); line-height: 1.45; }
+.bar-y { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #ddf4ff; border-bottom: 1px solid #b6e3ff; font-size: 16px; overflow: hidden; }
+.bar-y .grow { flex: 1; }
+
+/* cursor */
+#cursor { position: absolute; left: 0; top: 0; width: 30px; height: 30px; z-index: 50; opacity: 0; pointer-events: none; filter: drop-shadow(0 3px 4px rgba(0,0,0,.3)); }
+#ripple { position: absolute; z-index: 49; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid var(--purple); opacity: 0; pointer-events: none; }
+
+/* intro and outro */
+.center { position: absolute; left: 0; right: 0; text-align: center; }
+.big-brand { width: 132px; height: 132px; }
+.hero { font-size: 104px; font-weight: 600; letter-spacing: -.05em; line-height: 1; margin: 0; }
+.hero em { font-style: normal; color: var(--purple); }
+.sub { font-size: 32px; color: var(--muted); margin-top: 22px; }
+.themes { display: flex; justify-content: center; gap: 14px; margin-top: 54px; }
+.themes span { font-size: 21px; padding: 10px 20px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <symbol id="brand" viewBox="0 0 48 48" shape-rendering="crispEdges">
+        <path fill="#7661a8" d="M12 7h31v35H12z"/><path fill="#aa96d2" d="M39 9h2v24h-2z"/><path fill="#292b3d" d="M3 3h35v41H3z"/><path fill="#fff0cf" d="M5 12h31v30H5z"/><path fill="#45465c" d="M5 5h31v5H5z"/><path fill="#ffe08a" d="M22 8h3v1h-3z"/><path fill="#b44a45" d="M9 17h9v3H9z"/><path fill="#e8ddc4" d="M20 15h1v19h-1z"/><path fill="#827b70" d="M23 17h10v2H23zM23 26h10v2H23zM9 36h16v2H9z"/><path fill="#437d68" d="M12 23h3v3h3v3h-3v3h-3v-3H9v-3h3z"/>
+        <g transform="scale(0.5)" shape-rendering="geometricPrecision"><path fill="#292b3d" d="M56 68H58V66H60V64H62V62H68V64H70V66H72V68H76V64H78V60H80V56H82V52H84V50H90V52H92V54H94V56H96V62H94V66H92V70H90V74H88V78H86V82H84V86H82V90H80V92H72V90H70V88H68V86H66V84H64V82H62V80H60V78H58V76H56z"/><path fill="#8bc79a" d="M58 70H60V68H62V66H64V64H66V66H68V68H70V70H72V72H74V74H76V70H78V66H80V62H82V58H84V54H86V52H88V54H90V56H92V58H94V60H92V64H90V68H88V72H86V76H84V80H82V84H80V88H78V90H74V88H72V86H70V84H68V82H66V80H64V78H62V76H60V74H58z"/></g>
+      </symbol>
+      <symbol id="chev" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <div id="chrome-top"><svg><use href="#brand"/></svg><b>PR Review Canvas</b><span>· what's new in <span class="ver"></span></span></div>
+  <div id="chapters"></div>
+
+  <!-- 0: intro -->
+  <section class="scene" id="s-intro">
+    <div class="center" style="top:250px">
+      <svg class="big-brand" data-at="0.2" data-dy="10"><use href="#brand"/></svg>
+      <h1 class="hero" data-at="0.7" style="margin-top:36px">PR Review Canvas <em class="ver"></em></h1>
+      <p class="sub" data-at="1.4">What's new: a quick tour of the next release.</p>
+      <div class="themes">
+        <span data-at="2.4">AI Chat</span><span data-at="2.6">Review interface</span><span data-at="2.8">Canvas generation</span><span data-at="3.0">Sharing</span><span data-at="3.2">CLI</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1: review checkouts -->
+  <section class="scene" id="s-checkout" data-chapter="Review checkouts">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">AI Chat</div>
+      <h2 data-at="0.35">Answers read the code <em>the PR has</em></h2>
+      <p class="lede" data-at="0.8">AI Chat now reads a review checkout: a git worktree at the reviewed commit, kept in the data directory. The branch you have checked out doesn't matter.</p>
+      <ul class="notes">
+        <li data-at="11.0">Files the PR didn't change come from its base branch.</li>
+        <li data-at="12.2">Reviewing uncommitted work? It still reads your working tree.</li>
+        <li data-at="13.4">If a checkout fails, the chat says so before it answers.</li>
+      </ul>
+    </div>
+    <svg id="ck-lines" style="position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible">
+      <path id="ck-line-a" d="M1290 520 C 1250 520, 1250 390, 1210 390" fill="none" stroke="#9aa08f" stroke-width="3" stroke-dasharray="8 8"/>
+      <path id="ck-line-b" d="M1290 560 C 1250 560, 1250 700, 1210 700" fill="none" stroke="#6d5985" stroke-width="3.5" stroke-dasharray="10 8"/>
+    </svg>
+    <div class="card" id="ck-a" data-at="1.2" style="left:800px;top:300px;width:410px;padding:22px 24px">
+      <div style="font-size:14px;font-weight:700;color:#57606a;letter-spacing:.04em;text-transform:uppercase">Your checkout</div>
+      <div style="font-size:22px;font-weight:600;margin-top:6px">~/code/widgets</div>
+      <div class="mono" style="margin-top:8px;color:#57606a">on experiment/wip</div>
+      <div id="ck-a-tag" style="margin-top:14px;font-size:15px;color:#8a8f80">Before: answers read this, whatever was on it</div>
+    </div>
+    <div class="card" id="ck-b" style="left:800px;top:600px;width:410px;padding:22px 24px;border:2px solid #6d5985">
+      <div style="font-size:14px;font-weight:700;color:#6d5985;letter-spacing:.04em;text-transform:uppercase">Review checkout</div>
+      <div style="font-size:22px;font-weight:600;margin-top:6px">PR #42 at <span class="mono">3f9c2a1</span></div>
+      <div class="mono" style="margin-top:8px;color:#57606a;font-size:14px">.pr-review/…/checkouts/42</div>
+      <div style="margin-top:14px;font-size:15px;color:#6d5985">Now: answers read the reviewed commit</div>
+    </div>
+    <div class="card chat" data-at="1.2" style="left:1290px;top:190px;width:510px;height:740px">
+      <div class="chat-h"><b>AI Chat</b><span class="sel">Thread 1</span><span class="link" style="font-size:15px">new thread</span></div>
+      <div class="chat-ctx">Context: <span class="mono">whole PR</span></div>
+      <div class="thread">
+        <div class="turn u" id="ck-q"><span class="role">You</span>Does <span class="code-inline">run()</span> handle an empty list?</div>
+        <div class="turn a" id="ck-ans">
+          <span class="role">AI Chat</span>
+          <div class="activity" id="ck-act"></div>
+          <div id="ck-text" class="stream">No. <code class="code-inline">run()</code> passes <code class="code-inline">items</code> straight to <code class="code-inline">b()</code>, and nothing checks for an empty list. See <code class="code-inline link">src/app.ts:4</code>.</div>
+          <div class="elapsed" id="ck-el">Elapsed: 3s</div>
+        </div>
+      </div>
+      <div class="chat-in"><div class="box" id="ck-box">Ask AI Chat about this PR…</div><div class="row"><span class="btn">send</span>enter to send</div></div>
+    </div>
+  </section>
+
+  <!-- 2: proposed comments -->
+  <section class="scene" id="s-proposed" data-chapter="Proposed comments">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">AI Chat</div>
+      <h2 data-at="0.35">Suggested comments go <em>into your review</em></h2>
+      <p class="lede" data-at="0.8">A comment AI Chat proposes now has <b>add to review</b> next to <b>post to github</b>, just like an attention point. It waits with your other drafts until you finish the review.</p>
+      <ul class="notes">
+        <li data-at="7.2">The card shows <b>in your review</b> once it's queued.</li>
+        <li data-at="8.4">Nothing reaches GitHub until you finish the review.</li>
+      </ul>
+    </div>
+    <div class="banner" id="pc-banner" style="position:absolute;left:800px;top:190px;width:500px">
+      <span class="dot"></span><span class="grow"><b>1 pending comment</b> in your review</span><span class="btn">finish your review</span>
+    </div>
+    <div class="card" id="pc-diff" data-at="1.0" style="left:800px;top:270px;width:500px">
+      <div class="file-h"><svg class="chev"><use href="#chev"/></svg><span class="grow">src/app.ts</span><span class="add-n">+2</span><span class="del-n">−1</span></div>
+      <div class="diff">
+        <div class="r h"><span></span><span></span><span>@@ -1,4 +1,5 @@</span></div>
+        <div class="r"><span>1</span><span>1</span><span> <span class="kw">import</span> { a, b } <span class="kw">from</span> <span class="st">'./a'</span></span></div>
+        <div class="r"><span>2</span><span>2</span><span> <span class="kw">export function</span> <span class="fn">run</span>(items) {</span></div>
+        <div class="r d"><span>3</span><span></span><span>-  <span class="kw">return</span> a(items)</span></div>
+        <div class="r a"><span></span><span>3</span><span>+  <span class="kw">return</span> a(items) + b(items)</span></div>
+        <div class="r"><span>4</span><span>4</span><span> }</span></div>
+      </div>
+      <div id="pc-pending-wrap" style="overflow:hidden;height:0">
+        <div class="pending"><div class="meta"><span class="pill brown" style="font-size:12px">pending</span> &nbsp;just now · not posted to GitHub yet</div>Should <span class="code-inline">b()</span> guard against an empty list? <span class="code-inline">run([])</span> reaches it today.</div>
+      </div>
+    </div>
+    <div class="card chat" data-at="1.0" style="left:1340px;top:190px;width:460px;height:740px">
+      <div class="chat-h"><b>AI Chat</b><span class="sel">Thread 1</span></div>
+      <div class="thread">
+        <div class="turn u"><span class="role">You</span>Anything to flag on the run path?</div>
+        <div class="turn a">
+          <span class="role">AI Chat</span>
+          One thing: <span class="code-inline">b()</span> now runs on every call, empty lists included.
+          <div class="proposed">
+            <div class="proposed-h">proposed comment <span class="mono">src/app.ts:3</span></div>
+            <div class="body">Should <span class="code-inline">b()</span> guard against an empty list? <span class="code-inline">run([])</span> reaches it today.</div>
+            <div class="tbtns">
+              <span id="pc-open"><span class="btn" id="pc-add">add to review</span><span class="link">post to github</span><span class="link">edit</span><span class="link">copy</span></span>
+              <span id="pc-queued" style="opacity:0"><span class="pill brown">in your review</span><span class="link">edit</span><span class="link">copy</span></span>
+            </div>
+          </div>
+          <div class="elapsed">Elapsed: 4s</div>
+        </div>
+      </div>
+      <div class="toast" id="pc-toast" style="right:20px;bottom:22px">comment added to your review</div>
+    </div>
+  </section>
+
+  <!-- 3: settings -->
+  <section class="scene" id="s-settings" data-chapter="Settings">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">Settings</div>
+      <h2 data-at="0.35">Settings, now in <em>four tabs</em></h2>
+      <p class="lede" data-at="0.8"><b>Reading</b>, <b>AI Chat</b>, <b>Checkouts</b>, and <b>Project</b>. The dialog opens on the tab you last used.</p>
+      <ul class="notes">
+        <li data-at="6.4"><b>Checkouts</b> lists every review checkout, and when an idle one is removed.</li>
+        <li data-at="7.6"><code>serve</code> removes idle checkouts on a schedule, and <code>pr-review clean</code> removes them now.</li>
+        <li data-at="9.4">The chat keys are now <code>chatAgent</code> and <code>chatModel</code>. Old files still work.</li>
+      </ul>
+    </div>
+    <div class="card dlg" data-at="1.0" style="left:830px;top:180px;width:960px;height:700px">
+      <h3>Settings</h3>
+      <div class="tabs" id="st-tabs"><span>Reading</span><span>AI Chat</span><span>Checkouts</span><span>Project</span><i class="ink" id="st-ink"></i></div>
+      <div class="panels">
+        <div class="panel" id="st-p0">
+          <div class="field"><span>Show layers <span class="new">new</span></span><span class="input" id="st-layers"><span>all</span></span></div>
+          <div class="hint">At <b>one at a time</b>, the canvas shows the overview or a single layer.</div>
+          <div class="field"><span>Hide code</span><span class="input"><span>light</span></span></div>
+          <div class="field"><span>Theme</span><span class="input"><span>auto</span></span></div>
+          <div class="field"><span>Skin</span><span class="input"><span>github</span></span></div>
+        </div>
+        <div class="panel" id="st-p1">
+          <div class="field"><span>Chat agent</span><span class="input"><span>claude</span></span></div>
+          <div class="field"><span>Chat model</span><span class="input"><span>sonnet</span></span></div>
+          <div class="hint">Saved as <code>chatAgent</code> and <code>chatModel</code> in <code>.pr-review/settings.yml</code>.</div>
+        </div>
+        <div class="panel" id="st-p2">
+          <div class="field"><span>Read a review checkout</span><span><span class="check">✓</span></span></div>
+          <div class="field"><span>Remove after idle days</span><span class="input num"><span>7</span></span></div>
+          <div class="hint">-1 never removes one.</div>
+          <div class="field"><span>Check every (minutes)</span><span class="input num"><span>60</span></span></div>
+          <div style="font-size:18px;font-weight:700;margin-top:18px">Current checkouts</div>
+          <table class="co">
+            <tr><th>Review</th><th>Commit</th><th>Last used (UTC)</th><th>Size</th></tr>
+            <tr><td>#42</td><td class="mono">3f9c2a1</td><td>2026-09-27 14:02</td><td>38 MB</td></tr>
+            <tr><td>#39</td><td class="mono">9b1e04c</td><td>2026-09-18 10:40</td><td>37 MB</td></tr>
+            <tr><td>branch</td><td class="mono">a71d2e0</td><td>2026-09-25 09:12</td><td>38 MB</td></tr>
+          </table>
+        </div>
+        <div class="panel" id="st-p3">
+          <div class="proj">
+            <b>Project config (read-only)</b>
+            chat enabled: yes<br />rulebook: docs/review-rules.md<br />high-risk patterns: 2
+            <b>Canvas generation</b>
+            canvas generation models: <span class="mono">claude → opus</span><br />max repair rounds: 3
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="term" id="st-term" data-at="9.6" data-dx="30" data-dy="0" style="position:absolute;left:1000px;top:640px;width:760px">
+      <div class="tb"><i></i><i></i><i></i><span>~/code/widgets</span></div>
+      <div class="body"><div class="ln" data-type="pr-review clean --dry-run" data-at="10.0"></div><div class="ln dim" data-at="11.4">{"removed":[{"key":39,"sha":"9b1e04c…",</div><div class="ln dim" data-at="11.5"> "lastUsedAt":"2026-09-18T10:40:12Z", …}],</div><div class="ln dim" data-at="11.6"> "skipped":[],"dryRun":true}</div></div>
+    </div>
+  </section>
+
+  <!-- 4: one layer at a time -->
+  <section class="scene" id="s-layers" data-chapter="One layer at a time">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">Review interface</div>
+      <h2 data-at="0.35">Read <em>one layer</em> at a time</h2>
+      <p class="lede" data-at="0.8">Set <b>Show layers</b> to <b>one at a time</b>. The canvas then shows the overview or one layer. Move between them with the rail, or press <b>j</b> and <b>k</b>.</p>
+      <ul class="notes">
+        <li data-at="8.0">A link into a layer opens that layer.</li>
+        <li data-at="9.2">Marking a layer reviewed doesn't jump to the next one.</li>
+        <li data-at="10.4">The default, <b>all</b>, keeps the canvas as one page.</li>
+      </ul>
+    </div>
+    <div class="card" data-at="1.0" style="left:800px;top:170px;width:1000px;height:760px">
+      <div class="win-bar"><i></i><i></i><i></i><span class="url">127.0.0.1:3010/review/42#layer-run-path</span></div>
+      <div class="app-h"><span class="n">#42</span><span class="t">feat: add b() to the run path</span><span class="chip" id="ly-mode" style="margin-left:auto">Show layers: one at a time</span></div>
+      <div class="rail">
+        <div class="hi" id="ly-hi"></div>
+        <div class="it" data-ly="0">Overview<small>3 attention points</small></div>
+        <div class="sec">Layers</div>
+        <div class="it" data-ly="1">1 · Run path<small>2 files</small></div>
+        <div class="it" data-ly="2">2 · Empty input<small>1 file</small></div>
+        <div class="it" data-ly="3">3 · Tests<small>1 file</small></div>
+      </div>
+      <div class="views">
+        <div class="view" id="ly-v0"><div class="lcard"><div class="lh"><b>Overview</b></div><div class="lb">Before, <span class="code-inline">run()</span> returned <span class="code-inline">a()</span>. After, it adds <span class="code-inline">b()</span>, and an empty list now returns early.<div class="lbl">Attention points</div><span style="color:#cf222e">■</span> Sum instead of product &nbsp; <span class="chip">decision</span><br /><span style="color:#bf8700">■</span> Empty list reaches <span class="code-inline">b()</span> &nbsp; <span class="chip">risk</span><br /><span style="color:#8c959f">■</span> No test for the error path &nbsp; <span class="chip">test gap</span></div></div></div>
+        <div class="view" id="ly-v1"><div class="lcard"><div class="lh"><small>Layer 1 of 3</small><b>Run path</b></div><div class="lb">The change to <span class="code-inline">run()</span>.<div class="lbl">Decisions and trade-offs</div>Sum over product; the spec says “total”.</div><div class="diff" style="border-top:1px solid #d0d7de"><div class="r h"><span></span><span></span><span>@@ -1,4 +1,5 @@</span></div><div class="r d"><span>3</span><span></span><span>-  <span class="kw">return</span> a(items)</span></div><div class="r a"><span></span><span>3</span><span>+  <span class="kw">return</span> a(items) + b(items)</span></div></div></div></div>
+        <div class="view" id="ly-v2"><div class="lcard"><div class="lh"><small>Layer 2 of 3</small><b>Empty input</b></div><div class="lb">An empty list returns 0 before <span class="code-inline">b()</span> runs.<div class="lbl">Check by hand</div>Run <span class="code-inline">widgets import --dry-run</span> on an empty file.</div><div class="diff" style="border-top:1px solid #d0d7de"><div class="r h"><span></span><span></span><span>@@ -0,0 +1,3 @@</span></div><div class="r a"><span></span><span>1</span><span>+<span class="kw">export function</span> <span class="fn">guard</span>(items) {</span></div><div class="r a"><span></span><span>2</span><span>+  <span class="kw">return</span> items.length === 0</span></div></div></div></div>
+        <div class="view" id="ly-v3"><div class="lcard"><div class="lh"><small>Layer 3 of 3</small><b>Tests</b></div><div class="lb"><table class="co" style="margin:0"><tr><th>Behavior</th><th>Status</th></tr><tr><td>run() adds b()</td><td style="color:#1a7f37;font-weight:600">covered</td></tr><tr><td>empty list returns 0</td><td style="color:#1a7f37;font-weight:600">covered</td></tr><tr><td>b() throws</td><td style="color:#cf222e;font-weight:600">missing</td></tr></table></div></div></div>
+      </div>
+      <div class="key" id="ly-key" style="left:880px;top:660px"><span id="ly-key-t">j</span></div>
+    </div>
+  </section>
+
+  <!-- 5: reading polish -->
+  <section class="scene" id="s-polish" data-chapter="Reading">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">Review interface</div>
+      <h2 data-at="0.35">Fewer things <em>in your way</em></h2>
+      <p class="lede" data-at="0.8">Click a file name to fold its card. Dismiss a bar once you've read it. The toggles now use chevron icons.</p>
+      <ul class="notes">
+        <li data-at="9.2">Only <b>Canvas is outdated</b> stays pinned to the top.</li>
+        <li data-at="10.2">The bars span the full reading column.</li>
+      </ul>
+    </div>
+    <div class="vig" data-at="1.0" style="left:800px;top:200px;width:480px">
+      <h4>Click a file name to fold its card</h4>
+      <div class="card" style="position:relative;width:480px">
+        <div class="file-h" id="po-name"><svg class="chev" id="po-chev"><use href="#chev"/></svg><span class="grow">src/guard.ts</span><span class="add-n">+3</span></div>
+        <div id="po-body" style="overflow:hidden">
+          <div class="diff">
+            <div class="r h"><span></span><span></span><span>@@ -0,0 +1,3 @@</span></div>
+            <div class="r a"><span></span><span>1</span><span>+<span class="kw">export function</span> <span class="fn">guard</span>(items) {</span></div>
+            <div class="r a"><span></span><span>2</span><span>+  <span class="kw">return</span> items.length === 0</span></div>
+            <div class="r a"><span></span><span>3</span><span>+}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">Double-click the name to select it; the card stays as it was.</div>
+    </div>
+    <div class="vig" data-at="1.4" style="left:1320px;top:200px;width:480px">
+      <h4>Dismiss a bar you've read</h4>
+      <div class="card" style="position:relative;width:480px;height:236px">
+        <div class="win-bar"><i></i><i></i><i></i><span class="url">/review/42</span><span id="po-reload" style="margin-left:auto;font-size:20px;color:#57606a;display:inline-block">↻</span></div>
+        <div id="po-barwrap" style="overflow:hidden">
+          <div class="bar-y"><span class="grow"><b>Canvas still applies</b> · 2 new commits, docs only</span><span class="link" id="po-dismiss">dismiss</span></div>
+        </div>
+        <div style="padding:18px 20px;line-height:1.6"><b style="font-size:20px">Overview</b><br /><span style="color:#57606a">Before, <span class="code-inline">run()</span> returned <span class="code-inline">a()</span>…</span></div>
+      </div>
+      <div class="cap" id="po-cap">It stays closed after a reload, and comes back when the commits it names change.</div>
+    </div>
+  </section>
+
+  <!-- 6: generation models -->
+  <section class="scene" id="s-models" data-chapter="Generation models">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">Canvas generation</div>
+      <h2 data-at="0.35">Choose the model that <em>draws the canvas</em></h2>
+      <p class="lede" data-at="0.8"><code>generation.models</code> sets it for each agent. Claude uses Opus unless your project names another model.</p>
+      <ul class="notes">
+        <li data-at="7.4">Agents without an entry keep the session's model.</li>
+        <li data-at="8.4">The header shows who drew the canvas: agent, model, and harness.</li>
+      </ul>
+    </div>
+    <div class="yml" data-at="1.0" style="position:absolute;left:800px;top:190px;width:500px">
+      <div class="fn-h">pr-review.config.yml</div>
+      <div class="body" id="md-yml"></div>
+    </div>
+    <div class="card" data-at="6.6" style="left:1340px;top:190px;width:460px;padding:22px 24px">
+      <div style="font-size:22px"><span style="color:#57606a">#42</span> <b>feat: add b() to the run path</b></div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="pill" style="background:#1f883d;color:#fff">open</span>
+        <span class="chip" id="md-pill" style="font-size:15px;padding:3px 12px">canvas by claude · <b style="color:#6d5985">opus</b> · claude-code</span>
+      </div>
+      <div style="margin-top:12px;color:#57606a;font-size:15px">generated just now</div>
+    </div>
+    <div class="term" data-at="3.6" style="position:absolute;left:800px;top:480px;width:1000px">
+      <div class="tb"><i></i><i></i><i></i><span>~/code/widgets</span></div>
+      <div class="body"><div class="ln" data-type="pr-review prepare --pr 42" data-at="3.9"></div><div class="ln dim" data-at="5.2">snapshot · collect-diffs · prompt</div><div class="ln" data-at="5.6"><span class="dim">{"canvasDir":"…/canvases/3f9c2a1…", "headSha":"3f9c2a1…",</span></div><div class="ln" data-at="5.7"><span class="dim"> </span><span class="hl">"models":{"claude":"opus"}</span><span class="dim">, "status":"prepared"}</span></div></div>
+    </div>
+  </section>
+
+  <!-- 7: sharing -->
+  <section class="scene" id="s-sharing" data-chapter="Sharing">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">Sharing</div>
+      <h2 data-at="0.35">Keep canvases <em>local</em> when you need to</h2>
+      <p class="lede" data-at="0.8">Two switches in <code>pr-review.config.yml</code>. One stops publish from commenting on the PR. The other keeps the canvas out of comments you post.</p>
+      <ul class="notes">
+        <li data-at="8.0">Anyone can override either one in <code>.pr-review/settings.yml</code>.</li>
+        <li data-at="9.0">Posting comments and reviews from the page still works.</li>
+      </ul>
+    </div>
+    <div class="yml" data-at="1.0" style="position:absolute;left:800px;top:190px;width:1000px">
+      <div class="fn-h">pr-review.config.yml</div>
+      <div class="body" id="sh-yml"></div>
+    </div>
+    <div class="term" data-at="4.0" style="position:absolute;left:800px;top:430px;width:560px">
+      <div class="tb"><i></i><i></i><i></i><span>~/code/widgets</span></div>
+      <div class="body" style="font-size:16px"><div class="ln" data-type="pr-review publish … " data-at="4.3"></div><div class="ln dim" data-at="5.4">{"status":"published",</div><div class="ln" data-at="5.5"> <span class="hl">"sharing":{"status":"off"}</span><span class="dim">,</span></div><div class="ln dim" data-at="5.6"> "reviewUrl":"http://localhost:3010/…"}</div></div>
+    </div>
+    <div class="card" data-at="5.8" style="left:1400px;top:430px;width:400px">
+      <div style="padding:12px 16px;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-size:14px;color:#57606a"><b style="color:#24292f">you</b> commented on src/app.ts:3</div>
+      <div style="padding:16px;line-height:1.55;font-size:16px">
+        <b>Sum instead of product.</b> The spec is ambiguous; if it means sum, this is fine.
+        <div id="sh-credit-wrap" style="overflow:hidden"><div id="sh-credit" style="margin-top:10px;font-size:13px;color:#57606a">from the pr-review canvas</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8: CLI -->
+  <section class="scene" id="s-cli" data-chapter="CLI">
+    <div class="copy">
+      <div class="kicker" data-at="0.15">CLI</div>
+      <h2 data-at="0.35">A clearer <em>command line</em></h2>
+      <p class="lede" data-at="0.8"><code>doctor</code> prints a checklist. <code>--help</code> shows each command in its own block. <code>serve</code> opens your browser.</p>
+      <ul class="notes">
+        <li class="warn" data-at="6.0">Breaking: pass <code>doctor --json</code> for the old JSON line.</li>
+        <li data-at="7.0"><code>serve --no-open</code> or <code>CI</code> keeps the browser closed.</li>
+        <li data-at="8.0"><code>--chat-agent</code> and <code>--chat-model</code> replace <code>--agent</code> and <code>--model</code>.</li>
+      </ul>
+    </div>
+    <div class="term" data-at="1.0" style="position:absolute;left:800px;top:190px;width:1000px;height:560px">
+      <div class="tb"><i></i><i></i><i></i><span>~/code/widgets</span></div>
+      <div class="body"><div class="ln" data-type="pr-review doctor" data-at="1.3"></div><div class="ln dim" data-at="2.3">┌  pr-review doctor <span class="ver"></span></div><div class="ln" data-at="2.5">◆  git         <span class="ok">ok</span>      ~/code/widgets</div><div class="ln" data-at="2.7">◆  origin      <span class="ok">ok</span>      acme/widgets (GitHub)</div><div class="ln" data-at="2.9">◆  gh          <span class="ok">ok</span>      github.com</div><div class="ln" data-at="3.1">◆  gh login    <span class="ok">ok</span>      github.com</div><div class="ln" data-at="3.3">◆  data dir    <span class="ok">ok</span>      ~/code/widgets/.pr-review</div><div class="ln" data-at="3.5">◆  skill       <span class="ok">ok</span>      .claude/skills/pr-review-canvas</div><div class="ln dim" data-at="3.7">└  All checks passed</div><div class="ln" data-type="pr-review serve" data-at="5.0"></div><div class="ln dim" data-at="6.0">pr-review <span class="ver"></span> · http://127.0.0.1:3010 · acme/widgets</div></div>
+    </div>
+    <div class="card" id="cli-browser" style="left:1300px;top:540px;width:480px;height:340px">
+      <div class="win-bar"><i></i><i></i><i></i><span class="url">127.0.0.1:3010</span></div>
+      <div style="padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:10px"><svg width="28" height="28"><use href="#brand"/></svg><b style="font-size:17px">PR review canvas</b></div>
+        <div style="margin-top:16px;font-size:18px;font-weight:700">#42 feat: add b() to the run path</div>
+        <div style="margin-top:12px;height:10px;width:70%;background:#eaeef2;border-radius:5px"></div>
+        <div style="margin-top:10px;height:10px;width:88%;background:#eaeef2;border-radius:5px"></div>
+        <div style="margin-top:10px;height:10px;width:56%;background:#eaeef2;border-radius:5px"></div>
+        <div style="margin-top:18px;display:flex;gap:10px"><span style="height:60px;flex:1;border:1px solid #d0d7de;border-radius:8px"></span><span style="height:60px;flex:2;border:1px solid #d0d7de;border-radius:8px"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9: outro -->
+  <section class="scene" id="s-outro">
+    <div class="center" style="top:210px">
+      <svg data-at="0.2" style="width:96px;height:96px"><use href="#brand"/></svg>
+      <h1 class="hero" data-at="0.5" style="margin-top:28px;font-size:88px">Big PR. <em>Clear picture.</em></h1>
+      <div class="term" data-at="1.3" style="display:inline-block;text-align:left;margin-top:56px;width:820px">
+        <div class="tb"><i></i><i></i><i></i><span>update</span></div>
+        <div class="body" style="font-size:21px"><div class="ln dim" data-at="1.5"># in a project that has the skill</div><div class="ln" data-type="pr-review upgrade" data-at="1.9"></div><div class="ln dim" data-at="2.9"># updates pr-review, acpx, and the skill copies</div><div class="ln dim" data-at="3.5">&nbsp;</div><div class="ln dim" data-at="3.5"># new here?</div><div class="ln" data-type="npm install -g @vintasoftware/pr-review-canvas" data-at="3.8"></div></div>
+      </div>
+      <p class="sub" data-at="6.0" style="margin-top:44px">Full changelog and docs · <b style="color:var(--ink)">vintasoftware.github.io/pr-review-canvas</b></p>
+    </div>
+  </section>
+
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l16 10.5-7 1.3 4 7.2-3 1.6-4-7.3L5 20z" fill="#252821" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+</div>
+
+<script>
+const VERSION = '0.6'
+const FPS_HINT = 30
+
+const SCENES = [
+  { id: 's-intro', d: 6.5 },
+  { id: 's-checkout', d: 19 },
+  { id: 's-proposed', d: 13 },
+  { id: 's-settings', d: 15 },
+  { id: 's-layers', d: 14 },
+  { id: 's-polish', d: 12.5 },
+  { id: 's-models', d: 11 },
+  { id: 's-sharing', d: 11 },
+  { id: 's-cli', d: 11 },
+  { id: 's-outro', d: 9.5 },
+]
+let acc = 0
+for (const s of SCENES) { s.start = acc; acc += s.d; s.el = document.getElementById(s.id) }
+const TOTAL = acc
+
+// ---------- helpers ----------
+const $ = sel => document.querySelector(sel)
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x))
+const eo = x => 1 - Math.pow(1 - x, 3)
+const io = x => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
+const P = (t, a, d = 0.6) => eo(clamp((t - a) / d))
+const lerp = (a, b, k) => a + (b - a) * k
+const stage = document.getElementById('stage')
+let scale = 1
+
+function place(el, k, dx = 0, dy = 18, sc = 1) {
+  el.style.opacity = k
+  el.style.transform = `translate(${(1 - k) * dx}px, ${(1 - k) * dy}px) scale(${lerp(sc, 1, k)})`
+}
+
+/** Height reveal for an element whose child has a natural height. */
+function reveal(wrap, k) {
+  const inner = wrap.firstElementChild
+  wrap.style.height = `${inner.offsetHeight * k + (k > 0 ? parseFloat(getComputedStyle(inner).marginTop) + parseFloat(getComputedStyle(inner).marginBottom) : 0) * k}px`
+  wrap.style.opacity = clamp(k * 1.4)
+}
+
+function tokenize(el) {
+  const tokens = []
+  const walk = node => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === 3) {
+        const frag = document.createDocumentFragment()
+        for (const part of child.textContent.split(/(\s+)/)) {
+          if (part === '') continue
+          if (/^\s+$/.test(part)) { frag.append(part); continue }
+          const s = document.createElement('span'); s.textContent = part; frag.append(s); tokens.push(s)
+        }
+        child.replaceWith(frag)
+      } else if (child.nodeType === 1) {
+        if (child.matches('code')) tokens.push(child)
+        else walk(child)
+      }
+    }
+  }
+  walk(el)
+  el._tokens = tokens
+}
+function stream(el, t, a, rate = 8) {
+  const n = (t - a) * rate
+  el._tokens.forEach((s, i) => { s.style.opacity = clamp(n - i) })
+}
+
+function typed(text, t, a, cps = 26) {
+  return text.slice(0, Math.floor(clamp((t - a) * cps, 0, text.length)))
+}
+
+/** Terminal lines: data-type lines are typed commands, the rest appear at data-at. */
+function termRender(root, t) {
+  const lines = root.querySelectorAll('.ln')
+  let lastTyping = null
+  lines.forEach(ln => {
+    const at = parseFloat(ln.dataset.at)
+    if (ln.dataset.type !== undefined) {
+      const full = ln.dataset.type
+      const s = typed(full, t, at, 24)
+      const done = s.length === full.length
+      ln.innerHTML = `<span class="p">$</span> ${s.replace(/</g, '&lt;')}`
+      ln.style.opacity = t >= at - 0.25 ? 1 : 0
+      if (t >= at - 0.25) lastTyping = { ln, done, at, len: full.length }
+    } else {
+      ln.style.opacity = t >= at ? 1 : 0
+    }
+  })
+  // One blinking block caret after the last visible command, until output starts.
+  root.querySelectorAll('.tcaret').forEach(c => c.remove())
+  if (lastTyping !== null) {
+    const next = lastTyping.ln.nextElementSibling
+    const outputShown = next !== null && parseFloat(next.style.opacity || '0') > 0
+    if (!outputShown) {
+      const blinkOn = !lastTyping.done || Math.floor(t * 2) % 2 === 0
+      if (blinkOn) lastTyping.ln.insertAdjacentHTML('beforeend', '<span class="tcaret"></span>')
+    }
+  }
+}
+
+function typeYaml(el, lines, t, a, cps = 30) {
+  // lines: [ [html-ish segments as [cls, text]] ]; typed across all lines in sequence
+  let budget = Math.floor(clamp((t - a) * cps, 0, 1e9))
+  let html = ''
+  let caretPlaced = false
+  for (const segs of lines) {
+    let lineHtml = ''
+    for (const [cls, text] of segs) {
+      if (budget <= 0) break
+      const part = text.slice(0, budget)
+      budget -= part.length
+      lineHtml += cls ? `<span class="${cls}">${part}</span>` : part
+    }
+    const full = segs.reduce((n, [, x]) => n + x.length, 0)
+    const shown = lineHtml.replace(/<[^>]+>/g, '').length
+    if (shown === 0 && budget <= 0) break
+    if (shown < full && !caretPlaced) { lineHtml += '<span class="caret"></span>'; caretPlaced = true }
+    html += lineHtml + '\n'
+    budget -= 1
+  }
+  el.innerHTML = html
+}
+
+/** Position of an element's center on the stage. */
+function centerOf(sel) {
+  const r = document.querySelector(sel).getBoundingClientRect()
+  const sr = stage.getBoundingClientRect()
+  return [(r.left + r.width / 2 - sr.left) / scale, (r.top + r.height / 2 - sr.top) / scale]
+}
+
+// ---------- chapters ----------
+const chapterScenes = SCENES.filter(s => s.el.dataset.chapter)
+const chaptersEl = document.getElementById('chapters')
+for (const s of chapterScenes) {
+  const d = document.createElement('div'); d.className = 'ch'
+  d.innerHTML = `<i><b></b></i>${s.el.dataset.chapter}`
+  chaptersEl.append(d); s.chEl = d
+}
+document.querySelectorAll('.ver').forEach(e => { e.textContent = VERSION })
+document.querySelectorAll('.stream').forEach(tokenize)
+
+// ---------- scene renderers (t is local time) ----------
+const R = {}
+
+R['s-checkout'] = t => {
+  const q = 'Does run() handle an empty list?'
+  const box = $('#ck-box')
+  const sent = 3.7
+  if (t < 2.0) { box.textContent = 'Ask AI Chat about this PR…'; box.classList.remove('typing') }
+  else if (t < sent) { box.innerHTML = typed(q, t, 2.0, 24) + '<span class="caret"></span>'; box.classList.add('typing') }
+  else { box.textContent = 'Ask AI Chat about this PR…'; box.classList.remove('typing') }
+  place($('#ck-q'), P(t, sent, 0.4), 0, 10)
+  place($('#ck-ans'), P(t, 4.1, 0.4), 0, 10)
+  const act = $('#ck-act')
+  const answerAt = 7.0
+  if (t < answerAt) {
+    const secs = Math.max(0, Math.floor(t - 4.1))
+    act.textContent = `Creating the review checkout at 3f9c2a1 · ${secs}s`
+    act.style.display = ''
+  } else act.style.display = 'none'
+  stream($('#ck-text'), t, answerAt, 7)
+  $('#ck-text').style.display = t < answerAt ? 'none' : ''
+  $('#ck-el').style.opacity = t > answerAt + 2.4 ? 1 : 0
+  // diagram
+  const la = $('#ck-line-a'), lb = $('#ck-line-b')
+  const la_k = P(t, 1.6, 0.8)
+  la.style.strokeDashoffset = 0
+  la.style.opacity = la_k * lerp(1, 0.25, P(t, 4.6, 0.6))
+  place($('#ck-b'), P(t, 4.3, 0.7), 0, 0, 0.92)
+  const lbk = P(t, 4.8, 0.9)
+  lb.style.opacity = lbk > 0 ? 1 : 0
+  lb.style.clipPath = `inset(0 0 0 ${(1 - lbk) * 100}%)`
+  $('#ck-a').style.filter = `grayscale(${P(t, 4.6, 0.6)})`
+  $('#ck-a').style.opacity = Math.min(parseFloat($('#ck-a').style.opacity || 1), lerp(1, 0.55, P(t, 4.6, 0.6)))
+  $('#ck-a-tag').style.textDecoration = t > 4.8 ? 'line-through' : 'none'
+}
+
+R['s-proposed'] = t => {
+  const click = 4.2
+  const queued = P(t, click + 0.1, 0.3)
+  $('#pc-open').style.opacity = 1 - queued
+  $('#pc-queued').style.opacity = queued
+  const add = $('#pc-add')
+  add.style.transform = t > click && t < click + 0.18 ? 'scale(.94)' : 'none'
+  reveal($('#pc-pending-wrap'), io(clamp((t - (click + 0.5)) / 0.7)))
+  place($('#pc-banner'), P(t, click + 1.2, 0.6), 0, -10)
+  const toastK = P(t, click + 0.3, 0.4) * (1 - P(t, click + 3.2, 0.5))
+  place($('#pc-toast'), toastK, 0, 12)
+}
+SCENES.find(s => s.id === 's-proposed').cursor = [[2.4, 1500, 980], [4.2, '#pc-add', 'click'], [5.4, 1620, 780]]
+
+R['s-settings'] = t => {
+  const tabs = [...document.querySelectorAll('#st-tabs span')]
+  const switches = [0, 3.8, 5.6, 8.0] // times each tab becomes active
+  let active = 0
+  switches.forEach((s, i) => { if (t >= s) active = i })
+  const prevIdx = Math.max(0, active - 1)
+  const k = io(clamp((t - switches[active]) / 0.35))
+  const a = tabs[prevIdx], b = tabs[active]
+  const ink = $('#st-ink')
+  ink.style.left = `${lerp(a.offsetLeft, b.offsetLeft, active === 0 ? 1 : k)}px`
+  ink.style.width = `${lerp(a.offsetWidth, b.offsetWidth, active === 0 ? 1 : k)}px`
+  tabs.forEach((el, i) => { el.style.color = i === active ? '#24292f' : '#57606a'; el.style.fontWeight = i === active ? 600 : 400 })
+  for (let i = 0; i < 4; i++) {
+    const p = $(`#st-p${i}`)
+    const on = i === active ? (i === 0 ? 1 : k) : i === prevIdx && active !== 0 ? 1 - k : 0
+    place(p, on, 0, 8)
+  }
+  // highlight the new Show layers field
+  const hl = P(t, 2.0, 0.4) * (1 - P(t, 3.4, 0.4))
+  $('#st-layers').style.boxShadow = `0 0 0 ${4 * hl}px rgba(109,89,133,${0.35 * hl})`
+  termRender($('#st-term'), t)
+}
+SCENES.find(s => s.id === 's-settings').cursor = [[3.0, 1500, 900], [3.8, '#st-tabs span:nth-child(2)', 'click'], [5.6, '#st-tabs span:nth-child(3)', 'click'], [8.0, '#st-tabs span:nth-child(4)', 'click'], [9.2, 1500, 820]]
+
+R['s-layers'] = t => {
+  // sequence of [time, view, key]
+  const steps = [[0, 0, null], [3.4, 1, 'j'], [5.2, 2, 'j'], [7.0, 3, 'j'], [8.8, 2, 'k'], [11.0, 0, null]]
+  let i = 0
+  steps.forEach((s, n) => { if (t >= s[0]) i = n })
+  const cur = steps[i], prev = steps[Math.max(0, i - 1)]
+  const k = i === 0 ? 1 : io(clamp((t - cur[0]) / 0.45))
+  const dir = cur[1] >= prev[1] ? 1 : -1
+  for (let v = 0; v < 4; v++) {
+    const el = $(`#ly-v${v}`)
+    if (v === cur[1]) { el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 60 * dir}px)` }
+    else if (v === prev[1] && i > 0) { el.style.opacity = 1 - k; el.style.transform = `translateY(${-k * 60 * dir}px)` }
+    else el.style.opacity = 0
+  }
+  const items = [...document.querySelectorAll('#s-layers .rail .it')]
+  const top = n => items[n].offsetTop
+  const hi = $('#ly-hi')
+  hi.style.top = `${lerp(top(prev[1]), top(cur[1]), i === 0 ? 1 : k)}px`
+  items.forEach((el, n) => { el.style.fontWeight = n === cur[1] ? 600 : 400 })
+  // key cap
+  const key = $('#ly-key')
+  let keyK = 0, pressed = false
+  for (const [st, , ch] of steps) {
+    if (ch && t >= st - 0.5 && t < st + 0.9) {
+      $('#ly-key-t').textContent = ch
+      keyK = P(t, st - 0.5, 0.25) * (1 - P(t, st + 0.6, 0.3))
+      pressed = t >= st - 0.08 && t < st + 0.12
+    }
+  }
+  key.style.opacity = keyK
+  key.style.transform = pressed ? 'translateY(3px)' : 'none'
+  key.style.borderBottomWidth = pressed ? '2px' : '5px'
+  place($('#ly-mode'), P(t, 1.8, 0.5), 10, 0)
+}
+SCENES.find(s => s.id === 's-layers').cursor = [[10.0, 1300, 900], [11.0, '#s-layers .rail .it[data-ly="0"]', 'click'], [12.4, 1300, 820]]
+
+R['s-polish'] = t => {
+  // file card fold: click at 2.6 closes, 4.6 opens
+  const closed = io(clamp((t - 2.7) / 0.4)) * (1 - io(clamp((t - 4.7) / 0.4)))
+  const body = $('#po-body')
+  body.style.height = `${body.firstElementChild.offsetHeight * (1 - closed)}px`
+  $('#po-chev').style.transform = `rotate(${-90 * closed}deg)`
+  // bar dismiss at 7.4, reload at 8.6
+  const gone = io(clamp((t - 7.5) / 0.4))
+  const wrap = $('#po-barwrap')
+  wrap.style.height = `${wrap.firstElementChild.offsetHeight * (1 - gone)}px`
+  const spin = io(clamp((t - 8.6) / 0.8))
+  $('#po-reload').style.transform = `rotate(${spin * 360}deg)`
+  $('#po-cap').style.color = t > 9.4 ? '#252821' : ''
+}
+SCENES.find(s => s.id === 's-polish').cursor = [[1.8, 1100, 600], [2.6, '#po-name .grow', 'click'], [4.6, '#po-name .grow', 'click'], [7.4, '#po-dismiss', 'click'], [8.6, '#po-reload', 'click'], [9.8, 1600, 700]]
+
+const MODELS_YML = [
+  [['yk', 'generation'], ['', ':']],
+  [['', '  '], ['yk', 'models'], ['', ':']],
+  [['', '    '], ['yk', 'claude'], ['', ': '], ['yv', 'opus']],
+]
+R['s-models'] = t => {
+  typeYaml($('#md-yml'), MODELS_YML, t, 1.5, 22)
+  const pill = $('#md-pill')
+  const pop = P(t, 7.0, 0.5)
+  pill.style.boxShadow = `0 0 0 ${5 * pop * (1 - P(t, 8.2, 0.6))}px rgba(109,89,133,.25)`
+  termRender($('#s-models .term'), t)
+}
+
+const SHARING_YML = [
+  [['yk', 'sharing'], ['', ':']],
+  [['', '  '], ['yk', 'canvasComment'], ['', ': '], ['yv', 'false'], ['yc', '   # publish posts no PR comment']],
+  [['', '  '], ['yk', 'mentionCanvas'], ['', ': '], ['yv', 'false'], ['yc', '   # posted comments skip the canvas credit']],
+]
+R['s-sharing'] = t => {
+  typeYaml($('#sh-yml'), SHARING_YML, t, 1.4, 45)
+  termRender($('#s-sharing .term'), t)
+  const strike = P(t, 7.0, 0.4)
+  $('#sh-credit').style.textDecoration = strike > 0.5 ? 'line-through' : 'none'
+  reveal($('#sh-credit-wrap'), 1 - io(clamp((t - 7.6) / 0.5)))
+}
+
+R['s-cli'] = t => {
+  termRender($('#s-cli .term'), t)
+  place($('#cli-browser'), P(t, 6.6, 0.6), 0, 30, 0.9)
+}
+
+R['s-outro'] = t => {
+  termRender($('#s-outro .term'), t)
+}
+
+// ---------- frame ----------
+const cursor = document.getElementById('cursor')
+const ripple = document.getElementById('ripple')
+
+function cursorAt(keys, t) {
+  const pts = keys.map(([kt, a, b]) => [kt, ...(typeof a === 'string' ? centerOf(a) : [a, b])])
+  if (t <= pts[0][0]) return pts[0].slice(1)
+  for (let i = 1; i < pts.length; i++) {
+    if (t <= pts[i][0]) {
+      // travel during the 0.8s before each key, rest otherwise
+      const [t1, x1, y1] = pts[i], [, x0, y0] = pts[i - 1]
+      const k = io(clamp((t - Math.max(pts[i - 1][0], t1 - 0.8)) / Math.min(0.8, t1 - pts[i - 1][0])))
+      return [lerp(x0, x1, k), lerp(y0, y1, k)]
+    }
+  }
+  return pts[pts.length - 1].slice(1)
+}
+
+function seek(T) {
+  T = clamp(T, 0, TOTAL)
+  let active = null
+  for (const s of SCENES) {
+    const lt = T - s.start
+    const on = lt >= 0 && lt < s.d
+    if (!on) { s.el.style.visibility = 'hidden'; continue }
+    active = s
+    const fadeIn = s.start === 0 ? 1 : P(lt, 0, 0.5)
+    const fadeOut = s === SCENES[SCENES.length - 1] ? 1 : 1 - clamp((lt - (s.d - 0.45)) / 0.45)
+    s.el.style.visibility = 'visible'
+    s.el.style.opacity = fadeIn * fadeOut
+    s.el.querySelectorAll('[data-at]').forEach(el => {
+      if (el.classList.contains('ln')) return
+      const at = parseFloat(el.dataset.at)
+      place(el, P(lt, at, 0.6), parseFloat(el.dataset.dx ?? 0), parseFloat(el.dataset.dy ?? 18))
+    })
+    R[s.id]?.(lt)
+  }
+  // chrome
+  const inChapters = active && active.el.dataset.chapter
+  const chromeK = active === null ? 0 : active.id === 's-intro' ? P(T - active.start, active.d - 0.4, 0.4) : active.id === 's-outro' ? 1 - P(T - active.start, 0, 0.4) : 1
+  document.getElementById('chrome-top').style.opacity = chromeK
+  chaptersEl.style.opacity = chromeK
+  for (const s of chapterScenes) {
+    const k = clamp((T - s.start) / s.d)
+    s.chEl.querySelector('b').style.width = `${k * 100}%`
+    s.chEl.classList.toggle('on', s === active)
+  }
+  // cursor
+  let cOp = 0
+  if (active && active.cursor) {
+    const lt = T - active.start
+    const keys = active.cursor
+    const first = keys[0][0], last = keys[keys.length - 1][0]
+    cOp = P(lt, first - 0.4, 0.3) * (1 - P(lt, last, 0.3))
+    if (cOp > 0) {
+      const [x, y] = cursorAt(keys, lt)
+      let down = false, rk = -1, rx = 0, ry = 0
+      for (const [kt, a, b, c] of keys) {
+        const isClick = a === undefined ? false : typeof a === 'string' ? b === 'click' : c === 'click'
+        if (isClick && lt >= kt && lt < kt + 0.5) {
+          down = lt < kt + 0.15; rk = (lt - kt) / 0.5; [rx, ry] = typeof a === 'string' ? centerOf(a) : [a, b]
+        }
+      }
+      cursor.style.transform = `translate(${x - 4}px, ${y - 2}px) scale(${down ? 0.85 : 1})`
+      ripple.style.left = `${rx}px`; ripple.style.top = `${ry}px`
+      ripple.style.opacity = rk >= 0 ? (1 - rk) * 0.8 : 0
+      ripple.style.transform = `scale(${0.3 + rk * 0.9})`
+    }
+  }
+  cursor.style.opacity = cOp
+  if (cOp === 0) ripple.style.opacity = 0
+}
+
+function fit() {
+  scale = Math.min(innerWidth / 1920, innerHeight / 1080)
+  stage.style.transform = `translate(${(innerWidth - 1920 * scale) / 2}px, ${(innerHeight - 1080 * scale) / 2}px) scale(${scale})`
+}
+addEventListener('resize', fit)
+fit()
+
+window.videoTotal = TOTAL
+window.videoSeek = seek
+const params = new URLSearchParams(location.search)
+if (params.has('render')) {
+  seek(0)
+} else {
+  const t0 = parseFloat(params.get('t') ?? '0')
+  document.fonts.ready.then(() => {
+    const start = performance.now() - t0 * 1000
+    const loop = now => { seek(((now - start) / 1000) % (TOTAL + 1.5)); requestAnimationFrame(loop) }
+    requestAnimationFrame(loop)
+  })
+}
+</script>
+</body>
+</html>
