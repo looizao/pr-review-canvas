@@ -18,6 +18,10 @@ export interface Git {
   countCommitsBetween(a: string, b: string): Promise<number>
   /** Full unified diff between two commits, rename detection on, 3 lines of context. */
   diff(base: string, head: string): Promise<string>
+  /**
+   * Fetches exactly `refspecs`, one fetch at a time. Only the refs the refspecs name are written:
+   * the remote-tracking branches stay as the person's own fetches left them.
+   */
   fetch(remote: string, refspecs: string[]): Promise<void>
   /** Content of `<ref>:<path>`; null when the path does not exist at that ref. */
   show(ref: string, path: string): Promise<Buffer | null>
@@ -140,6 +144,10 @@ export function createGit(cwd: string, exec: GitExec = execGit): Git {
     return r.stdout.toString('utf8').replace(/\n$/, '')
   }
 
+  // Two fetches that write the same ref at once fail to lock it ("is at X but expected Y"), and
+  // a page load can start several refreshes of one PR.
+  let lastFetch: Promise<unknown> = Promise.resolve()
+
   return {
     revParse: ref => run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]),
     mergeBase: (a, b) => run(['merge-base', a, b]),
@@ -153,8 +161,14 @@ export function createGit(cwd: string, exec: GitExec = execGit): Git {
     },
     countCommitsBetween: async (a, b) => Number(await run(['rev-list', '--count', `${a}..${b}`])),
     diff: (base, head) => run(['diff', '--no-color', '--no-ext-diff', '-M', '-U3', base, head]),
-    fetch: async (remote, refspecs) => {
-      await run(['fetch', '--no-tags', '--quiet', remote, ...refspecs])
+    fetch: (remote, refspecs) => {
+      // An empty --refmap stops git from also moving refs/remotes/origin/<branch> when a refspec
+      // names a branch. That update raced any other fetch of the same branch, the person's or ours.
+      const done = lastFetch.then(() =>
+        run(['fetch', '--no-tags', '--quiet', '--refmap=', remote, ...refspecs])
+      )
+      lastFetch = done.catch(() => undefined)
+      return done.then(() => undefined)
     },
     show: async (ref, file) => {
       const r = await exec(cwd, ['show', `${ref}:${file}`])
