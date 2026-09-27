@@ -7,6 +7,7 @@ import { ACPX_BIN, createAgentRunner, findOnPath } from './acpx/acpx.js'
 import {
   type CliIo,
   EXIT,
+  namedCanvasDir,
   printErrorEnvelope,
   reportFailure,
   runDeck,
@@ -58,6 +59,9 @@ async function buildContext(
   repo: string | undefined,
   dataDir: string | undefined,
   extra: {
+    canvasDir?: string | undefined
+    /** False for validate and publish: they work in the data dir prepare made, so they create none. */
+    createDataDir?: boolean | undefined
     port?: string | undefined
     fixtureCanvas?: string | undefined
     chatAgent?: string | undefined
@@ -72,6 +76,7 @@ async function buildContext(
     {
       port: extra.port === undefined ? undefined : parsePort(extra.port, 0),
       dataDir,
+      canvasDir: extra.canvasDir,
       fixtureCanvas: extra.fixtureCanvas,
       chatAgent: extra.chatAgent,
       chatModel: extra.chatModel,
@@ -82,7 +87,9 @@ async function buildContext(
     cwd
   )
   const projectConfig = await loadProjectConfig(config.repoRoot)
-  await ensureDataDir(config.dataDir)
+  if (extra.createDataDir !== false) {
+    await ensureDataDir(config.dataDir)
+  }
   const fixtureArtifact =
     config.fixtureCanvasPath === null ? null : await loadFixture(config.fixtureCanvasPath)
   return createAppContext({ config, projectConfig, fixtureArtifact })
@@ -228,7 +235,10 @@ export async function main(argv: string[]): Promise<number> {
         return await upgradeCommand(rest)
       default: {
         const { repo, dataDir, rest: own } = splitCommonFlags(rest)
-        const ctx = await buildContext(repo, dataDir)
+        const ctx = await buildContext(repo, dataDir, {
+          canvasDir: namedCanvasDir(command, own),
+          createDataDir: command !== 'validate' && command !== 'publish',
+        })
         switch (command) {
           case 'prepare':
             return await runPrepare(ctx, own, io)

@@ -95,6 +95,10 @@ export const ERROR_CARDS = {
     title: 'The pull request moved on',
     action: 'Reload the page: the head commit changed since this page was drawn.',
   },
+  CANVAS_ELSEWHERE: {
+    title: 'The canvas is in another data directory',
+    action: 'Publish the canvasDir that prepare printed, with the --data-dir prepare used or none.',
+  },
   MODEL_INVALID: {
     title: 'The generated canvas did not pass validation',
     action: 'Run the pr-review-canvas skill again; it prints one line per problem.',
@@ -118,6 +122,10 @@ export const ERROR_CARDS = {
   COMMENT_FORBIDDEN: {
     title: 'This login cannot post here',
     action: 'Check the account’s repository access and token permissions, then retry.',
+  },
+  NOT_AUTHOR: {
+    title: 'Only the author settles points',
+    action: 'Dismiss the point instead: a dismissal stays on your machine.',
   },
   COMMENT_LINE_NOT_IN_DIFF: {
     title: 'Comments must sit on lines the diff shows',

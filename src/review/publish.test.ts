@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readCanvasComment } from '../canvas/comment.js'
 import { readCanvasZip } from '../canvas/zip.js'
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { ReviewArtifactSchema, TEXT_CAPS } from '../contract/review-artifact.js'
 import {
@@ -22,7 +22,7 @@ import {
   SYNTHETIC_DIFF_MOVED_BY_BASE,
   syntheticArtifact,
 } from '../testing/synthetic.js'
-import { artifactToModelOutput, normalize } from './normalize.js'
+import { artifactToModelOutput, fingerprint, normalize } from './normalize.js'
 import { prepare } from './prepare.js'
 import {
   attemptsSincePrepare,
@@ -295,6 +295,31 @@ describe('publish', () => {
     expect((await publish(t.ctx, canvasDir, OPTS)).status).toBe('published')
   })
 
+  it('refuses a canvas dir that is not where its data dir keeps it, and writes nothing', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    const log = await readFile(path.join(canvasDir, 'publish.log'), 'utf8')
+    // Prepared under one data dir, published by a context on another, as with a --data-dir that
+    // names the main checkout's while the canvas sits in a sandbox.
+    const other = await makeTestContext({ git: clone, gh: ghFor42() })
+    const err = await publish(other.ctx, canvasDir, OPTS).catch(e => e)
+    const written = await readdir(other.dataDir, { recursive: true })
+    await other.cleanup()
+    expect(err).toBeInstanceOf(PublishError)
+    expect(err).toMatchObject({
+      code: 'CANVAS_ELSEWHERE',
+      message: `${canvasDir} is not the canvas dir of ${HEAD_SHA.slice(0, 7)} in ${other.dataDir}; publishing would write ${other.ctx.canvases.canvasDir(HEAD_SHA)}`,
+      hint: 'publish the canvasDir prepare printed, with the --data-dir prepare used or none',
+    })
+    expect(written).toEqual([])
+    // A copy of the canvas dir is refused the same way.
+    const copy = path.join(t.dataDir, 'copy')
+    await cp(canvasDir, copy, { recursive: true })
+    await expect(publish(t.ctx, copy, OPTS)).rejects.toMatchObject({ code: 'CANVAS_ELSEWHERE' })
+    expect(await readFile(path.join(canvasDir, 'publish.log'), 'utf8')).toBe(log)
+    expect(await t.ctx.canvases.exists(HEAD_SHA)).toBe(false)
+  })
+
   it('refuses when context.json is missing', async () => {
     t = await makeTestContext()
     const err = await publish(t.ctx, path.join(t.dataDir, 'nowhere'), OPTS).catch(e => e)
@@ -319,6 +344,78 @@ describe('publish', () => {
     await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
     await publish(t.ctx, canvasDir, OPTS)
     expect((await t.ctx.canvases.readArtifact(HEAD_SHA))?.basisCanvasSha).toBe(basis)
+  })
+
+  it('keeps the author’s settlements when the same commit is generated again, for the author points still there', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    await publish(t.ctx, canvasDir, OPTS)
+    const first = await t.ctx.canvases.readArtifact(HEAD_SHA)
+    const kept = fingerprint({ kind: 'debt', path: 'src/gone.ts', title: 'Deleted file had no owner' })
+    // A reviewer point takes no settlement, whatever a stored canvas says.
+    const reviewer = fingerprint({ kind: 'decision', path: 'src/app.ts', title: 'Sum instead of product' })
+    const settlement = { reason: 'Nothing imports it.', at: '2026-09-10T12:00:00.000Z' }
+    await t.ctx.canvases.revise(HEAD_SHA, {
+      ...first!,
+      settled: { [kept]: settlement, [reviewer]: settlement, gone: settlement },
+      revisedAt: settlement.at,
+    })
+    await publish(t.ctx, canvasDir, OPTS)
+    expect((await t.ctx.canvases.readArtifact(HEAD_SHA))?.settled).toEqual({ [kept]: settlement })
+  })
+
+  it('regenerates over a canvas of a format it no longer reads, keeping no settlement from it', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    await publish(t.ctx, canvasDir, OPTS)
+    await writeFile(path.join(t.ctx.canvases.canvasDir(HEAD_SHA), 'review.json'), '{"version":0}')
+    await publish(t.ctx, canvasDir, OPTS)
+    expect((await t.ctx.canvases.readArtifact(HEAD_SHA))?.settled).toBeUndefined()
+  })
+
+  it('carries the basis canvas’s settlements only for the points the basis split carried', async () => {
+    const canvasDir = await prepared()
+    const basisSha = 'e'.repeat(40)
+    const carried = { kind: 'debt', path: 'src/gone.ts', title: 'Deleted file had no owner' } as const
+    const reJudged = { kind: 'tests', path: 'src/app.ts', title: 'other() returns x' } as const
+    const settlement = { reason: 'Agreed with the team.', at: '2026-09-09T12:00:00.000Z' }
+    await t.ctx.canvases.write(
+      basisSha,
+      {
+        ...syntheticArtifact(),
+        settled: { [fingerprint(carried)]: settlement, [fingerprint(reJudged)]: settlement },
+      },
+      {
+        formatVersion: 1,
+        tool: { name: 'pr-review', version: '0' },
+        repo: { owner: 'acme', name: 'widgets' },
+        headSha: basisSha,
+        mergeBaseSha: BASE_SHA,
+        baseRef: 'main',
+        headRef: 'feat/b',
+        generatedAt: '2026-09-09T11:00:00.000Z',
+        generator: { agent: 'claude', harness: 'claude-code', attempts: 1 },
+      },
+      42
+    )
+    const contextPath = path.join(canvasDir, 'context.json')
+    const context = JSON.parse(await readFile(contextPath, 'utf8')) as Record<string, unknown>
+    context['basis'] = {
+      canvasSha: basisSha,
+      reviewJsonPath: path.join(canvasDir, 'review.json'),
+      files: { unchanged: ['src/gone.ts'], changed: ['src/app.ts'], added: [], removed: [] },
+      layers: [],
+      points: [
+        { ...carried, status: 'carried' },
+        { ...reJudged, status: 're-judged' },
+      ],
+    }
+    await writeFile(contextPath, JSON.stringify(context))
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    await publish(t.ctx, canvasDir, OPTS)
+    expect((await t.ctx.canvases.readArtifact(HEAD_SHA))?.settled).toEqual({
+      [fingerprint(carried)]: settlement,
+    })
   })
 
   it('publishes for a head that moved on with the identical diff', async () => {

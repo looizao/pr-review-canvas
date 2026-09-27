@@ -3,7 +3,7 @@
 import { emptyState } from '../../src/contract/state.js'
 import { syntheticArtifact } from '../../src/testing/synthetic.js'
 import {
-  applyDismissed,
+  applyPointStates,
   dismissedListHtml,
   pointCardHtml,
   pointLink,
@@ -158,7 +158,7 @@ describe('dismissed points', () => {
 
   it('leaves a page that holds none of its parts alone', () => {
     document.body.innerHTML = '<div data-point="unknown"></div>'
-    applyDismissed(document, artifact.points, dismissed, ctx)
+    applyPointStates(document, artifact.points, dismissed, ctx)
     expect(document.querySelector('[data-point="unknown"]')?.hasAttribute('hidden')).toBe(false)
   })
 
@@ -171,7 +171,7 @@ describe('dismissed points', () => {
     }
     document.querySelector('ol.dismissed')?.toggleAttribute('hidden', !expanded)
 
-    applyDismissed(document, artifact.points, dismissed, ctx)
+    applyPointStates(document, artifact.points, dismissed, ctx)
 
     expect(document.querySelector('[data-act="show-dismissed"]')?.getAttribute('aria-expanded')).toBe(
       String(expanded)
@@ -190,7 +190,7 @@ describe('dismissed points', () => {
       '<section data-layer="run-path"><span class="point-count">1</span>' +
       `<ol>${first === undefined ? '' : pointCardHtml(first, ctx)}</ol></section>` +
       dismissedListHtml(artifact.points, BASE, ctx)
-    applyDismissed(document, artifact.points, dismissed, ctx)
+    applyPointStates(document, artifact.points, dismissed, ctx)
     expect(document.querySelector('.point-count')?.textContent).toBe('0')
     expect(document.querySelector('li.finding')?.hasAttribute('hidden')).toBe(true)
     expect(document.querySelector('.dismissed-line')?.textContent).toContain('1 dismissed')
@@ -272,9 +272,9 @@ describe('dismissed points', () => {
       `<ol class="findings">${pointCardHtml(p, { ...ctx, state })}</ol>` +
       `<table><tbody>${pointRowHtml(p, { ...ctx, state })}</tbody></table>`
     const queued = { ...state, pending: [draftFor(p)] }
-    applyDismissed(document.body, points, queued, ctx)
+    applyPointStates(document.body, points, queued, ctx)
     expect(document.querySelectorAll('.pill.pending.queued').length).toBe(2)
-    applyDismissed(document.body, points, state, ctx)
+    applyPointStates(document.body, points, state, ctx)
     expect(document.querySelectorAll('.pill.pending.queued').length).toBe(0)
     expect(document.querySelectorAll('[data-act="point-queue"]').length).toBe(2)
   })
@@ -308,7 +308,7 @@ describe('the self-review pill', () => {
       const p = { ...base, ...over }
       for (const html of [pointCardHtml(p, { paths }), pointRowHtml(p, { paths })]) {
         document.body.innerHTML = html
-        const pill = document.querySelector('.pill.self-review')
+        const pill = document.querySelector('.pill.deck')
         expect(pill?.textContent).toBe(text)
         expect(pill?.getAttribute('title')).toContain(`"${key}"`)
       }
@@ -317,7 +317,7 @@ describe('the self-review pill', () => {
 
   it('shows nothing on a point the self-review has no part in, and escapes a hostile key', () => {
     document.body.innerHTML = pointCardHtml(base, { paths })
-    expect(document.querySelector('.pill.self-review')).toBeNull()
+    expect(document.querySelector('.pill.deck')).toBeNull()
     document.body.innerHTML = pointCardHtml({ ...base, reopens: '"><img src=x>' }, { paths })
     expect(document.querySelector('img')).toBeNull()
   })

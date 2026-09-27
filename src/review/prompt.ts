@@ -273,7 +273,7 @@ function carriedMarkdown(basis: BasisSplit | undefined): string {
   return [
     `**Whole layers** — copy the layer with its title, rationale, decisions, checkByHand, tests, files, notes, folds, and annotations:\n\n${layers.length === 0 ? '_none_' : layers.join('\n')}`,
     `**Single files of a re-judged layer** — the file is untouched, so its note, folds, and annotations still fit wherever you put the file:\n\n${files.length === 0 ? '_none_' : files.join('\n')}`,
-    `**Attention points** — repeat the kind, path, and title exactly, so the point keeps its identity and any dismissal the reviewer made. Where a line says the point's lines moved, anchor it on those lines; its code is unchanged, so the level and body still hold:\n\n${points.length === 0 ? '_none_' : points.join('\n')}`,
+    `**Attention points** — repeat the kind, path, title, and audience exactly, so the point keeps its identity, any dismissal the reviewer made, and any settlement the author made. Where a line says the point's lines moved, anchor it on those lines; its code is unchanged, so the level and body still hold:\n\n${points.length === 0 ? '_none_' : points.join('\n')}`,
   ].join('\n\n')
 }
 
@@ -323,7 +323,7 @@ export function selfReviewMarkdown(selfReview: GenerationContext['selfReview']):
   if (selfReview === undefined || (selfReview.settled.length === 0 && selfReview.open.length === 0)) {
     return ''
   }
-  const parts = ['## Decisions from the author’s self-review']
+  const parts = ['## Decisions from the author’s self-review deck']
   if (selfReview.settled.length > 0) {
     parts.push(
       'The author settled these in a self-review deck before asking for review. Do not raise them ' +
@@ -331,7 +331,8 @@ export function selfReviewMarkdown(selfReview: GenerationContext['selfReview']):
         'call. You may explain one as a `decision` point at `level: "fyi"` when that helps the reviewer. ' +
         'The exception is code that contradicts a pick. For each settled decision the code at this head ' +
         'does not carry out, write one `decision` point at `level: "decide"` with ' +
-        '`"reopens": "<key>"`, anchored where the contradiction is, stating what the code does and ' +
+        '`"reopens": "<key>"` and `"audience": "author"`, since the decision is theirs to carry out ' +
+        'or settle again, anchored where the contradiction is, stating what the code does and ' +
         'which pick it contradicts. A pick marked as a change the author asked for, with the code still ' +
         'doing the old side, means the fix has not landed yet: say so. When two settled picks ' +
         'contradict each other, reopen one of them and name the other in its body. The validator ' +
@@ -343,7 +344,7 @@ export function selfReviewMarkdown(selfReview: GenerationContext['selfReview']):
   if (selfReview.open.length > 0) {
     parts.push(
       'The author left these for reviewers. Raise each as a `decision` point at `level: "decide"` ' +
-        'with `"asks": "<key>"`, anchored inside the diff; the validator requires one for every card ' +
+        'with `"asks": "<key>"` and `"audience": "reviewer"`, anchored inside the diff; the validator requires one for every card ' +
         'shown with a line. One whose code changed since may no longer apply: raise it only if it does.',
       selfReview.open.map(decisionLine).join('\n')
     )

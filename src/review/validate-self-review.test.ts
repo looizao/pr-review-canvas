@@ -50,6 +50,7 @@ function point(over: Partial<ModelPoint> = {}): ModelPoint {
     path: 'src/app.ts',
     line: 13,
     body: 'b',
+    audience: 'reviewer',
     asks: 'retry',
     ...over,
   }
@@ -83,15 +84,19 @@ describe('validateSelfReview', () => {
   })
 
   it('accepts a declared reopen on the decision’s chunk, or wherever the contradiction is', () => {
-    expect(check([point(), point({ line: 4, asks: undefined, reopens: 'rows' })])).toEqual([])
+    expect(
+      check([point(), point({ line: 4, asks: undefined, reopens: 'rows', audience: 'author' })])
+    ).toEqual([])
     // The code that breaks a pick can be elsewhere; a generator testing PR #24 needed this.
-    expect(check([point(), point({ line: 12, asks: undefined, reopens: 'rows' })])).toEqual([])
+    expect(
+      check([point(), point({ line: 12, asks: undefined, reopens: 'rows', audience: 'author' })])
+    ).toEqual([])
   })
 
   it('lets a reopen of a decision whose code moved away sit anywhere, since there is no line to hold it to', () => {
     const moved = { ...settled, line: undefined }
     expect(
-      check([point(), point({ line: 12, asks: undefined, reopens: 'rows' })], {
+      check([point(), point({ line: 12, asks: undefined, reopens: 'rows', audience: 'author' })], {
         settled: [moved],
         open: [open],
       })
@@ -110,10 +115,26 @@ describe('validateSelfReview', () => {
       'SELF_REVIEW_KEY',
       'SETTLED_REOPENED',
     ])
-    expect(check([point(), point({ line: 4, asks: undefined, reopens: 'rows', kind: 'risk' })])).toEqual([
-      'SELF_REVIEW_LEVEL',
-    ])
+    expect(
+      check([point(), point({ line: 4, asks: undefined, reopens: 'rows', audience: 'author', kind: 'risk' })])
+    ).toEqual(['SELF_REVIEW_LEVEL'])
     expect(check([point({ level: 'check' })])).toEqual(['SELF_REVIEW_LEVEL'])
+  })
+
+  it('gives a reopened decision back to the author, and a card left for reviewers to them', () => {
+    const reopen = point({ line: 4, asks: undefined, reopens: 'rows', audience: 'reviewer' })
+    const errors = validateSelfReview({ points: [point(), reopen] } as unknown as ModelOutput, files, {
+      settled: [settled],
+      open: [open],
+    })
+    expect(errors).toEqual([
+      expect.objectContaining({
+        code: 'SELF_REVIEW_AUDIENCE',
+        where: 'point:2',
+        message: expect.stringContaining('the author settled it, so the point is theirs'),
+      }),
+    ])
+    expect(check([point({ audience: 'author' })])).toEqual(['SELF_REVIEW_AUDIENCE'])
   })
 
   it('requires every card the author left for reviewers, unless its code changed since', () => {
@@ -127,7 +148,9 @@ describe('validateSelfReview', () => {
     ).toEqual([])
     expect(
       validateSelfReview(
-        { points: [point({ reopens: 'rows', asks: undefined })] } as unknown as ModelOutput,
+        {
+          points: [point({ reopens: 'rows', audience: 'author', asks: undefined })],
+        } as unknown as ModelOutput,
         files,
         undefined
       ).map(e => e.code)

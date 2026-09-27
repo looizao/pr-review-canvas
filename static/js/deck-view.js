@@ -250,12 +250,15 @@ export function finishHtml(data) {
         `<li class="deck-tally-${cls}"><span class="deck-tally-n" data-count="${n}">${n}</span><span>${label}</span></li>`
     )
     .join('')
-  const command = `/pr-self-review-fix ${data.review}`
+  /** @param {string} command */
+  const runLine = command =>
+    `<p class="deck-run"><code>${esc(command)}</code> <button class="cmd fill" type="button" data-copy="${esc(command)}">copy</button></p>`
   const next =
     summary.fixes + summary.records === 0
-      ? `<p>Nothing to fix. Open the pull request when you are ready: settled decisions travel with it.</p>`
+      ? `<p>Nothing to fix. Generate the canvas next: it takes these decisions along, and you settle the points marked yours on its page.</p>
+${runLine(`/pr-review-canvas ${data.review}`)}`
       : `<p>Hand the fix list to your coding agent. It asks you about anything unclear, applies the fixes, then deals a fresh deck for whatever they change.</p>
-<p class="deck-run"><code>${esc(command)}</code> <button class="cmd fill" type="button" data-copy="${esc(command)}">copy</button></p>`
+${runLine(`/pr-self-review-fix ${data.review}`)}`
   const list =
     fixes === null
       ? ''

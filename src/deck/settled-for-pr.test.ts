@@ -4,6 +4,7 @@
 import { readFile } from 'node:fs/promises'
 import type { DecisionCard, Deck, Pick } from '../contract/deck.js'
 import { GenerationContextSchema } from '../contract/generation-context.js'
+import { DEFAULT_PROJECT_CONFIG } from '../project-config.js'
 import type { ReviewKey } from '../contract/review-key.js'
 import { artifactToModelOutput } from '../review/normalize.js'
 import { prepare } from '../review/prepare.js'
@@ -138,7 +139,7 @@ describe('the decisions a pull request inherits from its decks', () => {
     const prepared = await prepare(t.ctx, { kind: 'pr', number: 42 }, { force: false, log: () => undefined })
     const context = GenerationContextSchema.parse(JSON.parse(await readFile(prepared.contextPath, 'utf8')))
     expect(context.selfReview).toBeUndefined()
-    expect(await readFile(prepared.promptPath, 'utf8')).not.toContain('self-review')
+    expect(await readFile(prepared.promptPath, 'utf8')).not.toContain('self-review deck')
   })
 
   it('posts the PR-comment justifications once, as one COMMENT review', async () => {
@@ -194,7 +195,7 @@ describe('the decisions a pull request inherits from its decks', () => {
         path: 'src/app.ts',
         line: 12,
         side: 'RIGHT',
-        body: expect.stringContaining('**Self-review: Title kept**\n\nPicked A, Keep. why kept A'),
+        body: '**Settled by the author:** Title kept\n\nPicked A, Keep. why kept A\n\n_from the pr-review self-review deck_',
       }),
     ])
     expect(review.body).toContain('- **Title moved** (`src/not-in-diff.ts`): picked A, Keep. why moved A')
@@ -281,6 +282,31 @@ describe('the decisions a pull request inherits from its decks', () => {
     expect(context.selfReview?.settled[0]).toMatchObject({ key: 'kept', line: 6 })
   })
 
+  it('leaves the credit off the posted reasons when the canvas is kept out of posted text', async () => {
+    const posts: Array<{ comments: Array<{ body: string }> }> = []
+    const gh = ghFor42({
+      postRoutes: {
+        'repos/acme/widgets/pulls/42/reviews': ghPost(body => {
+          posts.push(body as { comments: Array<{ body: string }> })
+          return { id: 9001, state: 'COMMENTED', html_url: 'https://github.com/acme/widgets/pull/42#r' }
+        }),
+      },
+      routes: { 'repos/acme/widgets/pulls/42/reviews/9001/comments': ghJson([]) },
+    })
+    const config = { ...DEFAULT_PROJECT_CONFIG, sharing: { canvasComment: true, mentionCanvas: false } }
+    t = await makeTestContext({ git: gitFor42(), gh, projectConfig: { config, warnings: [], source: null } })
+    await deal(t, 42, [card('kept')], { kept: pick('a') })
+    const prepared = await prepare(t.ctx, { kind: 'pr', number: 42 }, { force: false, log: () => undefined })
+    await writeTextAtomic(
+      `${prepared.canvasDir}/model.json`,
+      JSON.stringify(artifactToModelOutput(syntheticArtifact()))
+    )
+    await publish(t.ctx, prepared.canvasDir, OPTS)
+    expect(posts[0]?.comments.map(c => c.body)).toEqual([
+      '**Settled by the author:** Title kept\n\nPicked A, Keep. why kept A',
+    ])
+  })
+
   it('posts a neither pick in the author’s words, and lists one it cannot place on the new head', async () => {
     const posts: Array<{ body: string; comments: Array<{ body: string; line: number }> }> = []
     const gh = ghFor42({
@@ -363,7 +389,9 @@ describe('the decisions a pull request inherits from its decks', () => {
 
     const declared = {
       ...model,
-      points: model.points.map(p => (p.level === 'decide' && p.line === 4 ? { ...p, reopens: 'sum' } : p)),
+      points: model.points.map(p =>
+        p.level === 'decide' && p.line === 4 ? { ...p, reopens: 'sum', audience: 'author' as const } : p
+      ),
     }
     await writeTextAtomic(`${prepared.canvasDir}/model.json`, JSON.stringify(declared))
     const result = await publish(t.ctx, prepared.canvasDir, OPTS)
@@ -417,6 +445,7 @@ describe('the decisions a pull request inherits from its decks', () => {
           path: 'src/app.ts',
           line: 12,
           body: 'b',
+          audience: 'author',
           reopens: 'contested',
         },
       ],
@@ -424,7 +453,9 @@ describe('the decisions a pull request inherits from its decks', () => {
     await writeTextAtomic(`${prepared.canvasDir}/model.json`, JSON.stringify(reopening))
     const first = await publish(t.ctx, prepared.canvasDir, OPTS)
     expect(first.selfReview).toMatchObject({ status: 'posted', comments: 1, held: 1 })
-    expect(posts[0]?.comments.map(c => c.body.split('\n')[0])).toEqual(['**Self-review: Title kept**'])
+    expect(posts[0]?.comments.map(c => c.body.split('\n')[0])).toEqual([
+      '**Settled by the author:** Title kept',
+    ])
     expect(Object.keys((await t.ctx.decks.readPosted(42)).posted)).toEqual(['kept'])
 
     // The next canvas no longer reopens it: now its reason goes out.
@@ -432,6 +463,8 @@ describe('the decisions a pull request inherits from its decks', () => {
     await writeTextAtomic(`${prepared.canvasDir}/model.json`, JSON.stringify(model))
     const second = await publish(t.ctx, prepared.canvasDir, OPTS)
     expect(second.selfReview).toMatchObject({ status: 'posted', comments: 1 })
-    expect(posts[1]?.comments.map(c => c.body.split('\n')[0])).toEqual(['**Self-review: Title contested**'])
+    expect(posts[1]?.comments.map(c => c.body.split('\n')[0])).toEqual([
+      '**Settled by the author:** Title contested',
+    ])
   })
 })

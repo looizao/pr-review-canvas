@@ -1,7 +1,7 @@
 ---
 name: pr-self-review
 model: opus
-description: Deal a self-review deck for a GitHub pull request or GitLab merge request, or for the work in this clone before one exists, with the pr-review tool. Runs `pr-review deck prepare`, writes the deck-model.json of decision cards the prompt asks for (trade-offs and choices a reasonable engineer could make either way, each with sides A and B), validates and publishes it, and points the author to the swipe page. Use when the user runs `/pr-self-review <pr-number>`, `/pr-self-review branch`, `/pr-self-review uncommitted`, or asks to self-review, settle decisions, or "swipe through" their change before it is reviewed.
+description: Deal a self-review deck for a GitHub pull request or GitLab merge request, or for the work in this clone before one exists, with the pr-review tool. Runs `pr-review deck prepare`, writes the deck-model.json of decision cards the prompt asks for (trade-offs and choices a reasonable engineer could make either way, each with sides A and B), validates and publishes it, and points the author to the swipe page. Use when the user runs `/pr-self-review <pr-number>`, `/pr-self-review branch`, `/pr-self-review uncommitted`, or asks for a self-review deck, to settle their change's decisions before its canvas, or to "swipe through" their change. Settling the attention points of a canvas that already exists happens on the canvas page, not here.
 ---
 
 # pr-self-review
@@ -113,3 +113,5 @@ and tell the user to start `pr-review serve` if it is not running. On the page:
   lists every key.
 
 When the deck is cleared, the page writes the fix list and suggests `/pr-self-review-fix <review>`.
+After the fixes, `/pr-review-canvas <review>` generates the canvas, which takes the settled decisions
+along; the author then settles the canvas points marked theirs on its page, as that skill says.

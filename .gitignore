@@ -22,3 +22,6 @@ dist-site/
 
 /.claude/settings.local.json
 .pr-review/settings.yml
+
+# Release demo videos made with .claude/skills/release-demo-video
+/release-video/

@@ -1,14 +1,13 @@
 // `pr-review publish`: validate model.json against context.json, normalize, and store the
 // canvas, then share it on the PR/MR. Invalid models are never stored or shared.
 import { postSettledComments, type SelfReviewSharing } from '../deck/post-settled.js'
-import { buildCanvasComment } from '../canvas/comment.js'
-import { buildCanvasZipFor, exportCanvas } from '../canvas/export.js'
+import { shareCanvasOnPr } from '../canvas/share.js'
+import type { CanvasSharing } from '../contract/self-review.js'
 import { appendFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { CanvasManifest } from '../contract/canvas-manifest.js'
-import { resolveSharing } from '../contract/settings.js'
 import { type GenerationContext, GenerationContextSchema } from '../contract/generation-context.js'
-import type { Generator, ReviewArtifact } from '../contract/review-artifact.js'
+import type { Generator, ReviewArtifact, Settlement } from '../contract/review-artifact.js'
 import { UNCOMMITTED_STATE, resolveLocalHead } from '../git/local-target.js'
 import type { ValidationError, ValidationReport } from '../contract/validation.js'
 import { fetchPrRefs } from '../git/pr-refs.js'
@@ -16,6 +15,7 @@ import type { AppContext } from '../server/context.js'
 import { readJson, readText } from '../store/atomic-json.js'
 import { standsForHead } from './carry-over.js'
 import { normalize } from './normalize.js'
+import { carriedSettlements } from './self-review.js'
 import { coveredTestPaths, type ValidationInput, validateModelOutput } from './validate.js'
 
 export interface PublishOptions {
@@ -32,12 +32,7 @@ export interface PublishResult {
   headSha: string
   reviewJsonPath: string
   attempts: number
-  sharing:
-    | { status: 'shared'; url: string }
-    | { status: 'failed'; warning: string; zipPath: string }
-    | { status: 'local' }
-    /** A PR/MR run whose config turns the canvas comment off: nothing was posted. */
-    | { status: 'off' }
+  sharing: CanvasSharing | { status: 'local' }
   /** Where the canvas shows once the server runs; absent only for a `--base/--head` change set. */
   reviewUrl?: string
   /** Pull requests only: the author's self-review justifications, posted as their own review. */
@@ -57,11 +52,13 @@ export class ModelInvalidError extends Error {
   }
 }
 
+type PublishErrorCode = 'NOT_FOUND' | 'CANVAS_STALE' | 'CANVAS_ELSEWHERE'
+
 export class PublishError extends Error {
-  readonly code: 'NOT_FOUND' | 'CANVAS_STALE'
+  readonly code: PublishErrorCode
   readonly hint: string
 
-  constructor(code: 'NOT_FOUND' | 'CANVAS_STALE', message: string, hint: string) {
+  constructor(code: PublishErrorCode, message: string, hint: string) {
     super(message)
     this.name = 'PublishError'
     this.code = code
@@ -203,12 +200,41 @@ export function buildManifest(
   return manifest
 }
 
+/**
+ * The author's settlements that still answer this canvas: those of the canvas this run replaces for
+ * the same commit, and those of the basis canvas whose points it carried.
+ */
+async function settlementsToKeep(
+  ctx: AppContext,
+  context: GenerationContext,
+  artifact: ReviewArtifact
+): Promise<Record<string, Settlement>> {
+  // A canvas in a format this version no longer reads has no settlement it could keep.
+  const read = (sha: string) => ctx.canvases.readArtifact(sha).catch(() => null)
+  const split = context.basis
+  const basisArtifact = split === undefined ? null : await read(split.canvasSha)
+  return carriedSettlements(artifact, {
+    sameCommit: await read(context.headSha),
+    basis: split === undefined || basisArtifact === null ? null : { artifact: basisArtifact, split },
+  })
+}
+
 export async function publish(
   ctx: AppContext,
   canvasDir: string,
   opts: PublishOptions
 ): Promise<PublishResult> {
   const context = await readContext(canvasDir)
+  // The canvas is stored by the data dir, not by the directory given: if they disagree, the
+  // canvas would land in another data dir than the one it was prepared in.
+  const storedDir = ctx.canvases.canvasDir(context.headSha)
+  if (path.resolve(canvasDir) !== storedDir) {
+    throw new PublishError(
+      'CANVAS_ELSEWHERE',
+      `${canvasDir} is not the canvas dir of ${context.headSha.slice(0, 7)} in ${ctx.config.dataDir}; publishing would write ${storedDir}`,
+      'publish the canvasDir prepare printed, with the --data-dir prepare used or none'
+    )
+  }
   if (!opts.allowStale) {
     const head = await currentHead(ctx, context)
     if (head.moved) {
@@ -243,6 +269,10 @@ export async function publish(
     testPatterns: context.tests.patterns,
     basisCanvasSha: context.basis?.canvasSha,
   })
+  const settled = await settlementsToKeep(ctx, context, artifact)
+  if (Object.keys(settled).length > 0) {
+    artifact.settled = settled
+  }
   const manifest = buildManifest(context, artifact, ctx.version)
   // A snapshot commit is on no branch, so it must never be offered as a pull request's canvas.
   const worktree = context.target.kind === 'local' && context.pr.state === UNCOMMITTED_STATE
@@ -264,29 +294,11 @@ export async function publish(
   }
   if (context.target.kind === 'pr') {
     published.reviewUrl = `http://localhost:${ctx.config.port}/review/${context.target.number}`
-    const sharing = resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read())
-    if (!sharing.canvasComment) {
-      // Keeping the canvas off the PR keeps everything publish would post off it, the
-      // self-review justifications included.
-      published.sharing = { status: 'off' }
-      published.selfReview = { status: 'skipped' }
-      return published
-    }
-    try {
-      const zip = await buildCanvasZipFor(ctx, context.headSha, context.target.number)
-      const body = buildCanvasComment(zip, ctx.config.host.canvasCommentLimit)
-      const url = await ctx.config.host.shareCanvas(ctx.gh, ctx.config.repo, context.target.number, body)
-      published.sharing = { status: 'shared', url }
-    } catch (err) {
-      const exported = await exportCanvas(ctx, { headSha: context.headSha, prNumber: context.target.number })
-      published.sharing = {
-        status: 'failed',
-        warning: `Automatic canvas sharing failed: ${err instanceof Error ? err.message : String(err)}. Upload the ZIP to the ${ctx.config.host.noun} description manually.`,
-        zipPath: exported.path,
-      }
-    }
+    published.sharing = await shareCanvasOnPr(ctx, context.headSha, context.target.number)
+    // Keeping the canvas off the PR keeps everything publish would post off it, the self-review
+    // justifications included.
     published.selfReview =
-      opts.selfReviewComments === false
+      published.sharing.status === 'off' || opts.selfReviewComments === false
         ? { status: 'skipped' }
         : await postSettledComments(
             ctx,

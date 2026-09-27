@@ -23,6 +23,18 @@ _Avoid_: Excluded code, deleted context
 A concern anchored to changed code that asks the reviewer to decide, check, or take note.
 _Avoid_: Proven bug, automatic finding
 
+**Audience**:
+Who an attention point is for. An author point asks something the author can answer alone; a reviewer point needs someone else's judgment.
+_Avoid_: Severity, priority
+
+**Self-review**:
+The author's pass over their own change before asking for review. It may start before the canvas, with a self-review deck that settles the change's open decisions; on the canvas, the author settles the attention points they can answer.
+_Avoid_: Self-approval, pre-review
+
+**Settled point**:
+An attention point the author answered with a reason in the canvas itself. It leaves every reader's list and stays readable with its reason; a dismissal, by contrast, is one reader's local mark.
+_Avoid_: Resolved, dismissed, closed
+
 **Review progress**:
 The reviewer's record of which changes they have examined, kept against the canvas they examined them on rather than against a commit. Progress survives every later commit that canvas keeps applying to.
 _Avoid_: Test coverage, approval
@@ -62,7 +74,7 @@ A canvas of another commit of the pull request that the head's diff no longer ma
 _Avoid_: Stale review, expired canvas
 
 **Self-review deck**:
-A short sequence of decision cards the author works through on their own change before reviewers see it. It exists to close decisions, so the canvas reviewers read later leaves few of them open.
+A short sequence of decision cards the author works through on their own change before its canvas is generated. It exists to close decisions, so the canvas reviewers read later leaves few of them open.
 _Avoid_: Swipe review, approval flow
 
 **Decision card**:
@@ -74,7 +86,7 @@ A picture of what picking one side of a decision card leads to, drawn where the 
 _Avoid_: Diagram, sketch, illustration
 
 **Settled decision**:
-The side the author picked on a decision card, with its short justification. It stays in the local review state until the pull request's canvas is published, and then, when its side calls for one, it is posted as the author's own comment on the code it concerns.
+The side the author picked on a decision card, with its short justification: the deck's counterpart of a settled point. It stays in the local review state until the pull request's canvas is published, and then, when its side calls for one, it is posted as the author's own comment on the code it concerns. A canvas point that reopens one, because the code contradicts the pick, is the author's.
 _Avoid_: Approved decision, resolved attention point
 
 **Fix list**:

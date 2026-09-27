@@ -155,7 +155,7 @@
   color: var(--fg-muted);
   border-color: var(--line);
 }
-.pill.self-review {
+.pill.deck {
   color: #1e1f2b;
   background: var(--v5);
   border-color: var(--line-strong);

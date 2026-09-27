@@ -2,10 +2,29 @@
 
 ## Unreleased
 
+### Self-review
+
+- Every attention point names its audience: **author** (shown as **yours** to the author) or
+  **reviewer**. The generation prompt asks for it; a canvas from an earlier version reads every
+  point as the reviewer's.
+- The author can **settle** an author point with a reason; reviewer points stay on the
+  reviewer's list. The settlement is written into the canvas, the
+  canvas comment is shared again, and the point leaves every reviewer's list with the reason
+  listed under the overview. The reason can also post as a comment on the point's line.
+  **reopen** takes it back. Only the pull request's author can settle (`NOT_AUTHOR` otherwise).
+- The canvas comment counts the points left for the reviewer by level, the points the author
+  settled, and the ones the author has not settled yet.
+- Settlements survive regenerating the same commit, and follow carried points into an incremental
+  canvas. **Refresh** imports a canvas the author revised at the same commit.
+- The sharing switches apply to settling too. With `canvasComment` off, settling shares nothing,
+  and the author's note says the settlement stays in the canvas. With `mentionCanvas` off, the
+  posted reason drops its `from the pr-review canvas` credit.
+- The skill ends by handing the author the self-review.
+
 ### Self-review deck
 
-- `/pr-self-review <pr-number>|branch|uncommitted` deals a short deck of **decision cards** before
-  reviewers weigh in. Each card is a choice the change makes that could go either way, with sides A
+- Before the canvas, `/pr-self-review <pr-number>|branch|uncommitted` deals a short deck of
+  **decision cards**, so the author settles the change's open decisions before reviewers weigh in. Each card is a choice the change makes that could go either way, with sides A
   and B, and one side marked as what the code does now. At most one card per 100 changed lines and
   never more than ten; `selfReview.maxCards` and `selfReview.linesPerCard` change that.
 - `/deck/<n>`, `/deck/branch`, and `/deck/uncommitted` show one card per screen with no scroll at
@@ -17,10 +36,10 @@
   them, and deals the next deck, which never asks a settled decision again.
 - A pull request's canvas takes the decisions its decks settled: it does not ask them again unless
   the code contradicts the pick, and it raises the skipped cards for reviewers. Validation holds it
-  to that: a point that asks a settled decision again says `reopens`, a skipped card is raised by a
-  point that says `asks`, and the canvas page marks both. Publishing it posts
-  the **PR comment** justifications as the author's own review, once; `--skip-self-review-comments`
-  keeps them off.
+  to that: a point that asks a settled decision again says `reopens` and is the author's, a skipped
+  card is raised by a point that says `asks` and is the reviewer's, and the canvas page marks both.
+  Publishing it posts the **PR comment** justifications as the author's own review, once, in the
+  form settled points use; `--skip-self-review-comments` keeps them off.
 - New commands `pr-review deck prepare|validate|preview|publish|fixes`. `deck preview` screenshots
   every card of the deck as written, before it is published, with an installed Chrome, Chromium,
   or Edge (`PR_REVIEW_BROWSER` picks one), and notes any scene that was shrunk, cut off, or whose
@@ -54,6 +73,13 @@
   keyed by agent id (`claude: opus`). `prepare` prints it as `models`. Claude generates with Opus
   unless the project names another model; any other agent with no entry keeps the session's model.
   The skill no longer pins Sonnet.
+- `validate` and `publish` use the data dir that holds their canvas dir. A canvas prepared with
+  `--data-dir` no longer lands in the main checkout's `.pr-review/` when publish is run without
+  the flag. Neither command creates a data dir any more, not even for a canvas dir outside one or
+  a missing `--canvas`. A `--data-dir` that names another data dir makes publish fail with
+  `CANVAS_ELSEWHERE`. `publish --help` lists
+  `--data-dir`. The skill tells an agent that cannot write to `canvasDir` to prepare under a
+  `--data-dir` it can write, instead of copying files in with the shell.
 - The settings dialog lists the project's canvas generation models under **Canvas generation** in
   the read-only project config, and shows the chat fields as **Chat agent** and **Chat model**
   under an **AI Chat** heading. The header's generator pill reads

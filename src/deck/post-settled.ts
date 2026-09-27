@@ -1,10 +1,11 @@
 // Posts the justifications the author kept for reviewers, from the self-review decks, as the
 // author's own review on the pull request: one COMMENT review, each justification inline on the
-// code it concerns. A decision whose code changed since the card was dealt is listed in the review
-// body instead of landing on a line it no longer describes.
+// code it concerns, worded as a settled point's reason is. A decision whose code changed since the
+// card was dealt is listed in the review body instead of landing on a line it no longer describes.
 import type { SettledCard } from '../contract/deck.js'
 import type { PendingComment } from '../contract/pending.js'
 import type { Pr } from '../contract/review-artifact.js'
+import { resolveSharing } from '../contract/settings.js'
 import type { AppContext } from '../server/context.js'
 import { anchorOnHead, decisionsForPr, pickedLabel, recordOf, sentence, whyOf } from './settled-for-pr.js'
 
@@ -15,19 +16,16 @@ export type SelfReviewSharing =
   | { status: 'failed'; warning: string }
   | { status: 'skipped' }
 
-/** Marks a comment as the tool's, so a reader, or a later tool, can tell where it came from. */
-function marker(card: SettledCard): string {
-  return `<!-- pr-review:self-review card=${card.key} -->`
-}
-
 /** `Picked A, Keep it. Because …`: the side, then the author's reason when there is one. */
 function pickedSentence(card: SettledCard): string {
   const why = whyOf(card)
   return `${sentence(pickedLabel(card))}${why === '' ? '' : ` ${why}`}`
 }
 
-function commentBody(card: SettledCard): string {
-  return [`**Self-review: ${card.title}**`, '', `Picked ${pickedSentence(card)}`, '', marker(card)].join('\n')
+/** The comment on the decision's line. The credit line is left out when `sharing.mentionCanvas` is off. */
+function commentBody(card: SettledCard, mentionCanvas: boolean): string {
+  const credit = mentionCanvas ? '\n\n_from the pr-review self-review deck_' : ''
+  return `**Settled by the author:** ${card.title}\n\nPicked ${pickedSentence(card)}${credit}`
 }
 
 function listedLine(card: SettledCard): string {
@@ -55,6 +53,7 @@ export async function postSettledComments(
     return held === 0 ? { status: 'none' } : { status: 'none', held }
   }
   try {
+    const { mentionCanvas } = resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read())
     const derived = await ctx.derived.ensure(pr.headSha, pr.mergeBaseSha)
     const now = ctx.now().toISOString()
     const comments: PendingComment[] = []
@@ -68,7 +67,7 @@ export async function postSettledComments(
       comments.push({
         id: `self-review-${card.key}`,
         ...anchor,
-        body: commentBody(card),
+        body: commentBody(card, mentionCanvas),
         headSha: pr.headSha,
         createdAt: now,
         updatedAt: now,

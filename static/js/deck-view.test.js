@@ -332,13 +332,14 @@ describe('finishHtml', () => {
     expect(root.querySelector('.deck-run')).toBeNull()
   })
 
-  it('offers the fix skill for this review only when there is something to fix or write down', () => {
+  it('offers the fix skill when there is something to fix or write down, and the canvas otherwise', () => {
     const cards = [card()]
     let root = render(
       finishHtml({ review: '42', cards, picks: { rows: pick('a') }, summary, fixes: null, settled: 0 })
     )
     expect(root.textContent).toContain('Nothing to fix')
-    expect(root.querySelector('[data-copy]')).toBeNull()
+    expect(root.querySelector('.deck-run code')?.textContent).toBe('/pr-review-canvas 42')
+    expect(root.querySelector('[data-copy]')?.getAttribute('data-copy')).toBe('/pr-review-canvas 42')
 
     root = render(
       finishHtml({

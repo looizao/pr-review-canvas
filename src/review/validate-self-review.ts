@@ -1,8 +1,8 @@
-// The rules that keep a pull request's canvas faithful to the author's self-review. Whether the
-// code really contradicts a settled decision is a judgment no check can make; what a check can
-// make sure of is that every reopened decision says so, and that every card the author left for
-// reviewers reaches them. A reopen may sit wherever the contradiction is: the code that breaks a
-// pick is not always the code the card was dealt on.
+// The rules that keep a pull request's canvas faithful to the author's self-review deck. Whether
+// the code really contradicts a settled decision is a judgment no check can make; what a check can
+// make sure of is that every reopened decision says so and goes back to the author who settled it,
+// and that every card the author left for reviewers reaches them. A reopen may sit wherever the
+// contradiction is: the code that breaks a pick is not always the code the card was dealt on.
 import type { GenerationContext, SelfReviewDecision } from '../contract/generation-context.js'
 import type { FileEntry, ModelOutput, ModelPoint } from '../contract/review-artifact.js'
 import type { ValidationError } from '../contract/validation.js'
@@ -64,6 +64,12 @@ export function validateSelfReview(
           where,
           `${label(p, i)} reopens "${p.reopens}" as ${p.kind}/${p.level}; a reopened decision is a decision/decide point`
         )
+      } else if (p.audience !== 'author') {
+        add(
+          'SELF_REVIEW_AUDIENCE',
+          where,
+          `${label(p, i)} reopens "${p.reopens}" for the ${p.audience}; the author settled it, so the point is theirs (audience: author)`
+        )
       }
     }
     if (p.asks !== undefined) {
@@ -78,6 +84,12 @@ export function validateSelfReview(
           'SELF_REVIEW_LEVEL',
           where,
           `${label(p, i)} asks "${p.asks}" at level ${p.level}; it is a decide point`
+        )
+      } else if (p.audience !== 'reviewer') {
+        add(
+          'SELF_REVIEW_AUDIENCE',
+          where,
+          `${label(p, i)} asks "${p.asks}" of the ${p.audience}; the author left it for reviewers (audience: reviewer)`
         )
       }
     }

@@ -42,6 +42,13 @@ pr-review validate <model.json|review.json> --canvas <dir> [--human] [--fix]
 pr-review publish <canvasDir> --agent <id> [--model <id>] --harness claude-code|codex|other [--allow-stale]
 ```
 
+`validate` and `publish` use the data directory that holds their canvas dir (`--canvas` and
+`<canvasDir>`), so a canvas prepared with `--data-dir <dir>` is validated and published there
+without the flag, and nothing is written outside it. Neither command creates a data directory:
+they work in the one prepare made. For `publish`, a `--data-dir` or
+`PR_REVIEW_DATA_DIR` that names another data directory fails with `CANVAS_ELSEWHERE` instead of
+writing to it.
+
 `prepare` returns `canvasDir`, `headSha`, `mergeBaseSha`, `promptPath`, `contextPath`, `models` (the project's `generation.models`), and `status`.
 A status of `exists` means that head already has a canvas. With `--force`, preparation clears the
 previous generation's working files while keeping the published canvas available until a new
@@ -118,10 +125,12 @@ to `generation.inlineDiffMaxLines`.
 
 For PR/MR targets, `publish` saves the validated canvas locally, then posts its compressed ZIP
 as base64 inside a hidden HTML comment on GitHub or GitLab. The visible comment identifies the
-commit and explains how to open the canvas. Publishing again updates the existing canvas comment
-owned by the current CLI account; another author's comment is left alone. The payload contains
-the same `manifest.json` and `review.json` as an export, including the PR/MR description and review
-notes. Hidden markup is not private: anyone who can read the comment can retrieve the payload.
+commit, counts what the canvas leaves open, and explains how to open it. The counts are the
+attention points left for the reviewer by level, how many the author settled, and how many the
+author has not settled yet (see [Self-review](#self-review)). Publishing again updates the
+existing canvas comment owned by the current CLI account; another author's comment is left alone.
+The payload contains the same `manifest.json` and `review.json` as an export, including the PR/MR
+description, review notes, and the author's settlements. Hidden markup is not private: anyone who can read the comment can retrieve the payload.
 No generated files enter Git history and no storage service or CI workflow is required.
 
 Check the `sharing` result even when the process exits successfully:
@@ -142,10 +151,10 @@ Some projects must not get a canvas comment, or any mention of the tool, on thei
 switches cover this, both on by default:
 
 - `sharing.canvasComment`: `false` makes `publish` skip the canvas comment and return
-  `sharing.status: "off"`. It posts none of the self-review justifications either
-  (`selfReview.status: "skipped"`).
+  `sharing.status: "off"`. It posts none of the self-review deck's justifications either
+  (`selfReview.status: "skipped"`), and [settling](#self-review) then writes only the local canvas.
 - `sharing.mentionCanvas`: `false` keeps the canvas out of everything the review page posts. An
-  attention point's comment drops its `from the pr-review canvas` credit, and the sign-off dialog
+  attention point's comment and a settlement's posted reason drop their credit line, and the sign-off dialog
   opens with an empty body for you to write, since the suggested body describes the canvas.
   Posting comments and reviews from the page still works. GitHub needs a body to request changes
   or to post a comment-only review, so write one.
@@ -308,7 +317,9 @@ within one path segment.
 | `canvas.keepForIdenticalDiff`   | `true`                                                                      | Keep the canvas current for a later head whose diff is identical to the canvas's; see [outdated canvases](#outdated-canvases). Set to `false` to mark it outdated on every commit                                                                                                                                                                                                                                                                                                                                  |
 | `canvas.incremental`            | `true`                                                                      | Regenerate a canvas for a new head by updating the newest canvas of a commit the head was built on; see [incremental canvases](#incremental-canvases). Set to `false` to generate every canvas from a blank page                                                                                                                                                                                                                                                                                                   |
 | `sharing.canvasComment`         | `true`                                                                      | Set to `false` to keep canvases local: `publish` posts no PR/MR comment; see [turning sharing off](#turning-sharing-off)                                                                                                                                                                                                                                                                                                                                                                                           |
-| `sharing.mentionCanvas`         | `true`                                                                      | Set to `false` to keep the canvas out of what the review page posts                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `sharing.mentionCanvas`         | `true`                                                                      | Set to `false` to keep the canvas out of what the review page posts, and the deck's credit out of the justifications `publish` posts                                                                                                                                                                                                                                                                                                                                                                               |
+| `selfReview.linesPerCard`       | `100`                                                                       | A [self-review deck](#self-review-deck) holds at most one card per this many changed lines                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `selfReview.maxCards`           | `10`                                                                        | The most cards a self-review deck holds, however large the change                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `prompts`                       | Bundled templates                                                           | See [prompt templates](#prompt-templates) for supported keys and behavior                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Generation's numeric options and text caps must be positive integers. An empty `layers` list
@@ -562,6 +573,74 @@ refused.
 When automatic download fails, download the archive in GitHub or GitLab and use the page's drop
 zone or `pr-review import <zip> --pr <n>`.
 
+### Self-review
+
+The author reads the canvas before asking for review. Every attention point names its audience:
+
+- **author** (shown as **yours** to the author): a question the author can answer alone, such as
+  whether anything uses an API yet, known debt, or a test gap to fill or explain.
+- **reviewer**: a trade-off to agree on or a risk to verify, which needs someone else's judgment.
+
+When the login that runs `pr-review serve` wrote the pull request, or the review is of local work,
+each author point has a **settle** command. A reviewer point has none: the author's answer does not
+close a question that needs someone else's judgment, so it stays on the reviewer's list and the
+author can answer it in a comment instead. Write why the point needs no reviewer decision and click
+**settle**. On a pull request, **also post the reason as a comment on this line** is checked by
+default; the reason then also appears as a review comment on the point's line.
+
+A settlement is written into the canvas itself, so it is not a local mark like **dismiss**:
+
+- The point leaves every reader's list. The overview lists it under **N settled by the author**
+  with its reason and, when posted, a link to the comment.
+- The canvas comment is shared again at once, with the new counts. Reviewers click **refresh** to
+  load it. When sharing fails, the settlement stays in your local canvas and the message says why.
+  With [`canvasComment` off](#turning-sharing-off), nothing is shared and reviewers do not see it.
+- **reopen** in that list takes a settlement back and shares the canvas again. A posted comment
+  stays on the forge.
+- Regenerating the canvas for the same commit keeps each settlement whose point comes back with the
+  same kind, path, and title and is still an author point. An
+  [incremental canvas](#incremental-canvases) keeps the settlements of the author points it
+  carries.
+
+Only the author can settle, and only author points: the server refuses anyone else with
+`NOT_AUTHOR`, and a reviewer point with `BAD_REQUEST`. An outdated canvas offers no **settle**:
+regenerate it for the current head first.
+
+### Self-review deck
+
+Before the canvas, the author can settle the change's open decisions in a deck of decision cards:
+`/pr-self-review <pr-number>|branch|uncommitted` deals it, `/deck/<n>`, `/deck/branch`, or
+`/deck/uncommitted` shows it, and `/pr-self-review-fix` applies the picks that disagree with the
+code. The [README](../README.md#settle-your-decisions-first-the-self-review-deck) walks through it.
+The skill drives these commands:
+
+- `pr-review deck prepare (--pr <n> | --branch | --uncommitted)` writes the generator's prompt.
+- `pr-review deck validate … [--human]` checks the deck the generator wrote.
+- `pr-review deck preview … [--human]` screenshots every card of the unpublished deck with an
+  installed Chrome, Chromium, or Edge (`PR_REVIEW_BROWSER` picks one) and publishes nothing;
+  `/deck/<n>?preview` shows the same on a running `serve`.
+- `pr-review deck publish … --agent <id>` stores it for the deck page; `deck fixes` names the fix
+  list the page wrote.
+
+A pull request's canvas meets the decks through the decisions they settled, and validation holds it
+to them:
+
+- A settled decision is not asked again. A point that asks it again, because the code contradicts
+  the pick, says `reopens: <key>` and is an author point (`SELF_REVIEW_AUDIENCE` otherwise): the
+  decision is the author's to carry out, or to [settle](#self-review) again with a reason.
+- Any other `decide` point on a settled decision's code is refused (`SETTLED_REOPENED`).
+- A card the author skipped is raised by a `decide` point that says `asks: <key>` and is a
+  reviewer point (`OPEN_UNASKED` when none does).
+- Keys that name nothing are refused (`SELF_REVIEW_KEY`), and so are links on the wrong kind or
+  level of point (`SELF_REVIEW_LEVEL`).
+
+`pr-review publish` for the pull request then posts every justification recorded as a **PR
+comment** as one `COMMENT` review under the author's login, each on the code it concerns and worded
+as a settled point's reason is. A decision the canvas reopens waits for a canvas that no longer
+reopens it; `decks/<n>/posted.json` keeps it to one post per pick. `--skip-self-review-comments`
+and [`canvasComment` off](#turning-sharing-off) keep them off, and `mentionCanvas` off drops their
+credit line.
+
 ### Comments and sign-off
 
 You can post inline comments, replies, PR-level comments, and attention points. Inline comments
@@ -668,6 +747,8 @@ on the point's side, and the prompt gives the lines the point now sits on.
 
 Everything else is decided again. The summary and risk tags are always rewritten. A carried
 attention point keeps its kind, path, and title, so it keeps its fingerprint and any dismissal.
+The author's settlement of a carried point follows it into the new canvas; a point that is decided
+again comes back unsettled, because its code changed.
 Review marks do not follow a point: they follow files and layers, by the rules below.
 
 The canvas records only which basis it came from. Your server decides which review marks follow,
@@ -766,6 +847,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `CANVAS_PR_MISMATCH`                    | The ZIP was exported for another pull request; import the canvas of this PR, or import that ZIP without `--pr` to store it under its own              |
 | `CANVAS_TOO_LARGE`                      | The archive exceeds the 20 MiB import limit                                                                                                           |
 | `CANVAS_STALE`                          | The PR head moved; prepare again for the current commit                                                                                               |
+| `CANVAS_ELSEWHERE`                      | `publish` got a canvas dir outside its data dir; publish the `canvasDir` prepare printed, with the `--data-dir` prepare used or none                  |
 | `MODEL_INVALID`                         | Fix the reported problems in `model.json`, validate, then publish again                                                                               |
 | `SKILL_DIR_EXISTS`                      | The destination contains a customized directory; preserve it elsewhere before replacing it with `--force`                                             |
 | `CHAT_BUSY`                             | Wait for the running reply or press **stop**; when another `pr-review serve` holds the review checkout, ask again once its answer is done             |
@@ -774,6 +856,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `AGENT_INCOMPLETE`                      | Retry the message or increase the chat timeout                                                                                                        |
 | `COMMENT_FORBIDDEN`                     | Check the GitHub or GitLab account's repository access and token permissions                                                                          |
 | `COMMENT_LINE_NOT_IN_DIFF`              | Choose a line shown in the current diff                                                                                                               |
+| `NOT_AUTHOR`                            | Only the pull request's author settles points; sign in with that account, or dismiss the point instead                                                |
 | `SIGNOFF_INCOMPLETE`                    | Mark every layer except Other reviewed for this head                                                                                                  |
 | `FORBIDDEN_HOST` / `CROSS_ORIGIN`       | Open the local server using `localhost` or `127.0.0.1` and submit actions from that page                                                              |
 
