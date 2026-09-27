@@ -136,11 +136,11 @@ to `generation.inlineDiffMaxLines`.
 For PR/MR targets, `publish` saves the validated canvas locally, then posts its compressed ZIP
 as base64 inside a hidden HTML comment on GitHub or GitLab. The visible comment identifies the
 commit, counts what the canvas leaves open, and explains how to open it. The counts are the
-attention points left for the reviewer by level, how many the author settled, and how many the
-author has not settled yet (see [Self-review](#self-review)). Publishing again updates the
+attention points left for the reviewer by level, how many the author resolved, and how many the
+author has not resolved yet (see [Self-review](#self-review)). Publishing again updates the
 existing canvas comment owned by the current CLI account; another author's comment is left alone.
 The payload contains the same `manifest.json` and `review.json` as an export, including the PR/MR
-description, review notes, and the author's settlements. Hidden markup is not private: anyone who can read the comment can retrieve the payload.
+description, review notes, and the author's resolutions. Hidden markup is not private: anyone who can read the comment can retrieve the payload.
 No generated files enter Git history and no storage service or CI workflow is required.
 
 Check the `sharing` result even when the process exits successfully:
@@ -161,9 +161,9 @@ Some projects must not get a canvas comment, or any mention of the tool, on thei
 switches cover this, both on by default:
 
 - `sharing.canvasComment`: `false` makes `publish` skip the canvas comment and return
-  `sharing.status: "off"`. [Settling](#self-review) then writes only the local canvas.
+  `sharing.status: "off"`. [Resolving](#self-review) then writes only the local canvas.
 - `sharing.mentionCanvas`: `false` keeps the canvas out of everything the review page posts. An
-  attention point's comment and a settlement's posted reason drop their credit line, and the sign-off dialog
+  attention point's comment and a resolution's posted reason drop their credit line, and the sign-off dialog
   opens with an empty body for you to write, since the suggested body describes the canvas.
   Posting comments and reviews from the page still works. GitHub needs a body to request changes
   or to post a comment-only review, so write one.
@@ -608,28 +608,32 @@ The author reads the canvas before asking for review. Every attention point name
 - **reviewer**: a trade-off to agree on or a risk to verify, which needs someone else's judgment.
 
 When the login that runs `pr-review serve` wrote the pull request, or the review is of local work,
-each author point has a **settle** command. A reviewer point has none: the author's answer does not
+each author point has a **resolve** command. A reviewer point has none: the author's answer does not
 close a question that needs someone else's judgment, so it stays on the reviewer's list and the
 author can answer it in a comment instead. Write why the point needs no reviewer decision and click
-**settle**. On a pull request, **also post the reason as a comment on this line** is checked by
+**resolve**. On a pull request, **also post the reason as a comment on this line** is checked by
 default; the reason then also appears as a review comment on the point's line.
 
-A settlement is written into the canvas itself, so it is not a local mark like **dismiss**:
+Self-review offers **resolve** and **reopen** for author points. **Dismiss** is available only
+in reviewer mode. Earlier personal dismissals do not hide points or count as resolutions in
+self-review.
 
-- The point leaves every reader's list. The overview lists it under **N settled by the author**
+A resolution is written into the canvas itself:
+
+- The point leaves every reader's list. The overview lists it under **N resolved by the author**
   with its reason and, when posted, a link to the comment.
 - The canvas comment is shared again at once, with the new counts. Reviewers click **refresh** to
-  load it. When sharing fails, the settlement stays in your local canvas and the message says why.
+  load it. When sharing fails, the resolution stays in your local canvas and the message says why.
   With [`canvasComment` off](#turning-sharing-off), nothing is shared and reviewers do not see it.
-- **reopen** in that list takes a settlement back and shares the canvas again. A posted comment
+- **reopen** in that list takes a resolution back and shares the canvas again. A posted comment
   stays on the forge.
-- Regenerating the canvas for the same commit keeps each settlement whose point comes back with the
+- Regenerating the canvas for the same commit keeps each resolution whose point comes back with the
   same kind, path, and title and is still an author point. An
-  [incremental canvas](#incremental-canvases) keeps the settlements of the author points it
+  [incremental canvas](#incremental-canvases) keeps the resolutions of the author points it
   carries.
 
-Only the author can settle, and only author points: the server refuses anyone else with
-`NOT_AUTHOR`, and a reviewer point with `BAD_REQUEST`. An outdated canvas offers no **settle**:
+Only the author can resolve, and only author points: the server refuses anyone else with
+`NOT_AUTHOR`, and a reviewer point with `BAD_REQUEST`. An outdated canvas offers no **resolve**:
 regenerate it for the current head first.
 
 ### Comments and sign-off
@@ -656,7 +660,9 @@ A pending review holds comments on your machine until you submit them together.
   in advance. A point in the review shows **in your review**; edit or remove it as the draft on its
   line. After submission, the point shows the comment it became.
 - A comment the AI Chat proposes works the same way: it offers **post to github** and **add to
-  review**, and shows **in your review** once it is queued.
+  review**, and shows **in your review** once it is queued. After submission it shows **view
+  comment** when the comment link is known, or **submitted** when the receipt could not be loaded.
+  Neither state offers to submit that proposal again.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.
@@ -738,8 +744,8 @@ on the point's side, and the prompt gives the lines the point now sits on.
 
 Everything else is decided again. The summary and risk tags are always rewritten. A carried
 attention point keeps its kind, path, and title, so it keeps its fingerprint and any dismissal.
-The author's settlement of a carried point follows it into the new canvas; a point that is decided
-again comes back unsettled, because its code changed.
+The author's resolution of a carried point follows it into the new canvas; a point that is decided
+again comes back unresolved, because its code changed.
 Review marks do not follow a point: they follow files and layers, by the rules below.
 
 The canvas records only which basis it came from. Your server decides which review marks follow,
@@ -866,7 +872,7 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 | `AGENT_INCOMPLETE`                      | Retry the message or increase the chat timeout                                                                                                        |
 | `COMMENT_FORBIDDEN`                     | Check the GitHub or GitLab account's repository access and token permissions                                                                          |
 | `COMMENT_LINE_NOT_IN_DIFF`              | Choose a line shown in the current diff                                                                                                               |
-| `NOT_AUTHOR`                            | Only the pull request's author settles points; sign in with that account, or dismiss the point instead                                                |
+| `NOT_AUTHOR`                            | Only the pull request's author resolves points; sign in with that account, or dismiss the point instead                                               |
 | `SIGNOFF_INCOMPLETE`                    | Mark every layer except Other reviewed for this head                                                                                                  |
 | `FORBIDDEN_HOST` / `CROSS_ORIGIN`       | Open the local server using `localhost` or `127.0.0.1` and submit actions from that page                                                              |
 

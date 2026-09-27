@@ -74,14 +74,14 @@ Start the server from your project:
 pr-review serve
 ```
 
-Open the review URL. For each attention point marked **yours**, click **settle** and
+Open the review URL. For each attention point marked **yours**, click **resolve** and
 explain why it needs no reviewer decision. Your reason stays visible to reviewers.
 Then request review from your team.
 
 After pushing new commits, run `/pr-review-canvas 123` again to update the canvas.
 Reviewers click **refresh** to load it.
 
-See [self-review](docs/reference.md#self-review) for settlement details and
+See [self-review](docs/reference.md#self-review) for resolution details and
 [manual sharing](docs/reference.md#automatic-sharing-and-zip-fallback) if automatic sharing fails.
 
 Before opening a PR, you can generate a canvas for your local work:
@@ -92,7 +92,7 @@ Before opening a PR, you can generate a canvas for your local work:
 ```
 
 With `pr-review serve` running, open **http://localhost:3010/review/branch** or
-**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can settle
+**http://localhost:3010/review/uncommitted**. These reviews stay local, and you can resolve
 attention points before sharing your work. Use `--base <ref>` to compare against another branch.
 See [local branch and uncommitted reviews](docs/reference.md#reviewing-before-the-pull-request-exists)
 for details.

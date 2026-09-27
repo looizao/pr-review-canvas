@@ -20,7 +20,7 @@ async function requireAuthor(ctx: AppContext, pr: Pr): Promise<void> {
   if (!isAuthor(login, pr)) {
     throw new AppError(
       'NOT_AUTHOR',
-      `only ${pr.author}, who wrote this ${ctx.config.host.noun}, settles its attention points`,
+      `only ${pr.author}, who wrote this ${ctx.config.host.noun}, resolves its attention points`,
       403,
       'dismiss the point instead; a dismissal stays on your machine'
     )
@@ -37,7 +37,7 @@ async function currentCanvasSha(ctx: AppContext, key: ReviewKey, pr: Pr): Promis
       'CANVAS_STALE',
       'the canvas on screen was generated for another commit',
       409,
-      'regenerate the canvas for the current head, then settle its points'
+      'regenerate the canvas for the current head, then resolve its points'
     )
   }
   return found.headSha
@@ -57,8 +57,8 @@ export function selfReviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
       throw new AppError('NOT_IMPLEMENTED', 'a --fixture-canvas artifact is read-only', 501)
     }
     const pr = await loader.currentTarget(key)
+    requireSameHead(input.headSha, pr.headSha)
     if (!isLocalKey(key)) {
-      requireSameHead(input.headSha, pr.headSha)
       await requireAuthor(ctx, pr)
     }
     const canvasSha = await currentCanvasSha(ctx, key, pr)
@@ -77,7 +77,7 @@ export function selfReviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
       if (point.audience !== 'author') {
         throw new AppError(
           'BAD_REQUEST',
-          `"${point.title}" is for the reviewer to judge, so the author does not settle it`,
+          `"${point.title}" is for the reviewer to judge, so the author does not resolve it`,
           400,
           'answer it in a comment instead'
         )
@@ -90,7 +90,8 @@ export function selfReviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
           const posted = await postOnPr(ctx, loader, requirePrNumber(key, 'posting the reason'), {
             kind: 'inline',
             path: point.path,
-            line: point.line,
+            line: point.endLine ?? point.line,
+            ...(point.endLine !== undefined && point.endLine !== point.line ? { startLine: point.line } : {}),
             side: point.side ?? 'new',
             body: settlementCommentBody(point, input.reason, await mentionsCanvas(ctx)),
             pointFingerprint: point.fingerprint,

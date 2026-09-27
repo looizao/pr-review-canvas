@@ -20,14 +20,14 @@ it('round-trips binary bytes in one hidden comment and measures the complete bod
 
 it('says what the canvas leaves for the reviewer and what the author settled', () => {
   expect(buildCanvasComment(zip, tally, 65_536)).toContain(
-    '**For the reviewer:** 1 attention point to judge (1 decide).\n**Not yet settled by the author:** 2.'
+    '**For the reviewer:** 1 attention point to judge (1 decide).\n**Not yet resolved by the author:** 2.'
   )
   const settled = tallyCanvas({
     ...syntheticArtifact(),
     settled: { 'fp-2': { reason: 'Covered by the e2e suite.', at: 'now' } },
   })
   expect(buildCanvasComment(zip, settled, 65_536)).toContain(
-    '**Settled by the author:** 1, each with its reason in the canvas.\n**Not yet settled by the author:** 1.'
+    '**Resolved by the author:** 1, each with its reason in the canvas.\n**Not yet resolved by the author:** 1.'
   )
 })
 

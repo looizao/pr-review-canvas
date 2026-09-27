@@ -112,7 +112,7 @@ export const ERROR_CARDS = {
     action: 'Check the account’s repository access and token permissions, then retry.',
   },
   NOT_AUTHOR: {
-    title: 'Only the author settles points',
+    title: 'Only the author resolves points',
     action: 'Dismiss the point instead: a dismissal stays on your machine.',
   },
   COMMENT_LINE_NOT_IN_DIFF: {
