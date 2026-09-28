@@ -311,15 +311,21 @@ it('merges comments from independent store instances and leaves an absent cache 
     createdAt: '2026-09-10T12:00:00Z',
     updatedAt: '2026-09-10T12:00:00Z',
   }
-  await cli.upsertComments(42, [{ kind: 'issue', comment }])
+  await cli.postComments(42, async () => ({ result: comment, comments: [{ kind: 'issue', comment }] }))
   expect(await server.readComments(42)).toBeNull()
   await server.refreshComments(42, async () => ({
     payload: { ...emptyComments(HEAD_SHA, comment.createdAt), issueComments: [comment] },
     warnings: [],
   }))
   await Promise.all([
-    server.upsertComments(42, [{ kind: 'issue', comment: { ...comment, id: 6002, body: 'ordinary' } }]),
-    cli.upsertComments(42, [{ kind: 'issue', comment: { ...comment, body: 'updated canvas' } }]),
+    server.postComments(42, async () => ({
+      result: undefined,
+      comments: [{ kind: 'issue', comment: { ...comment, id: 6002, body: 'ordinary' } }],
+    })),
+    cli.postComments(42, async () => ({
+      result: undefined,
+      comments: [{ kind: 'issue', comment: { ...comment, body: 'updated canvas' } }],
+    })),
   ])
   expect((await server.readComments(42))?.issueComments).toEqual([
     { ...comment, body: 'updated canvas' },

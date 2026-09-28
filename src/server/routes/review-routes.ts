@@ -202,8 +202,10 @@ export async function postOnPr(
     diff = await requireDerived(ctx, pr.headSha)
     requireInlineTarget(diff, input)
   }
-  const posted = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
-  await ctx.prs.upsertComments(number, [posted])
+  const posted = await ctx.prs.postComments(number, async () => {
+    const result = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
+    return { result, comments: [result] }
+  })
   const entry =
     input.kind === 'inline' && input.pointFingerprint !== undefined
       ? { commentId: posted.comment.id, pointFingerprint: input.pointFingerprint }
@@ -391,36 +393,33 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
         )
       }
     }
-    const {
-      comments: submittedComments,
-      warnings,
-      ...review
-    } = await ctx.config.host.postReview(
-      ctx.gh,
-      ctx.config.repo,
-      number,
-      pr.headSha,
-      { event: input.event, body, comments: pending },
-      diff
-    )
-    const next =
-      pending.length === 0
-        ? await ctx.state.read(number)
-        : await ctx.state.completePending(
-            number,
-            pending.map(p => ({ ...p, reviewId: review.id })),
-            postedFromPending(pending, submittedComments)
-          )
-    if (submittedComments.length > 0) {
-      await ctx.prs.upsertComments(
+    const posted = await ctx.prs.postComments(number, async () => {
+      const {
+        comments: submittedComments,
+        warnings,
+        ...review
+      } = await ctx.config.host.postReview(
+        ctx.gh,
+        ctx.config.repo,
         number,
-        submittedComments.map(comment => ({ kind: 'review', comment }))
+        pr.headSha,
+        { event: input.event, body, comments: pending },
+        diff
       )
-    }
-    return c.json(
-      { review, submitted: pending.length, state: next, comments: submittedComments, warnings },
-      201
-    )
+      const next =
+        pending.length === 0
+          ? await ctx.state.read(number)
+          : await ctx.state.completePending(
+              number,
+              pending.map(p => ({ ...p, reviewId: review.id })),
+              postedFromPending(pending, submittedComments)
+            )
+      return {
+        result: { review, submitted: pending.length, state: next, comments: submittedComments, warnings },
+        comments: submittedComments.map(comment => ({ kind: 'review', comment })),
+      }
+    })
+    return c.json(posted, 201)
   })
 
   return api

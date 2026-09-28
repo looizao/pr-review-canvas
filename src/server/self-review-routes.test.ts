@@ -9,6 +9,7 @@ import { GH_PULL } from '../testing/synthetic.js'
 import { PACKAGE_ROOT } from './context.js'
 import * as atomicJson from '../store/atomic-json.js'
 import { check } from 'proper-lockfile'
+import * as lockfile from 'proper-lockfile'
 import path from 'node:path'
 import type { SettleResponse } from '../contract/self-review.js'
 import type { CanvasManifest } from '../contract/canvas-manifest.js'
@@ -40,6 +41,11 @@ import {
   syntheticArtifact,
 } from '../testing/synthetic.js'
 import { createApp } from './app.js'
+
+vi.mock('proper-lockfile', async importOriginal => {
+  const actual = await importOriginal<typeof import('proper-lockfile')>()
+  return { ...actual, lock: vi.fn(actual.lock) }
+})
 
 const SAME_ORIGIN = {
   host: 'localhost:3010',
@@ -476,8 +482,7 @@ it('keeps legacy generated-point identity and resolutions through two incrementa
 it('serializes a resolution cache update behind an ordinary comment already being cached', async () => {
   const ordinaryRead = Promise.withResolvers<void>()
   const releaseOrdinary = Promise.withResolvers<void>()
-  const sharedRemotely = Promise.withResolvers<void>()
-  let armed = false
+  const updateQueued = Promise.withResolvers<void>()
   let remoteBody = ''
   const forge = gh({
     postRoutes: {
@@ -485,7 +490,6 @@ it('serializes a resolution cache update behind an ordinary comment already bein
         const text = (body as { body: string }).body
         if (text === 'Ordinary comment') return { ...CANVAS_COMMENT, id: 6002, body: text }
         remoteBody = text
-        if (armed) sharedRemotely.resolve()
         return { ...CANVAS_COMMENT, body: text }
       }),
     },
@@ -494,6 +498,7 @@ it('serializes a resolution cache update behind an ordinary comment already bein
   const write = atomicJson.writeJsonAtomic
   const app = createApp(t.ctx)
   let spy: ReturnType<typeof vi.spyOn> | undefined
+  let postSpy: ReturnType<typeof vi.spyOn> | undefined
   try {
     const endpoint = '/api/prs/42/points/fp-2/settled'
     const request = (settled: boolean) =>
@@ -516,9 +521,13 @@ it('serializes a resolution cache update behind an ordinary comment already bein
       body: JSON.stringify({ kind: 'issue', body: 'Ordinary comment' }),
     })
     await ordinaryRead.promise
-    armed = true
+    const post = t.ctx.prs.postComments
+    postSpy = vi.spyOn(t.ctx.prs, 'postComments').mockImplementation((...args) => {
+      updateQueued.resolve()
+      return post(...args)
+    })
     const resolution = request(true)
-    await sharedRemotely.promise
+    await updateQueued.promise
     expect(
       await check(t.ctx.prs.prDir(42), { lockfilePath: path.join(t.ctx.prs.prDir(42), 'comments.json.lock') })
     ).toBe(true)
@@ -534,6 +543,7 @@ it('serializes a resolution cache update behind an ordinary comment already bein
   } finally {
     releaseOrdinary.resolve()
     spy?.mockRestore()
+    postSpy?.mockRestore()
     await t.cleanup()
   }
 })
@@ -578,16 +588,16 @@ it.each(['/api/prs/42?refresh=1', '/api/prs/42/comments'])(
         await releaseSnapshot.promise
         return snapshot
       })
-      const upsert = t.ctx.prs.upsertComments
-      updateSpy = vi.spyOn(t.ctx.prs, 'upsertComments').mockImplementation((...args) => {
+      const post = t.ctx.prs.postComments
+      updateSpy = vi.spyOn(t.ctx.prs, 'postComments').mockImplementation((...args) => {
         updateQueued.resolve()
-        return upsert(...args)
+        return post(...args)
       })
       const refresh = app.request(endpoint, { headers: SAME_ORIGIN })
       await snapshotRead.promise
       const resolution = request(true)
       await updateQueued.promise
-      expect(remote!.body).toContain('**Resolved by the author:** 1')
+      expect(remote!.body).toBe(oldBody)
       expect(
         await check(t.ctx.prs.prDir(42), {
           lockfilePath: path.join(t.ctx.prs.prDir(42), 'comments.json.lock'),
@@ -601,6 +611,7 @@ it.each(['/api/prs/42?refresh=1', '/api/prs/42/comments'])(
       const comments = endpoint.endsWith('/comments') ? refreshedBody : refreshedBody.comments
       expect(comments.issueComments).toContainEqual(expect.objectContaining({ id: 6001, body: oldBody }))
       const resolved = await answer(await resolution)
+      expect(remote!.body).toContain('**Resolved by the author:** 1')
       expect(resolved.sharing.status).toBe('shared')
       expect(resolved.issueComments).toContainEqual(expect.objectContaining({ id: 6001, body: remote!.body }))
       const reloaded = await app.request('/api/prs/42', { headers: SAME_ORIGIN })
@@ -615,3 +626,81 @@ it.each(['/api/prs/42?refresh=1', '/api/prs/42/comments'])(
     }
   }
 )
+
+it.each([
+  { name: 'comment', path: '/comments', method: 'POST', body: { kind: 'issue', body: 'One comment' } },
+  { name: 'review', path: '/review', method: 'POST', body: { event: 'COMMENT', body: 'One review' } },
+  {
+    name: 'canvas',
+    path: '/points/fp-2/settled',
+    method: 'PUT',
+    body: { settled: true, reason: 'Verified', comment: false },
+  },
+])('does not post a $name remotely when lock acquisition expires', async input => {
+  const snapshotRead = Promise.withResolvers<void>()
+  const releaseSnapshot = Promise.withResolvers<void>()
+  const forge = gh({
+    postRoutes: {
+      'repos/acme/widgets/pulls/42/reviews': ghPost(() => ({
+        id: 7001,
+        state: 'COMMENTED',
+        html_url: 'https://github.com/acme/widgets/pull/42#pullrequestreview-7001',
+        submitted_at: '2026-09-10T12:00:00Z',
+      })),
+    },
+  })
+  const t = await withCanvas(forge)
+  const app = createApp(t.ctx)
+  const request = () =>
+    app.request(`/api/prs/42${input.path}`, {
+      method: input.method,
+      headers: SAME_ORIGIN,
+      body: JSON.stringify(input.body),
+    })
+  let fetchSpy: ReturnType<typeof vi.spyOn> | undefined
+  let lockSpy: ReturnType<typeof vi.spyOn> | undefined
+  let refresh: Promise<Response> | undefined
+  try {
+    expect((await app.request('/api/prs/42', { headers: SAME_ORIGIN })).status).toBe(200)
+    const fetch = t.ctx.config.host.fetchComments
+    fetchSpy = vi.spyOn(t.ctx.config.host, 'fetchComments').mockImplementationOnce(async (...args) => {
+      const snapshot = await fetch(...args)
+      snapshotRead.resolve()
+      await releaseSnapshot.promise
+      return snapshot
+    })
+    refresh = Promise.resolve(app.request('/api/prs/42?refresh=1', { headers: SAME_ORIGIN }))
+    await snapshotRead.promise
+    const { lock } = await vi.importActual<typeof import('proper-lockfile')>('proper-lockfile')
+    // Exhaust the wait policy immediately; the real refresh still owns the real filesystem lock.
+    lockSpy = vi
+      .spyOn(lockfile, 'lock')
+      .mockImplementation((file, options) => lock(file, { ...options, retries: 0 }))
+    const denied = await request()
+    if (input.name === 'canvas') {
+      const response = await answer(denied)
+      expect(response.sharing).toMatchObject({
+        status: 'failed',
+        warning: expect.stringContaining('Lock file is already being held'),
+      })
+    } else {
+      expect(denied.status).toBe(500)
+      expect((await denied.json()).error.message).toContain('Lock file is already being held')
+    }
+    expect(forge.calls.filter(c => c.kind === 'post')).toEqual([])
+    expect((await t.ctx.state.read(42)).posted).toEqual([])
+    lockSpy.mockRestore()
+    releaseSnapshot.resolve()
+    expect((await refresh).status).toBe(200)
+    const retried = await request()
+    if (input.name === 'canvas') expect((await answer(retried)).sharing.status).toBe('shared')
+    else expect(retried.status).toBe(201)
+    expect(forge.calls.filter(c => c.kind === 'post')).toHaveLength(1)
+  } finally {
+    releaseSnapshot.resolve()
+    lockSpy?.mockRestore()
+    fetchSpy?.mockRestore()
+    await refresh
+    await t.cleanup()
+  }
+})

@@ -22,8 +22,10 @@ export async function shareCanvasOnPr(
   try {
     const { zip, artifact } = await zipStoredCanvas(ctx, headSha, number)
     const body = buildCanvasComment(zip, tallyCanvas(artifact), ctx.config.host.canvasCommentLimit)
-    const comment = await ctx.config.host.shareCanvas(ctx.gh, ctx.config.repo, number, body)
-    await ctx.prs.upsertComments(number, [{ kind: 'issue', comment }])
+    const comment = await ctx.prs.postComments(number, async () => {
+      const shared = await ctx.config.host.shareCanvas(ctx.gh, ctx.config.repo, number, body)
+      return { result: shared, comments: [{ kind: 'issue', comment: shared }] }
+    })
     return { status: 'shared', url: comment.url }
   } catch (err) {
     const exported = await exportCanvas(ctx, { headSha, prNumber: number })

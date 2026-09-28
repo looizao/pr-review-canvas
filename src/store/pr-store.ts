@@ -22,8 +22,11 @@ export interface PrStore {
   readComments(number: number): Promise<CommentsPayload | null>
   /** Fetch and replace the complete snapshot under the same lock as posted updates. */
   refreshComments(number: number, fetch: () => Promise<FetchCommentsResult>): Promise<FetchCommentsResult>
-  /** Merge posted comments under the same cross-process lock as cache replacement. */
-  upsertComments(number: number, posted: ReadonlyArray<PostCommentResult>): Promise<void>
+  /** Acquire the cache lock before posting, then merge the returned comments. */
+  postComments<T>(
+    number: number,
+    post: () => Promise<{ result: T; comments: ReadonlyArray<PostCommentResult> }>
+  ): Promise<T>
   /** The last attachment scan, so an unchanged PR is not scanned again. */
   readDiscovery(number: number): Promise<DiscoveryCache | null>
   writeDiscovery(number: number, discovery: DiscoveryCache): Promise<void>
@@ -76,11 +79,12 @@ export function createPrStore(repoRoot: string): PrStore {
         await writeJsonAtomic(commentsFile(number), result.payload)
         return result
       }),
-    upsertComments: (number, posted) =>
+    postComments: (number, post) =>
       withCommentsLock(number, async () => {
+        const { result, comments: posted } = await post()
         const comments = await readComments(number)
         // With no cache, the next page load must fetch the complete forge conversation.
-        if (comments === null) return
+        if (comments === null || posted.length === 0) return result
         const reviewComments = new Map(comments.reviewComments.map(c => [c.id, c]))
         const issueComments = new Map(comments.issueComments.map(c => [c.id, c]))
         for (const entry of posted) {
@@ -92,6 +96,7 @@ export function createPrStore(repoRoot: string): PrStore {
           reviewComments: [...reviewComments.values()],
           issueComments: [...issueComments.values()],
         })
+        return result
       }),
     readDiscovery: number =>
       readJsonOrDefault(path.join(prDir(number), 'discovery.json'), DiscoveryCacheSchema, () => null),
