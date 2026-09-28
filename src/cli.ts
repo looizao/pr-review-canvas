@@ -47,9 +47,14 @@ const SUBCOMMANDS = [
   'clean',
 ] as const
 
+/** The steps of review generation: the skill reads their JSON, so they print nothing else. */
+const AGENT_COMMANDS: ReadonlySet<string> = new Set(['prepare', 'validate', 'publish'])
+
+/** Filled in by main once it knows the command line. */
 const io: CliIo = {
   stdout: line => process.stdout.write(`${line}\n`),
   stderr: line => process.stderr.write(`${line}\n`),
+  json: true,
 }
 
 async function buildContext(
@@ -208,6 +213,8 @@ async function upgradeCommand(argv: string[]): Promise<number> {
 export async function main(argv: string[]): Promise<number> {
   // `pnpm review -- --port 3011` forwards the `--` itself; drop it so parseArgs sees the flags.
   const [command, ...rest] = argv.filter(a => a !== '--')
+  // A pipe means a script or an agent is reading, so it gets JSON without asking.
+  io.json = rest.includes('--json') || !process.stdout.isTTY || AGENT_COMMANDS.has(command ?? '')
   if (command === undefined || command === '--help' || command === '-h') {
     printUsage(process.stdout, readPackageVersion())
     return command === undefined ? EXIT.usage : EXIT.ok

@@ -237,7 +237,7 @@ describe('runDoctorChecks', () => {
 
 describe('pr-review doctor', () => {
   const lines: string[] = []
-  const io: CliIo = { stdout: l => lines.push(l), stderr: () => undefined }
+  const io: CliIo = { stdout: l => lines.push(l), stderr: () => undefined, json: true }
   const { output } = createFakeTerminal()
   beforeEach(() => {
     lines.length = 0

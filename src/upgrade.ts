@@ -202,7 +202,7 @@ async function applySkillStep(
 }
 
 /**
- * The new pr-review's own `upgrade --yes --only <kinds>`: it plans again with its own code, and runs
+ * The new pr-review's own `upgrade --yes --json --only <kinds>`: it plans again with its own code, and runs
  * only the kinds of step the user confirmed. Its report's steps join this one's, so this process
  * stays the one that prints them.
  */
@@ -210,6 +210,7 @@ async function handOff(deps: UpgradeDeps, kinds: StepKind[]): Promise<StepOutcom
   const result = await deps.runInstalled([
     'upgrade',
     '--yes',
+    '--json',
     '--only',
     kinds.join(','),
     ...(deps.repoRoot === null ? [] : ['--repo', deps.repoRoot]),
@@ -279,13 +280,13 @@ function parseOnly(raw: string | undefined): ReadonlySet<StepKind> | null {
 }
 
 /**
- * `upgrade [--yes] [--only <kinds>]`: the plan on stderr, a confirmation, then one JSON line with
- * what happened.
+ * `upgrade [--yes] [--only <kinds>] [--json]`: the plan and each step's outcome on stderr, with a
+ * confirmation in between. With `io.json`, stdout then gets one JSON line with what happened.
  */
 export async function runUpgrade(deps: UpgradeDeps, argv: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args: argv,
-    options: { yes: { type: 'boolean', short: 'y' }, only: { type: 'string' } },
+    options: { yes: { type: 'boolean', short: 'y' }, only: { type: 'string' }, json: { type: 'boolean' } },
     strict: true,
   })
   const only = parseOnly(values.only)
@@ -305,7 +306,7 @@ export async function runUpgrade(deps: UpgradeDeps, argv: string[], io: CliIo): 
   for (const note of plan.notes) io.stderr(`  ${note}`)
   if (plan.steps.length === 0) {
     io.stderr('Everything is up to date.')
-    printJson(io, { applied: false, steps: [], notes: plan.notes })
+    if (io.json) printJson(io, { applied: false, steps: [], notes: plan.notes })
     return EXIT.ok
   }
   io.stderr('pr-review upgrade will:')
@@ -317,7 +318,7 @@ export async function runUpgrade(deps: UpgradeDeps, argv: string[], io: CliIo): 
   const confirmed = values.yes === true ? true : await deps.confirm('Proceed? [y/N] ')
   if (confirmed !== true) {
     io.stderr(confirmed === null ? 'Nothing changed. Re-run with --yes to apply.' : 'Nothing changed.')
-    printJson(io, { applied: false, steps: plan.steps, notes: plan.notes })
+    if (io.json) printJson(io, { applied: false, steps: plan.steps, notes: plan.notes })
     return EXIT.ok
   }
 
@@ -333,6 +334,10 @@ export async function runUpgrade(deps: UpgradeDeps, argv: string[], io: CliIo): 
     io.stderr(`The project skill changed. Commit and push ${refreshed.join(' and ')} so your team gets it.`)
   }
   const ok = outcomes.every(o => o.status !== 'failed')
-  printJson(io, { applied: true, ok, steps: outcomes, notes: plan.notes })
+  if (io.json) {
+    printJson(io, { applied: true, ok, steps: outcomes, notes: plan.notes })
+  } else {
+    io.stderr(ok ? 'Upgrade complete.' : 'Upgrade finished with failed steps; see above.')
+  }
   return ok ? EXIT.ok : EXIT.error
 }

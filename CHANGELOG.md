@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `install-skill`, `export`, `import`, `clean`, and `upgrade` print text at a terminal, and an
+  unknown command or any other failure prints `error:` and `hint:` lines on stderr. `--json`, or a
+  stdout that is a pipe, keeps the JSON line. `prepare`, `validate`, and `publish` always print
+  JSON.
+
 ## 0.6.0
 
 Changes since 0.5.0.

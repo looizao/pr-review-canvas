@@ -89,7 +89,8 @@ function fake(opts: {
       // What cli.ts does with the arguments: the command name, then the common flags.
       const [command, ...flags] = args
       const { repo: childRepo, rest } = splitCommonFlags(flags)
-      const child = capture()
+      // cli.ts reads --json from the command line; execFile gives the child a pipe as well.
+      const child = capture(rest.includes('--json'))
       const code =
         command === 'upgrade' && (childRepo ?? null) === (opts.repoRoot === undefined ? repo : opts.repoRoot)
           ? await runUpgrade(depsFor(installed[NAME] ?? ''), rest, child.io)
@@ -101,10 +102,10 @@ function fake(opts: {
   return { deps: depsFor(installed[NAME] ?? ''), calls }
 }
 
-function capture(): { io: CliIo; out: string[]; err: string[] } {
+function capture(json = true): { io: CliIo; out: string[]; err: string[] } {
   const out: string[] = []
   const err: string[] = []
-  return { io: { stdout: line => out.push(line), stderr: line => err.push(line) }, out, err }
+  return { io: { stdout: line => out.push(line), stderr: line => err.push(line), json }, out, err }
 }
 
 async function installCopies(): Promise<void> {
@@ -233,7 +234,7 @@ describe('runUpgrade', () => {
     const { io, out, err } = capture()
 
     expect(await runUpgrade(deps, [], io)).toBe(0)
-    expect(calls).toContain(`pr-review 0.6.0 upgrade --yes --only acpx,skill --repo ${repo}`)
+    expect(calls).toContain(`pr-review 0.6.0 upgrade --yes --json --only acpx,skill --repo ${repo}`)
     expect((await findSkillCopies(repo)).every(copy => !copy.stale)).toBe(true)
     expect(JSON.parse(out[0] ?? '').steps).toEqual([
       { kind: 'package', name: NAME, from: '0.5.0', to: '0.6.0', status: 'done' },
@@ -313,7 +314,7 @@ describe('runUpgrade', () => {
   it('hands off without --repo outside a repository', async () => {
     const { deps, calls } = fake({ latest: { [NAME]: '0.6.0', acpx: '0.19.1' }, repoRoot: null })
     expect(await runUpgrade(deps, ['--yes'], capture().io)).toBe(0)
-    expect(calls).toContain('pr-review 0.6.0 upgrade --yes --only acpx')
+    expect(calls).toContain('pr-review 0.6.0 upgrade --yes --json --only acpx')
     expect(calls).toContain('install -g acpx@0.19.1')
   })
 
@@ -365,6 +366,34 @@ describe('runUpgrade', () => {
       ok: false,
       steps: [{ kind: 'acpx', status: 'failed', detail: 'npm ERR! EACCES' }],
     })
+  })
+
+  it('prints only text for a person at a terminal', async () => {
+    await installCopies()
+    const upgrading = fake({ latest: { [NAME]: '0.5.0', acpx: '0.19.1' } })
+    const applied = capture(false)
+    expect(await runUpgrade(upgrading.deps, [], applied.io)).toBe(0)
+    expect(applied.out).toEqual([])
+    expect(applied.err).toContain('  done: upgrade acpx 0.13.2 -> 0.19.1 (npm install -g acpx@0.19.1)')
+    expect(applied.err.at(-1)).toBe('Upgrade complete.')
+
+    const failing = fake({ latest: { [NAME]: '0.5.0', acpx: '0.19.1' }, failInstall: 'npm ERR! EACCES' })
+    const failed = capture(false)
+    expect(await runUpgrade(failing.deps, [], failed.io)).toBe(1)
+    expect(failed.out).toEqual([])
+    expect(failed.err.at(-1)).toBe('Upgrade finished with failed steps; see above.')
+
+    const declined = capture(false)
+    expect(await runUpgrade(fake({ latest: { acpx: '0.19.1' }, confirm: false }).deps, [], declined.io)).toBe(
+      0
+    )
+    expect(declined.out).toEqual([])
+    expect(declined.err.at(-1)).toBe('Nothing changed.')
+
+    const current = capture(false)
+    const noSteps = fake({ latest: { [NAME]: '0.5.0', acpx: '0.19.1' }, acpx: '0.19.1' })
+    expect(await runUpgrade(noSteps.deps, [], current.io)).toBe(0)
+    expect(current.out).toEqual([])
   })
 
   it('says so when everything is current', async () => {

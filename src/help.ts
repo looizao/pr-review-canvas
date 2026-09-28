@@ -81,18 +81,28 @@ const COMMANDS: CommandHelp[] = [
       { form: '--claude-dir <dir>', detail: `default ${CLAUDE_SKILLS_DIR}` },
       { form: '--codex-dir <dir>', detail: `default ${CODEX_SKILLS_DIR}` },
       { form: '--force' },
+      { form: '--json', detail: 'one JSON line, as on a pipe' },
     ],
   },
   {
     name: 'export',
     summary: 'Write a canvas zip.',
-    flags: [{ form: '--pr <n>' }, { form: '--head <ref|sha>' }, { form: '--out <file|dir>' }],
+    flags: [
+      { form: '--pr <n>' },
+      { form: '--head <ref|sha>' },
+      { form: '--out <file|dir>' },
+      { form: '--json', detail: 'one JSON line, as on a pipe' },
+    ],
     notes: ['With both --pr and --head, the named commit is exported and the number stamps the zip.'],
   },
   {
     name: 'import <zip>',
     summary: 'Load a canvas zip.',
-    flags: [{ form: '--pr <n>' }, { form: '--force' }],
+    flags: [
+      { form: '--pr <n>' },
+      { form: '--force' },
+      { form: '--json', detail: 'one JSON line, as on a pipe' },
+    ],
   },
   {
     name: 'clean',
@@ -101,6 +111,7 @@ const COMMANDS: CommandHelp[] = [
       { form: '--all', detail: 'every review checkout, idle or not' },
       { form: '--older-than <days>', detail: 'instead of checkoutIdleDays' },
       { form: '--dry-run', detail: 'list what would go, remove nothing' },
+      { form: '--json', detail: 'one JSON line, as on a pipe' },
     ],
     notes: [
       'A review checkout is the copy of the repository AI Chat reads code from. Without flags, clean removes the ones with no chat turn for checkoutIdleDays in .pr-review/settings.yml; with checkoutIdleDays: -1 it removes nothing. serve runs the same cleanup every checkoutSweepMinutes. Canvases and review state stay.',
@@ -117,7 +128,11 @@ const COMMANDS: CommandHelp[] = [
   {
     name: 'upgrade',
     summary: 'Update pr-review, acpx, and skill copies in the project.',
-    flags: [{ form: '--yes', detail: 'apply without asking' }, { form: '--only package,acpx,skill' }],
+    flags: [
+      { form: '--yes', detail: 'apply without asking' },
+      { form: '--only package,acpx,skill' },
+      { form: '--json', detail: 'one JSON line, as on a pipe' },
+    ],
     notes: [
       'Updates pr-review and acpx with npm, and refreshes skill copies in the project. Lists the changes and asks first, unless --yes.',
     ],
@@ -134,7 +149,8 @@ const SHARED: CommandHelp = {
 }
 
 const OUTPUT = [
-  'A command prints one JSON line on success, and `{ "error": { code, message, hint } }` on failure.',
+  'prepare, validate, and publish print one JSON line. The other one-shot commands print text at a terminal, and one JSON line with --json or when stdout is a pipe.',
+  'A failure prints `{ "error": { code, message, hint } }` where the command prints JSON, and an error line on stderr where it prints text.',
   'doctor prints a checklist, for a person or an agent. Pass --json for that same report as one JSON line.',
   'Exit codes: 0 ok, 1 error, 2 usage, 4 gh or glab missing or not logged in, 5 invalid model output.',
 ]
