@@ -1,11 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.6.1
+
+Changes since 0.6.0.
+
+### CLI output
 
 - `install-skill`, `export`, `import`, `clean`, and `upgrade` print text at a terminal, and an
   unknown command or any other failure prints `error:` and `hint:` lines on stderr. `--json`, or a
   stdout that is a pipe, keeps the JSON line. `prepare`, `validate`, and `publish` always print
   JSON.
+
+### Skins
+
+- New `olive` skin: GitHub's layout in the project site's palette. Set `skin: olive` in
+  `.pr-review/settings.yml` or cycle with the skin command (terminal, github, olive).
+- The `github` skin has clearer section and file separation.
+
+### Project
+
+- The project site shows the canvas in the olive skin and mentions self-review, generation models,
+  and GitLab.
+- CSS is linted with stylelint, plus a check for unused CSS.
 
 ## 0.6.0
 
