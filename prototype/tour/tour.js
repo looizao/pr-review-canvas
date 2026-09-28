@@ -33,6 +33,7 @@ const PLACE_LABEL = { code: 'code comment', pr: 'PR comment', tour: 'tour only' 
 
 const storeKey = `tour-proto-${tour.key}`
 const state = load()
+state.notes ??= {}
 function load() {
   try {
     const raw = sessionStorage.getItem(storeKey)
@@ -49,6 +50,7 @@ function load() {
     planConfirmed: false,
     returnTo: null,
     codeOpen: {},
+    notes: {},
   }
 }
 function save() {
@@ -127,8 +129,8 @@ function stepTitle(step) {
 }
 
 // ---- Navigation ----
-function go(i) {
-  if (i < 0 || i >= steps.length || !reachable(i)) return
+function go(i, force = false) {
+  if (i < 0 || i >= steps.length || (!force && !reachable(i))) return
   state.step = i
   save()
   render()
@@ -202,20 +204,36 @@ function renderCover() {
     <p class="tour-hint" style="margin-top:28px">Mood: ${esc(tour.mood)} · shared on the pull request · other tours: ${others.map(k => `<a href="?pr=${k}">#${k}</a>`).join(' ')} · <a href="#" data-act="reset">reset this tour</a></p>`
 }
 
+function returnBanner() {
+  const from = state.returnTo
+  if (from === null || from === undefined || !steps[from]) return ''
+  const origin = steps[from]
+  const text =
+    origin.kind === 'quiz'
+      ? ['Reopened from the quiz. Read again, then go back.', 'back to the question']
+      : origin.kind === 'beat'
+        ? [
+            `Jumped from beat ${tour.beats.indexOf(origin.beat) + 1}. Decide now, or go back and keep reading.`,
+            'back to the beat',
+          ]
+        : ['Jumped from a decision.', 'back to the decision']
+  return `<div class="tour-return"><span>${esc(text[0])}</span><button class="tour-btn" type="button" data-act="return">${esc(text[1])}</button></div>`
+}
 function renderBeat(beat) {
   const n = tour.beats.indexOf(beat) + 1
   const decisionsHere = tour.decisions.filter(d => d.beat === beat.id)
   const codeOpen = state.codeOpen[beat.id] === true
-  const ret = state.returnTo !== null && state.returnTo !== undefined
+  const note = state.notes[beat.id] ?? ''
   stage.innerHTML = `
-    ${ret ? `<div class="tour-return"><span>Reopened from the quiz. Read again, then go back.</span><button class="tour-btn" type="button" data-act="return">back to the question</button></div>` : ''}
+    ${returnBanner()}
     <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(STAGE_LABEL[beat.stage])}</span><span>beat ${n} of ${tour.beats.length}</span></p>
     <h2 class="tour-title">${esc(beat.title)}</h2>
     <p class="tour-lead">${inline(beat.lead)}</p>
     <div class="tour-body">${beat.body.map(p => `<p>${inline(p)}</p>`).join('')}</div>
     ${beat.scene ? `<div class="tour-card tour-scene"><div class="tour-card-h"><span>scene</span></div><div class="sc-root" id="scene-${beat.id}"></div></div>` : ''}
     ${beat.micro ? `<div class="tour-card tour-micro"><div class="tour-card-h"><span>micro-world · play with it</span></div><div class="sc-root" id="micro-${beat.id}"></div></div>` : ''}
-    ${decisionsHere.length ? `<div class="tour-chips"><span class="tour-chip">${decisionsHere.length === 1 ? 'one decision waits here' : decisionsHere.length + ' decisions wait here'}</span>${decisionsHere.map(d => `<span class="tour-chip" data-cat="${d.category}">${esc(d.title)}</span>`).join('')}</div>` : ''}
+    ${decisionsHere.length ? `<div class="tour-chips"><span class="tour-chip">${decisionsHere.length === 1 ? 'one decision waits here' : decisionsHere.length + ' decisions wait here'}</span>${decisionsHere.map(d => `<button class="tour-chip link" type="button" data-cat="${d.category}" data-act="jump" data-decision="${d.id}" title="Jump to this decision now">${esc(d.title)} →</button>`).join('')}</div>` : ''}
+    <div class="tour-note"><label for="note-${beat.id}">Something I noticed <span class="tour-hint">optional · carried into this beat's decisions and the plan</span></label><textarea id="note-${beat.id}" data-act="note" data-beat="${beat.id}" rows="2" placeholder="A thought while reading, so you do not have to hold it until the decisions">${esc(note)}</textarea></div>
     ${
       beat.code?.length
         ? `<div class="tour-actions"><button class="tour-btn quiet" type="button" data-act="code">${codeOpen ? 'hide code' : 'code behind this beat'} <kbd>i</kbd></button></div>
@@ -253,10 +271,13 @@ function renderDecision(d) {
   const beatIndex = tour.beats.indexOf(beat) + 1
   const p = state.picks[d.id] ?? { pick: d.recommended, place: d.reason.place, tried: false }
   const done = settled({ kind: 'decision', decision: d })
+  const note = state.notes[d.beat] ?? ''
   stage.innerHTML = `
+    ${returnBanner()}
     <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(CATEGORY_LABEL[d.category] ?? d.category)}</span><span>decision ${n} of ${tour.decisions.length}</span><a href="#" data-act="beat" data-beat="${beat.id}">from beat ${beatIndex}: ${esc(beat.title)}</a></p>
     <h2 class="tour-title">${esc(d.title)}</h2>
     <p class="tour-lead">${inline(d.context)}</p>
+    ${note.trim() ? `<div class="tour-beat-note"><b>Your note on beat ${beatIndex}</b>${esc(note)}</div>` : ''}
     <div class="tour-options" role="radiogroup">
       ${option('keep', d.keep, p.pick === 'keep', true, d.recommended === 'keep')}
       ${option('change', d.change, p.pick === 'change', false, d.recommended === 'change')}
@@ -337,6 +358,16 @@ function renderPlan() {
     <h2 class="tour-title">${changes.length ? `${changes.length} change${changes.length > 1 ? 's' : ''} to make, ${kept.length} kept` : `Nothing to change. ${kept.length} decisions kept.`}</h2>
     <p class="tour-lead">${changes.length ? 'Read it once. When you confirm, the prompt is written and the record is shared. No further plan review.' : 'Your reasons are recorded. When you confirm, the record is shared and the prompt carries the intent and the kept decisions for whoever touches this next.'}</p>
     ${changes.length ? `<h3 class="tour-section-h">Changes</h3><ol class="tour-plan-list">${changes.map(({ d, p }) => `<li><b>${esc(d.title)}</b><br>${inline(p.restatement.what)} <span class="where">${p.restatement.where.map(esc).join(' · ')}</span><span class="where">stays: ${inline(p.restatement.unchanged)}</span></li>`).join('')}</ol>` : ''}
+    ${
+      notesList().length
+        ? `<h3 class="tour-section-h">Your notes while reading</h3><ul class="tour-kept">${notesList()
+            .map(
+              ([b, t]) =>
+                `<li><span>beat ${tour.beats.indexOf(b) + 1}</span><span>${esc(t)}</span><span class="place">${esc(b.title)}</span></li>`
+            )
+            .join('')}</ul>`
+        : ''
+    }
     <h3 class="tour-section-h">Kept, with reasons</h3>
     <ul class="tour-kept">${kept.map(({ d, p }) => `<li><span>${esc(d.keep.label)}</span><span><q>${inline(d.reason.text)}</q></span><span class="place">${esc(PLACE_LABEL[p.place])}</span></li>`).join('') || '<li>none</li>'}</ul>
     ${
@@ -353,6 +384,9 @@ function renderPlan() {
         : `<div class="tour-actions"><button class="tour-btn accent" type="button" data-act="confirm">Confirm the plan</button><span class="tour-hint">writes the prompt, shares the record</span></div>`
     }
     ${tour.notToured?.length ? `<h3 class="tour-section-h">Not toured</h3><ul class="tour-not">${tour.notToured.map(n => `<li><span>${esc(n.title)}</span><span class="path">${esc(n.path)}</span></li>`).join('')}</ul>` : ''}`
+}
+function notesList() {
+  return tour.beats.map(b => [b, (state.notes[b.id] ?? '').trim()]).filter(([, t]) => t)
 }
 function buildPrompt(changes, kept) {
   const first = tour.beats[0]
@@ -386,6 +420,10 @@ function buildPrompt(changes, kept) {
         `   Stays the same: ${p.restatement.unchanged}`
       )
     })
+  }
+  if (notesList().length) {
+    lines.push('', '## Notes the reader left while reading')
+    notesList().forEach(([b, t]) => lines.push(`- On "${b.title}": ${t}`))
   }
   lines.push(
     '',
@@ -542,10 +580,14 @@ document.addEventListener('click', e => {
     state.returnTo = state.step
     delete state.quiz[step.q.id]
     go(i)
+  } else if (act === 'jump') {
+    const i = steps.findIndex(s => s.kind === 'decision' && s.decision.id === t.dataset.decision)
+    state.returnTo = state.step
+    go(i, true)
   } else if (act === 'return') {
     const i = state.returnTo
     state.returnTo = null
-    go(i)
+    go(i, true)
   } else if (act === 'pick' && step.kind === 'decision') {
     const p = state.picks[step.decision.id] ?? { place: step.decision.reason.place, tried: false }
     p.pick = t.dataset.pick
@@ -664,6 +706,13 @@ document.addEventListener('submit', e => {
   e.preventDefault()
   const c = /** @type {HTMLTextAreaElement} */ (document.getElementById('composer'))
   send(c.value)
+})
+document.addEventListener('input', e => {
+  const t = /** @type {HTMLTextAreaElement} */ (e.target)
+  if (t.dataset.act === 'note') {
+    state.notes[t.dataset.beat] = t.value
+    save()
+  }
 })
 document.addEventListener('change', e => {
   const t = /** @type {HTMLSelectElement} */ (e.target)

@@ -256,6 +256,54 @@
   background: var(--panel);
   color: var(--fg-muted);
 }
+.tour-chip.link {
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tour-chip.link:hover {
+  background: var(--mood-accent-bg);
+}
+.tour-note {
+  margin: 16px 0 0;
+}
+.tour-note label {
+  display: block;
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+.tour-note textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--fg);
+  resize: vertical;
+}
+.tour-note textarea:focus {
+  border-style: solid;
+  border-color: var(--mood-accent);
+  outline: none;
+}
+.tour-beat-note {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--mood-accent);
+  background: var(--mood-accent-bg);
+  font-size: 13.5px;
+  white-space: pre-wrap;
+}
+.tour-beat-note b {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin-bottom: 2px;
+}
 .tour-chip[data-cat] {
   border-color: color-mix(in srgb, var(--mood-accent) 40%, var(--line));
   color: var(--mood-accent);
