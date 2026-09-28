@@ -41,6 +41,9 @@ The reading behind it:
   code is "nobody's theory"; review for theoretical consistency.
 - The Pragmatic Engineer, September 2026: coding by hand is over at 37signals; "nobody is reading
   anything"; sloppy features ship because nobody felt them.
+- The Pragmatic Engineer, [What is happening with code reviews?](https://newsletter.pragmaticengineer.com/p/what-is-happening-with-code-reviews):
+  teams triage review by blast radius, review the plan, the tests, and the schema rather than the
+  implementation, and keep human review for accountability, knowledge sharing, and compliance.
 
 ## The flow
 
@@ -52,7 +55,7 @@ The reading behind it:
 3. **Take**: the reader opens `/tour/<key>`, reads the beats, plays the micro-world, picks keep or
    change on each decision, is grilled on each change, answers the quiz.
 4. **Finish**: the agent restates the whole plan once; the reader confirms; the tour writes the
-   re-implementation prompt and shares the record.
+   re-implementation prompt and shares the record, which now lists the reader as having toured.
 5. **Apply**: `/pr-tour-apply` implements the plan, runs the project checks, and offers a fresh
    tour. A new head regenerates the tour and carries picks by decision key.
 
@@ -71,8 +74,26 @@ Each beat has a scene, a picture drawn for this change. One beat may be a micro-
 interactive model of the changed behavior, when the change has behavior worth playing with. The
 diff chunk behind a beat is one key away and never required.
 
+Each beat names what **guards** the behavior it explains: the tests that pin it, found the way the
+canvas finds tests per layer. A behavior with no guard becomes a decision: write the test now, or
+accept the gap with a reason. Tests are reviewed through the tour, not read.
+
+When the change touches a schema, a migration, or the shape of stored data, one beat is the
+**state beat**: the shape before and after, what happens to existing rows, and how it is undone.
+Stored data is the part of a system that cannot be regenerated, so this beat is never cut by the
+budget, and it always carries a reversibility decision.
+
 The budget is proportional to the diff with a configurable ceiling. What the budget leaves out is
 listed at the end, one line each with a link to the code, as **not toured**.
+
+## Blast radius
+
+The cover says what the change touches, from the project's existing `highRisk` patterns: for
+example "touches: auth, schema". Those areas raise the budget, so a change to a public API, a
+schema, authentication, the design system, or an agent skill gets more beats and decisions, and a
+change that touches none of them gets a short tour. Teams that route review by risk can require
+the tour for the first kind and leave it optional for the second, and reviewers know at a glance
+where to spend attention.
 
 ## Decisions
 
@@ -82,7 +103,8 @@ keep is one tap.
 
 Categories:
 
-- Trade-offs: rare cases, compatibility, generality, failure policy, performance against plainness.
+- Trade-offs: rare cases, compatibility, generality, failure policy, performance against plainness,
+  reversibility, and accepting a test gap.
 - Architecture and shape: where logic lives, reuse against build, new pattern against convention,
   public names.
 - Product and feel: UI, UX, copy, animation, perceived performance, accessibility.
@@ -91,9 +113,10 @@ Categories:
 - Spec fidelity: where the change departs from the spec or the design it was built from.
 
 A kept decision records a **reason** and where it belongs: a code comment (a maintainer needs it),
-a comment on the pull request line (a reviewer would ask), or the tour only. The generator
-proposes the place; the author confirms. Code comments become part of the plan. Pull request
-comments post once, when the tour is finished.
+a comment on the pull request line (a reviewer would ask), a lint rule (the reason is a rule the
+codebase can enforce, so a check is cheaper than a comment), or the tour only. The generator
+proposes the place; the author confirms. Code comments and lint rules become part of the plan, and
+the apply skill writes them. Pull request comments post once, when the tour is finished.
 
 For product decisions the beat also carries a **try-it** recipe: how to run the change, which
 synthetic data to use, and what to look at. The reader marks that they tried it.
@@ -154,6 +177,11 @@ exports the ZIP and asks the author to attach it to the pull request; discovery 
 links. Local reviews (`branch`, `uncommitted`) never share. The record is shared at generation and
 again once at finish.
 
+The shared record lists who finished the tour and when, and nothing of their quiz. On the pull
+request that is a visible human sign-off: who took the change in before it merged, for the team
+that wants to know and for the auditor who asks for evidence of human review. Finishing is the
+signal, not approving; the verdict stays with the pull request review.
+
 ## Configuration
 
 Under `tour:` in `pr-review.config.yml`:
@@ -172,7 +200,8 @@ Under `tour:` in `pr-review.config.yml`:
 | `models`      | per agent id                                                              | `generation.models`                                      |
 | `guide`       | path                                                                      | `docs/pr-tour.md`                                        |
 
-The chat agent and model follow the existing chat settings.
+The chat agent and model follow the existing chat settings. The blast radius reads the existing
+`highRisk` patterns; there is no second list.
 
 ## Boundaries
 

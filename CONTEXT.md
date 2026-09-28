@@ -121,7 +121,7 @@ A structure in the change that makes a class of mistake impossible, or a place w
 _Avoid_: Validation, Guardrail, Defensive code
 
 **Reason**:
-The author's justification for a kept decision, together with where it belongs: in the code, on the pull request, or in the tour only.
+The author's justification for a kept decision, together with where it belongs: in the code, on the pull request, as a lint rule, or in the tour only.
 _Avoid_: Resolution, Justification comment
 
 **Grilling**:
@@ -151,6 +151,14 @@ _Avoid_: Screenshot, Demo, Smoke test
 **Guide**:
 The project's committed notes for tours: how to run the app, how to make synthetic test data, which non-functional requirements matter, where specs and designs live, and what the agent may run. Written in setup and edited as the reader steers the skills.
 _Avoid_: Config, Rulebook, Runbook
+
+**State beat**:
+The beat a tour gives a change to a schema, a migration, or the shape of stored data: the shape before and after, what happens to existing rows, and how it is undone. Never cut by the budget.
+_Avoid_: Migration beat, Database beat
+
+**Blast radius**:
+What a change touches among the areas the project marks as high risk, shown on the cover. It raises the tour's budget and tells a team whether the tour is required.
+_Avoid_: Risk score, Severity
 
 **Not toured**:
 What a tour's budget left out, listed at the end with a link to the code.
