@@ -1,9 +1,11 @@
 ---
 name: thermo-nuclear-review-loop
 description: Iteratively review and fix a commit, branch, ref, range, current change set, or historical feature until an independent reviewer explicitly approves it under a strict code-quality standard. Use for a thermo-nuclear review loop, strict review/fix cycles, or when a change must survive an adversarial reviewer without growing defensive code.
+metadata:
+  version: "3"
 ---
 
-# Thermo-Nuclear Review Loop v2
+# Thermo-Nuclear Review Loop v3
 
 You are the **fixer**: the agent running this skill in the host session (Claude Code or Codex). You spawn one **reviewer**, independently verify its findings, fix the justified ones, and repeat until it explicitly approves. There is no separate fixer agent.
 
@@ -31,7 +33,9 @@ If the ref cannot be resolved or the scope is ambiguous, stop and ask.
 
 Prompt template:
 
-> Read `<REVIEW.md or Review Standard path/paste>` and apply it to `<resolved scope>` in the current working tree, compared against `<baseline>`. The stated requirement is: `<original request verbatim, or "none recorded">`. Be ambitious about structural simplification and code-judo opportunities. Verify every claim against code, history, tests, and repository instructions; behavior claims need a file:line citation, not an inference from naming. Do not edit. Return concrete blockers with evidence and remedies, or explicitly approve if the implementation meets the standard.
+> Read `<REVIEW.md or Review Standard path/paste>` and apply it to `<resolved scope>` in the current working tree, compared against `<baseline>`. The stated requirement is: `<original request verbatim, or "none recorded">`. Be ambitious about structural simplification and code-judo opportunities. Verify every claim against code, history, tests, and repository instructions; behavior claims need a file:line citation, not an inference from naming. Do not edit. Return concrete blockers with evidence and remedies, or explicitly approve if the implementation meets the standard. Open your reply with a line naming the standard you applied (`REVIEW.md` or `Review Standard`) and quoting its first and last lines verbatim.
+
+Check that the verdict's opening line names the right standard and quotes lines that exist in it. A verdict without that line means the reviewer did not read the standard: ask it to read the standard and resend before acting on any finding.
 
 Wait for the verdict; the loop cannot proceed without it. If the verdict does not arrive as a message, check your inbox and ask the reviewer to resend before doing anything else.
 
