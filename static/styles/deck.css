@@ -285,8 +285,7 @@
   font-size: 15px;
   max-width: 90ch;
 }
-.deck-context p,
-.deck-consequence p {
+.deck-context p {
   margin: 0;
 }
 
@@ -365,9 +364,6 @@
   letter-spacing: 0.05em;
   border: 1px dashed var(--line-strong);
   color: var(--fg);
-}
-.deck-consequence {
-  font-size: 14px;
 }
 .deck-snippet {
   margin: 0;

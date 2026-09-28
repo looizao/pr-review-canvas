@@ -6,21 +6,36 @@
 // Each scope pairs its stylesheets with the sources that write its markup. A name counts as used
 // when it appears as a whole token in a source, or when a source builds it from a template that
 // starts with its prefix: `move-${side}` covers .move-from, `var(--s${n})` reads --s1 to --s6.
-// Names written by a library at run time go in `dynamic`.
+// Names written by a library at run time go in `dynamic`. A stylesheet in `exclude` belongs to
+// another scope.
 import { readFile } from 'node:fs/promises'
 import { glob } from 'node:fs/promises'
 import path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
-/** @type {Array<{ name: string, css: string[], sources: string[], dynamic: RegExp[] }>} */
+/** @type {Array<{ name: string, css: string[], exclude?: string[], sources: string[], dynamic: RegExp[] }>} */
 const SCOPES = [
   {
     name: 'app',
     css: ['static/styles/*.css'],
+    exclude: ['static/styles/scene.css'],
     sources: ['static/js/**/*.js', 'src/**/*.ts'],
     // highlight.js writes its token classes at run time.
     dynamic: [/^hljs(-|$)/, /^(function|class)_$/],
+  },
+  {
+    // The scene kit is a vocabulary for the deck generator, whose scenes are written at run time:
+    // a class counts as used when the scene guide teaches it or the code that frames scenes writes it.
+    name: 'scene kit',
+    css: ['static/styles/scene.css'],
+    sources: [
+      'skills/pr-self-review/scenes.md',
+      'static/js/scene-runtime.js',
+      'src/deck/**/*.ts',
+      'src/server/html.ts',
+    ],
+    dynamic: [],
   },
   {
     name: 'site',
@@ -30,12 +45,12 @@ const SCOPES = [
   },
 ]
 
-/** @param {string[]} patterns */
-async function files(patterns) {
+/** @param {string[]} patterns @param {string[]} [exclude] */
+async function files(patterns, exclude = []) {
   const out = []
   for (const pattern of patterns) {
     for await (const file of glob(pattern, { cwd: ROOT })) {
-      if (!/\.test\.[jt]s$/.test(file) && !file.includes('__fixtures__')) {
+      if (!/\.test\.[jt]s$/.test(file) && !file.includes('__fixtures__') && !exclude.includes(file)) {
         out.push(file)
       }
     }
@@ -88,7 +103,7 @@ function tokenPattern(name) {
 
 const problems = []
 for (const scope of SCOPES) {
-  const sheets = await read(await files(scope.css))
+  const sheets = await read(await files(scope.css, scope.exclude))
   const sources = await read(await files(scope.sources))
   const markup = sources.map(s => s.text).join('\n')
   // Prefixes of names built from templates, like `move-${side}` or `var(--s${n})`.
