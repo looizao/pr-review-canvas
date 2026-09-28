@@ -29,6 +29,7 @@ for (const button of layerButtons) {
     currentLayer = button.dataset.layer
     const layer = layers[currentLayer]
     for (const other of layerButtons) other.setAttribute('aria-pressed', String(other === button))
+    setText('sample-index', `Layer ${layerButtons.indexOf(button) + 1} of ${layerButtons.length}`)
     for (const [field, value] of Object.entries(layer)) {
       if (field !== 'code' && field !== 'source') setText(`sample-${field}`, value)
     }
