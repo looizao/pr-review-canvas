@@ -1,3 +1,5 @@
+// Incremental QA: this new preamble moves existing point anchors.
+// The pricing behavior below is unchanged.
 // Dedicated release QA fixture; never intended for main.
 export function total(items, discount = 0) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
