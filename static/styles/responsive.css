@@ -1,5 +1,5 @@
 /* ---- Responsive ---- */
-@media (max-width: 1360px) {
+@media (width <= 1360px) {
   .layout {
     grid-template-columns: var(--rail-w) minmax(0, 1fr);
     background: linear-gradient(var(--ink), var(--ink)) calc(var(--rail-w) - 1px) 0 / 1px 100% no-repeat;
@@ -8,7 +8,7 @@
     display: none;
   }
 }
-@media (max-width: 1000px) {
+@media (width <= 1000px) {
   .layout,
   .layout.no-chat {
     grid-template-columns: minmax(0, 1fr);

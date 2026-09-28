@@ -516,7 +516,7 @@ export function renderLayerSection(layer, index, artifact, files, state, ctx) {
   const reviewed = layerProgress(layer, state) === 'done'
   const layerReviewedId = reviewedId(layer.key)
   return (
-    `<pr-layer><section class="layer${reviewed ? ' is-reviewed' : ''}" id="${esc(id)}" data-layer="${esc(layer.id)}" aria-labelledby="${esc(id)}-h" style="--dc:${dotColor(index)}">` +
+    `<pr-layer><section class="layer${reviewed ? ' is-reviewed' : ''}" id="${esc(id)}" data-layer="${esc(layer.id)}" aria-labelledby="${esc(id)}-h">` +
     `<div class="panel-h layer-h">${chevronHtml('Collapse layer', !reviewed, { act: 'toggle-card' })}<h2 id="${esc(id)}-h"><span class="lbl">Layer ${semanticIndex + 1} of ${total}</span>${esc(layer.title)}${risks}</h2>` +
     `<div class="layer-ctl"><label class="chk"><input type="checkbox" data-reviewed-id="${esc(layerReviewedId)}"${reviewed ? ' checked' : ''}> reviewed</label>` +
     `${askButtonHtml({ kind: 'layer', layerId: layer.id }, { label: 'ask about this layer' })}</div></div>` +

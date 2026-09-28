@@ -13,6 +13,7 @@
 }
 .brand {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: baseline;
   font-weight: 700;
@@ -36,9 +37,6 @@
   transform: translateY(-50%);
   width: 32px;
   height: 32px;
-}
-.brand {
-  flex-wrap: wrap;
 }
 .hdr-actions {
   display: flex;

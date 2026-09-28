@@ -252,16 +252,13 @@
   background: var(--sc);
   vertical-align: -1px;
 }
-.sq.blocker,
 .sq.decide {
   --sc: var(--sev-blocker);
 }
-.sq.major,
 .sq.check {
   --sc: var(--sev-major);
   background: radial-gradient(circle, var(--sq-mark) 0 2px, var(--sc) 2.5px);
 }
-.sq.minor,
 .sq.fyi {
   --sc: var(--sev-minor);
   background: transparent;

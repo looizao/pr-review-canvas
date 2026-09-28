@@ -30,37 +30,37 @@
   --line: light-dark(#d1d9e0, #3d444d);
   --shadow: transparent;
 
-  --bg: light-dark(#ffffff, #212830);
-  --panel: light-dark(#ffffff, #212830);
+  --bg: light-dark(#fff, #212830);
+  --panel: light-dark(#fff, #212830);
   --panel-2: light-dark(#f6f8fa, #262c36);
   --fg: light-dark(#1f2328, #d1d7e0);
   --fg-muted: light-dark(#59636e, #9198a1);
   --fg-dim: light-dark(#818b98, #9198a1);
 
   --accent: light-dark(#0969da, #539bf5);
-  --accent-bg: light-dark(#ddf4ff, rgba(65, 132, 228, 0.15));
+  --accent-bg: light-dark(#ddf4ff, rgb(65 132 228 / 15%));
   --purple: light-dark(#8250df, #986ee2);
-  --annot-bg: light-dark(#fbefff, rgba(152, 110, 226, 0.15));
+  --annot-bg: light-dark(#fbefff, rgb(152 110 226 / 15%));
   /* Purple marks where you are and what needs attention; green marks tests and done. Blue stays
      the link color, as on GitHub. */
-  --tint-attention: light-dark(#f7f2ff, rgba(152, 110, 226, 0.14));
-  --tint-done: light-dark(#dafbe1, rgba(87, 171, 90, 0.15));
+  --tint-attention: light-dark(#f7f2ff, rgb(152 110 226 / 14%));
+  --tint-done: light-dark(#dafbe1, rgb(87 171 90 / 15%));
   --ok: light-dark(#1a7f37, #57ab5a);
   --bad: light-dark(#d1242f, #e5534b);
   --warn: light-dark(#9a6700, #c69026);
-  --warn-bg: light-dark(#fff8c5, rgba(174, 124, 20, 0.15));
+  --warn-bg: light-dark(#fff8c5, rgb(174 124 20 / 15%));
   --progress: light-dark(#1f883d, #57ab5a);
 
   --sev-blocker: light-dark(#cf222e, #e5534b);
   --sev-major: light-dark(#bf8700, #c69026);
   --sev-minor: light-dark(#818b98, #636e7b);
-  --sq-mark: light-dark(#ffffff, #212830);
+  --sq-mark: light-dark(#fff, #212830);
 
   --add-bg: light-dark(#e6ffec, #263834);
-  --add-w: light-dark(#abf2bc, rgba(87, 171, 90, 0.4));
-  --del-bg: light-dark(#ffebe9, rgba(229, 83, 75, 0.15));
-  --del-w: light-dark(#ffc1c0, rgba(229, 83, 75, 0.4));
-  --mv-bg: light-dark(#fbefff, rgba(152, 110, 226, 0.1));
+  --add-w: light-dark(#abf2bc, rgb(87 171 90 / 40%));
+  --del-bg: light-dark(#ffebe9, rgb(229 83 75 / 15%));
+  --del-w: light-dark(#ffc1c0, rgb(229 83 75 / 40%));
+  --mv-bg: light-dark(#fbefff, rgb(152 110 226 / 10%));
   --hunk-bg: light-dark(#ddf4ff, #253142);
 
   /* Buttons. GitHub's default button is a filled box with a hairline; the primary one is green. */
@@ -68,8 +68,8 @@
   --btn-bg-hover: light-dark(#eff2f5, #3d444d);
   --btn-primary: light-dark(#1f883d, #347d39);
   --btn-primary-hover: light-dark(#1a7f37, #46954a);
-  --btn-primary-fg: #ffffff;
-  --drop-shadow: light-dark(0 8px 24px rgba(66, 74, 83, 0.24), 0 8px 24px rgba(28, 33, 40, 0.85));
+  --btn-primary-fg: #fff;
+  --drop-shadow: light-dark(0 8px 24px rgb(66 74 83 / 24%), 0 8px 24px rgb(28 33 40 / 85%));
 
   /* Syntax tokens: GitHub's own light and dark code colors. */
   --syn-comment: light-dark(#59636e, #9198a1);
@@ -81,10 +81,8 @@
   --syn-attr: light-dark(#0550ae, #6cb6ff);
   --syn-tag: light-dark(#116329, #8ddb8c);
   --syn-meta: light-dark(#0550ae, #6cb6ff);
-}
 
-/* Octicons, drawn as masks so each one takes the text color of its button in both themes. */
-:root[data-skin='github'] {
+  /* Octicons, drawn as masks so each one takes the text color of its button in both themes. */
   --i-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/%3E%3Cpath d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
   --i-comment: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
   --i-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
@@ -103,7 +101,7 @@
 
 /* ---- Header ---- */
 [data-skin='github'] .hdr-bar {
-  background: light-dark(#ffffff, #151b23);
+  background: light-dark(#fff, #151b23);
 }
 
 [data-skin='github'] .brand {
@@ -117,6 +115,9 @@
   background: var(--ink);
 }
 [data-skin='github'] .hdr-actions {
+  --btn-h: 28px;
+  --btn-pad: 10px;
+  --icon-size: 16px;
   gap: 8px;
   align-items: center;
 }
@@ -222,8 +223,7 @@
     flex: 0 0 var(--icon-size, 14px);
     width: var(--icon-size, 14px);
     height: var(--icon-size, 14px);
-    background: currentColor;
-    -webkit-mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
+    background: currentcolor;
     mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
     opacity: 0.85;
   }
@@ -244,11 +244,6 @@
     gap: 0;
     font-size: 0;
   }
-}
-[data-skin='github'] .hdr-actions {
-  --btn-h: 28px;
-  --btn-pad: 10px;
-  --icon-size: 16px;
 }
 [data-skin='github'] .signoff {
   --btn-h: 32px;
@@ -347,7 +342,7 @@
 [data-skin='github'] .pill.branch,
 [data-skin='github'] .pill.uncommitted {
   border-color: transparent;
-  color: #ffffff;
+  color: #fff;
 }
 [data-skin='github'] .pill.open {
   background: light-dark(#1f883d, #347d39);
@@ -551,7 +546,7 @@
   border: 0;
   border-radius: var(--r);
   background: var(--accent);
-  color: #ffffff;
+  color: #fff;
 }
 [data-skin='github'] .av {
   border-radius: 50%;
@@ -570,13 +565,12 @@
   color: light-dark(#818b98, #d1d7e0);
 }
 [data-skin='github'] tr.del .ln {
-  background: light-dark(#ffebe9, rgba(229, 83, 75, 0.3));
+  background: light-dark(#ffebe9, rgb(229 83 75 / 30%));
   color: light-dark(#818b98, #d1d7e0);
 }
 
 /* ---- Boxes, menus, and overlays ---- */
 [data-skin='github'] code,
-[data-skin='github'] .snip,
 [data-skin='github'] .ctx-chip,
 [data-skin='github'] .diagram-src,
 [data-skin='github'] .cmdbox code,
@@ -592,7 +586,7 @@
 }
 [data-skin='github'] code {
   border: 0;
-  background: light-dark(rgba(129, 139, 152, 0.2), rgba(99, 110, 123, 0.4));
+  background: light-dark(rgb(129 139 152 / 20%), rgb(99 110 123 / 40%));
   padding: 0.2em 0.4em;
 }
 [data-skin='github'] .cmdbox code,
@@ -637,10 +631,10 @@
   box-shadow: var(--drop-shadow);
 }
 [data-skin='github'] dialog::backdrop {
-  background: rgba(28, 33, 40, 0.6);
+  background: rgb(28 33 40 / 60%);
 }
 
-@media (max-width: 1000px) {
+@media (width <= 1000px) {
   /* The rail is a strip of chips at this width; the current one is underlined, not filled. */
   [data-skin='github'] .tree a {
     margin: 0;
