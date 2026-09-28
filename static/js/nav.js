@@ -70,7 +70,11 @@ export function step(order, currentId, kind, direction, shown) {
   const start = from === -1 && currentId !== null ? (direction === 1 ? -1 : order.length) : from
   for (let i = start + direction; i >= 0 && i < order.length; i += direction) {
     const item = order[i]
-    if (item !== undefined && item.kind === kind && shown(item)) {
+    if (
+      item !== undefined &&
+      (item.kind === kind || (kind === 'layer' && direction === -1 && item.kind === 'overview')) &&
+      shown(item)
+    ) {
       return item
     }
   }

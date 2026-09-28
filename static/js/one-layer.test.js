@@ -169,6 +169,9 @@ describe('initOneLayer', () => {
     // A hash change to the section already showing does nothing more.
     window.dispatchEvent(new Event('hashchange'))
     expect(scrolled).toHaveBeenCalledTimes(1)
+    window.location.hash = ''
+    window.dispatchEvent(new Event('hashchange'))
+    expect(shownIds()).toEqual(['overview'])
   })
 
   it('switches views on the open page, keeping the section the rail marks as being read', () => {
@@ -195,7 +198,7 @@ describe('initOneLayer', () => {
     window.location.hash = '#layer-storage'
     oneLayer = initOneLayer(root, { view: 'one' })
     expect(shownIds()).toEqual(['layer-storage'])
-    // A key moves on to another layer without writing the URL.
+    // Revealing code moves on to another layer without writing the URL.
     reveal(root.querySelector('#src_auth_ts-new-4'))
     root.innerHTML = PAGE
     expect(shownIds()).toHaveLength(4)

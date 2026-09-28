@@ -56,6 +56,7 @@ export function pageShell(opts: PageOptions): Html {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${opts.title}</title>
+<link rel="icon" type="image/svg+xml" href="/static/brand.svg">
 <link rel="stylesheet" href="/static/styles.css">
 <script type="importmap" nonce="${opts.nonce}">${raw(jsonForScript(IMPORT_MAP))}</script>
 ${opts.app ? preload.map(href => html`<link rel="modulepreload" href="${href}">`) : ''}
@@ -138,7 +139,7 @@ ${
     ? html`<div class="body muted">No ${noun}s opened yet.</div>`
     : html`<ul class="plain body">${data.recentPrs.map(
         p =>
-          html`<li><a href="/review/${String(p.number)}"><span class="mono num">#${String(p.number)}</span> ${p.title}</a></li>`
+          html`<li><a href="/review/${String(p.number)}"><span class="mono num">#${String(p.number)}</span> ${p.title}</a>${p.hasCanvas === false ? html` <span class="muted">no canvas yet</span>` : ''}</li>`
       )}</ul>`
 }
 </section>

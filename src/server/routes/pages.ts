@@ -26,10 +26,14 @@ export function pageRoutes(ctx: AppContext): Hono<AppEnv> {
       ctx.prs.listRecent(10),
       ...LOCAL_KEYS.map(key => ctx.prs.readPr(key)),
     ])
+    const canvases = Object.values((await ctx.canvases.readIndex()).canvases)
     return c.html(
       homePage(
         {
-          recentPrs,
+          recentPrs: recentPrs.map(p => ({
+            ...p,
+            hasCanvas: canvases.some(canvas => canvas.prNumber === p.number),
+          })),
           localReviews: LOCAL_KEYS.filter((_, i) => localPrs[i] !== null && localPrs[i] !== undefined),
           owner: ctx.config.repo.owner,
           repo: ctx.config.repo.name,

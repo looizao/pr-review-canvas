@@ -1046,3 +1046,14 @@ it('reopens routine files when the reading level drops and leaves reviewed files
     setFoldLevel(document.body, 'light')
   }
 })
+
+it('links to Other when it holds several more chunks of a split file', () => {
+  const entry = files[0]
+  const layer = artifact.layers[0]
+  const other = artifact.layers[1]
+  if (!entry || !layer || !other) throw new Error('missing split-file fixture')
+  const index = new Map(entry.hunks.map(h => [h.id, { layer: other, index: 1 }]))
+  expect(
+    elsewhereHtml({ path: entry.path, hunks: [], isTest: false, annotations: [] }, entry, layer, index)
+  ).toBe('<div class="more-hunks">2 more chunks in <a href="#layer-other">Other changes</a></div>')
+})

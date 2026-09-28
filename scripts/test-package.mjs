@@ -58,7 +58,17 @@ try {
   const cli = path.join(temp, 'node_modules', '.bin', 'pr-review')
   const help = spawnSync(cli, ['--help'], { cwd: temp, env, encoding: 'utf8', timeout: 15_000 })
   assert.equal(help.status, 0)
-  assert.match(help.stderr, /install-skill/)
+  assert.match(help.stdout, /install-skill/)
+  assert.equal(help.stderr, '')
+  const commandHelp = spawnSync(cli, ['prepare', '--help'], {
+    cwd: temp,
+    env,
+    encoding: 'utf8',
+    timeout: 15_000,
+  })
+  assert.equal(commandHelp.status, 0)
+  assert.match(commandHelp.stdout, /prepare/)
+  assert.equal(commandHelp.stderr, '')
   const invalid = spawnSync(cli, ['unknown-command'], { cwd: temp, env, encoding: 'utf8', timeout: 15_000 })
   assert.equal(invalid.status, 2, invalid.stderr)
   run('git', ['init', '--quiet'])

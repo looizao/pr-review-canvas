@@ -36,7 +36,11 @@ test('shows one layer at a time once the setting is saved, on this page and afte
   // With nothing in focus, j starts from the layer on screen, though it is too short to scroll.
   await page.keyboard.press('j')
   await expect(other).toBeVisible()
-  // The URL still names the first layer; a refresh keeps the one the reader moved to.
+  await expect(page).toHaveURL(/#layer-other$/)
+  await expect(other.locator('details > .body')).toBeVisible()
+  await page.reload()
+  await expect(other.locator('details > .body')).toBeVisible()
+  // A refresh keeps the layer the reader moved to.
   await page.locator('#refresh').click()
   await expect(page.locator('#refresh')).toBeEnabled()
   await expect(other).toBeVisible()
@@ -68,6 +72,15 @@ test('shows one layer at a time once the setting is saved, on this page and afte
   await page.keyboard.press('k')
   await expect(layer).toBeVisible()
   await expect(other).toBeHidden()
+
+  await expect(page).toHaveURL(/#layer-run-path$/)
+  await page.keyboard.press('k')
+  await expect(overview).toBeVisible()
+  await expect(page).toHaveURL(/#overview$/)
+  await page.keyboard.press('j')
+  await page.keyboard.press('Shift+r')
+  await page.reload()
+  await expect(layer.locator('.layer-body')).toBeVisible()
 
   // Back to all at once, and every section returns.
   await page.locator('#settings').click()
