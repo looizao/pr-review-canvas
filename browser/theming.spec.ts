@@ -24,9 +24,10 @@ async function readLook(page: Page) {
       cardHeaderBg: style('section.layer > .layer-h')?.backgroundColor ?? null,
       addedLineBg: style('tr.add:not(.folded) > td.code')?.backgroundColor ?? null,
       stripeHeight: style('.stripe')?.height ?? null,
+      // The closing bracket: the github skin draws icons in ::before, so the probe reads ::after.
       commandBracket: (() => {
         const el = at('.hdr-actions .cmd')
-        return el === null ? null : getComputedStyle(el, '::before').content
+        return el === null ? null : getComputedStyle(el, '::after').content
       })(),
     }
   })
@@ -66,7 +67,7 @@ test('starts in the github skin, switches to terminal, and remembers the choice'
   expect(await readLook(page)).toMatchObject({
     cardRadius: '0px',
     stripeHeight: '6px',
-    commandBracket: '"[ "',
+    commandBracket: '" ]"',
   })
 
   // The choice is saved in .pr-review/settings.yml, and the server renders it onto <html>.
@@ -175,7 +176,7 @@ for (const want of COMBINATIONS) {
       addedLineBg: want.addedLineBg,
       cardRadius: want.cardRadius,
       stripeHeight: want.skin === 'github' ? '1px' : '6px',
-      commandBracket: want.skin === 'github' ? 'none' : '"[ "',
+      commandBracket: want.skin === 'github' ? 'none' : '" ]"',
     })
   })
 }

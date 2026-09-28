@@ -418,12 +418,13 @@ details[open] > summary .chev,
 }
 
 /* file cards sit flush left under the layer's "Files" sub-header: a hairline between files and the
-   chevron before each path show the nesting; only the layer section carries the panel border and shadow */
+   chevron before each path show the nesting; only the layer section carries the panel border and shadow.
+   Each card is wrapped in its own <pr-file>, so the hairline goes between the wrappers. */
 .file {
   background: var(--panel);
   min-width: 0;
 }
-.file + .file {
+pr-file + pr-file > .file {
   border-top: 1px solid var(--line);
 }
 .files {
