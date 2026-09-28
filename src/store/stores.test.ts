@@ -242,7 +242,10 @@ describe('pr-store and state-store', () => {
     const pr = syntheticArtifact().pr
     await prs.writePr(42, pr)
     await prs.writePr(7, { ...pr, number: 7, title: 'older' })
-    await prs.writeComments(42, emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'))
+    await prs.refreshComments(42, async () => ({
+      payload: emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'),
+      warnings: [],
+    }))
     expect(await prs.readPr(42)).toEqual(pr)
     expect(await prs.readComments(42)).toEqual(emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'))
     await mkdir(path.join(dir, 'prs', 'not-a-number'))
@@ -310,7 +313,10 @@ it('merges comments from independent store instances and leaves an absent cache 
   }
   await cli.upsertComments(42, [{ kind: 'issue', comment }])
   expect(await server.readComments(42)).toBeNull()
-  await server.writeComments(42, { ...emptyComments(HEAD_SHA, comment.createdAt), issueComments: [comment] })
+  await server.refreshComments(42, async () => ({
+    payload: { ...emptyComments(HEAD_SHA, comment.createdAt), issueComments: [comment] },
+    warnings: [],
+  }))
   await Promise.all([
     server.upsertComments(42, [{ kind: 'issue', comment: { ...comment, id: 6002, body: 'ordinary' } }]),
     cli.upsertComments(42, [{ kind: 'issue', comment: { ...comment, body: 'updated canvas' } }]),

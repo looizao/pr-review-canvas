@@ -22,6 +22,7 @@ import { writeTextAtomic } from '../store/atomic-json.js'
 import {
   type FakeGh,
   ghJson,
+  ghHandler,
   ghPost,
   ghPostError,
   makeTestContext,
@@ -536,3 +537,81 @@ it('serializes a resolution cache update behind an ordinary comment already bein
     await t.cleanup()
   }
 })
+
+it.each(['/api/prs/42?refresh=1', '/api/prs/42/comments'])(
+  'serializes resolution behind the full snapshot fetch at %s',
+  async endpoint => {
+    const snapshotRead = Promise.withResolvers<void>()
+    const releaseSnapshot = Promise.withResolvers<void>()
+    const updateQueued = Promise.withResolvers<void>()
+    let remote: typeof CANVAS_COMMENT | undefined
+    const save = ghPost(body => {
+      remote = { ...CANVAS_COMMENT, body: (body as { body: string }).body }
+      return remote
+    })
+    const forge = gh({
+      routes: {
+        'repos/acme/widgets/issues/42/comments': ghHandler(() => (remote === undefined ? [] : [remote])),
+      },
+      postRoutes: {
+        'repos/acme/widgets/issues/42/comments': save,
+        'repos/acme/widgets/issues/comments/6001': save,
+      },
+    })
+    const t = await withCanvas(forge)
+    const app = createApp(t.ctx)
+    const request = (settled: boolean) =>
+      app.request('/api/prs/42/points/fp-2/settled', {
+        method: 'PUT',
+        headers: SAME_ORIGIN,
+        body: JSON.stringify({ settled, reason: 'Verified', comment: false }),
+      })
+    let fetchSpy: ReturnType<typeof vi.spyOn> | undefined
+    let updateSpy: ReturnType<typeof vi.spyOn> | undefined
+    try {
+      await answer(await request(false))
+      const oldBody = remote!.body
+      const fetch = t.ctx.config.host.fetchComments
+      fetchSpy = vi.spyOn(t.ctx.config.host, 'fetchComments').mockImplementationOnce(async (...args) => {
+        const snapshot = await fetch(...args)
+        snapshotRead.resolve()
+        await releaseSnapshot.promise
+        return snapshot
+      })
+      const upsert = t.ctx.prs.upsertComments
+      updateSpy = vi.spyOn(t.ctx.prs, 'upsertComments').mockImplementation((...args) => {
+        updateQueued.resolve()
+        return upsert(...args)
+      })
+      const refresh = app.request(endpoint, { headers: SAME_ORIGIN })
+      await snapshotRead.promise
+      const resolution = request(true)
+      await updateQueued.promise
+      expect(remote!.body).toContain('**Resolved by the author:** 1')
+      expect(
+        await check(t.ctx.prs.prDir(42), {
+          lockfilePath: path.join(t.ctx.prs.prDir(42), 'comments.json.lock'),
+        })
+      ).toBe(true)
+      // The refresh completes first; the successful resolution must commit after its snapshot.
+      releaseSnapshot.resolve()
+      const refreshed = await refresh
+      expect(refreshed.status).toBe(200)
+      const refreshedBody = await refreshed.json()
+      const comments = endpoint.endsWith('/comments') ? refreshedBody : refreshedBody.comments
+      expect(comments.issueComments).toContainEqual(expect.objectContaining({ id: 6001, body: oldBody }))
+      const resolved = await answer(await resolution)
+      expect(resolved.sharing.status).toBe('shared')
+      expect(resolved.issueComments).toContainEqual(expect.objectContaining({ id: 6001, body: remote!.body }))
+      const reloaded = await app.request('/api/prs/42', { headers: SAME_ORIGIN })
+      expect(reloaded.status).toBe(200)
+      expect((await reloaded.json()).comments.issueComments).toEqual(resolved.issueComments)
+      expect((await t.ctx.prs.readComments(42))?.issueComments).toEqual(resolved.issueComments)
+    } finally {
+      releaseSnapshot.resolve()
+      fetchSpy?.mockRestore()
+      updateSpy?.mockRestore()
+      await t.cleanup()
+    }
+  }
+)

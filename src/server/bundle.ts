@@ -110,8 +110,9 @@ export function createPrLoader(ctx: AppContext) {
     const shas = await fetchPrRefs(ctx.git, host, meta)
     const pr = toPr(meta, repo, shas)
     await ctx.prs.writePr(number, pr)
-    const { payload, warnings } = await host.fetchComments(ctx.gh, repo, number, shas.headSha, ctx.now)
-    await ctx.prs.writeComments(number, payload)
+    const { payload, warnings } = await ctx.prs.refreshComments(number, () =>
+      host.fetchComments(ctx.gh, repo, number, shas.headSha, ctx.now)
+    )
     const state = await ctx.state.read(number)
     const recovered = [...new Set(state.submitted.map(d => d.reviewId))]
       .flatMap(reviewId => {
@@ -143,8 +144,9 @@ export function createPrLoader(ctx: AppContext) {
     async refreshComments(number: number): Promise<{ comments: CommentsPayload; warnings: string[] }> {
       const pr = (await ctx.prs.readPr(number)) ?? (await refreshPr(number)).pr
       const { host, repo } = ctx.config
-      const { payload, warnings } = await host.fetchComments(ctx.gh, repo, number, pr.headSha, ctx.now)
-      await ctx.prs.writeComments(number, payload)
+      const { payload, warnings } = await ctx.prs.refreshComments(number, () =>
+        host.fetchComments(ctx.gh, repo, number, pr.headSha, ctx.now)
+      )
       return { comments: payload, warnings }
     },
     async currentPr(number: number): Promise<Pr> {

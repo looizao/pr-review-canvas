@@ -6,8 +6,8 @@
 
 - Outdated canvases suggest incremental generation; `--force` is suggested only for the same head.
 - Resolving, reopening, and publishing update cached Conversation comments through the same
-  cross-process store lock as ordinary comments. Completed self-review
-  shows the done note and reviewer count.
+  cross-process store lock as ordinary comments and full comment refreshes (including the fetch).
+  Completed self-review shows the done note and reviewer count.
 - GitHub review receipts load full inline coordinates, tolerate line-ending normalization, and
   recover submitted proposal links in one state update on refresh within the submitted review.
   Refreshing known receipts performs no state writes.
