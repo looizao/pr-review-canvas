@@ -3,8 +3,10 @@ import { mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   type CliIo,
+  describeImport,
   EXIT,
   namedCanvasDir,
+  outputMode,
   parsePrepareTarget,
   reportFailure,
   runClean,
@@ -35,10 +37,10 @@ interface FakeIo extends CliIo {
   err: string[]
 }
 
-function fakeIo(): FakeIo {
+function fakeIo(json = true): FakeIo {
   const out: string[] = []
   const err: string[] = []
-  return { out, err, stdout: l => out.push(l), stderr: l => err.push(l) }
+  return { out, err, stdout: l => out.push(l), stderr: l => err.push(l), json }
 }
 
 function lastJson(io: FakeIo): unknown {
@@ -369,6 +371,31 @@ describe('prepare, publish, validate through the CLI layer', () => {
   })
 })
 
+describe('failures at a terminal', () => {
+  it('prints the message, code, and hint on stderr instead of the envelope', () => {
+    const io = fakeIo(false)
+    expect(reportFailure(io, new ConfigError('NOT_A_REPO', 'nope', 'cd somewhere'))).toBe(EXIT.error)
+    expect(io.out).toEqual([])
+    expect(io.err).toEqual(['error: nope (NOT_A_REPO)', 'hint: cd somewhere'])
+    const bare = fakeIo(false)
+    reportFailure(bare, new Error('other'))
+    expect(bare.err).toEqual([expect.stringMatching(/^error: .*\(INTERNAL\)$/)])
+  })
+})
+
+describe('outputMode', () => {
+  it('prints JSON for --json, a pipe, or an agent command, and doctor only for --json', () => {
+    expect(outputMode('clean', ['--dry-run'], true)).toEqual({ json: false, rest: ['--dry-run'] })
+    expect(outputMode('clean', ['--json', '--dry-run'], true)).toEqual({ json: true, rest: ['--dry-run'] })
+    expect(outputMode('clean', ['--dry-run'], false).json).toBe(true)
+    for (const command of ['prepare', 'validate', 'publish']) {
+      expect(outputMode(command, [], true).json, command).toBe(true)
+    }
+    expect(outputMode('doctor', [], false)).toEqual({ json: false, rest: [] })
+    expect(outputMode('doctor', ['--json'], true)).toEqual({ json: true, rest: [] })
+  })
+})
+
 describe('namedCanvasDir', () => {
   it("reads publish's <canvasDir> and validate's --canvas wherever they sit, and never throws", () => {
     expect(namedCanvasDir('publish', ['dir', '--agent', 'a', '--harness', 'other'])).toBe('dir')
@@ -471,6 +498,24 @@ describe('install-skill through the CLI layer', () => {
   })
 })
 
+describe('install-skill at a terminal', () => {
+  it('lists where the skill went instead of printing JSON', async () => {
+    const repoRoot = await makeTempDir()
+    try {
+      const io = fakeIo(false)
+      expect(await runInstallSkill({ repoRoot, cwd: repoRoot }, [], io)).toBe(EXIT.ok)
+      const root = await realpath(repoRoot)
+      expect(io.out).toEqual([
+        'Copied the pr-review-canvas skill to:',
+        `  claude  ${path.join(root, '.claude', 'skills', 'pr-review-canvas')}`,
+        `  codex   ${path.join(root, '.agents', 'skills', 'pr-review-canvas')}`,
+      ])
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('export and import through the CLI layer', () => {
   const manifestFor = (headSha: string) => ({
     formatVersion: 1 as const,
@@ -498,6 +543,34 @@ describe('export and import through the CLI layer', () => {
     const back = fakeIo()
     expect(await runImport(t.ctx, [exported.path, '--pr', '42'], back)).toBe(EXIT.ok)
     expect(lastJson(back)).toMatchObject({ status: 'exists', headSha: HEAD_SHA, currentHeadSha: HEAD_SHA })
+  })
+
+  it('says what it exported and imported at a terminal', async () => {
+    t = await makeTestContext({ git: gitFor42(), gh: ghFor42() })
+    await t.ctx.canvases.write(HEAD_SHA, syntheticArtifact(), manifestFor(HEAD_SHA))
+    const io = fakeIo(false)
+    expect(await runExport(t.ctx, ['--head', 'feat/b', '--out', t.dataDir], io)).toBe(EXIT.ok)
+    const zip = path.join(t.dataDir, 'ref-20260910T110000Z-aaaaaaaa-acme-widgets-canvas.zip')
+    expect(io.out).toEqual([`Exported the canvas for ${HEAD_SHA.slice(0, 7)} to ${zip}`])
+    const back = fakeIo(false)
+    expect(await runImport(t.ctx, [zip], back)).toBe(EXIT.ok)
+    expect(back.out).toEqual([
+      `A canvas for ${HEAD_SHA.slice(0, 7)} is already stored and is at least as new; kept it.`,
+    ])
+  })
+
+  it('describes each import outcome in one line', () => {
+    const base = { headSha: 'a'.repeat(40), currentHeadSha: 'c'.repeat(40), derivable: true, warnings: [] }
+    expect(describeImport({ ...base, status: 'ready' })).toBe('Imported the canvas for aaaaaaa.')
+    expect(describeImport({ ...base, status: 'stale', relation: 'ancestor', commitsBehind: 1 })).toBe(
+      'Imported the canvas for aaaaaaa, but the head is now ccccccc, 1 commit ahead of it. The canvas is stale.'
+    )
+    expect(describeImport({ ...base, status: 'stale', relation: 'unrelated' })).toBe(
+      'Imported the canvas for aaaaaaa, but the head is now ccccccc, which does not contain it. The canvas is stale.'
+    )
+    expect(describeImport({ ...base, status: 'stale' })).toBe(
+      'Imported the canvas for aaaaaaa, but the head is now ccccccc. The canvas is stale.'
+    )
   })
 
   it('exports for a ref without a PR number', async () => {
@@ -725,6 +798,30 @@ describe('clean', () => {
     expect(await runClean(t.ctx, [], io)).toBe(EXIT.ok)
     expect(lastJson(io)).toMatchObject({ removed: [{ key: 41 }], skipped: [], dryRun: false })
     expect((await t.ctx.checkouts.list()).map(c => c.key)).toEqual([42])
+  })
+
+  it('lists what it removed, or would remove, at a terminal', async () => {
+    t = await makeTestContext()
+    await useCheckout(42)
+    const dry = fakeIo(false)
+    expect(await runClean(t.ctx, ['--all', '--dry-run'], dry)).toBe(EXIT.ok)
+    expect(dry.out).toEqual([
+      'Would remove 1 review checkout:',
+      expect.stringMatching(new RegExp(`^  #42 at ${HEAD_SHA.slice(0, 7)}, last used .+: /`)),
+    ])
+    const lease = await t.ctx.checkouts.lease(42)
+    const busy = fakeIo(false)
+    expect(await runClean(t.ctx, ['--all'], busy)).toBe(EXIT.ok)
+    expect(busy.out[0]).toBe('No review checkouts to remove.')
+    expect(busy.out[1]).toBe('Left 1 review checkout a chat turn is using:')
+    await lease.release()
+    const done = fakeIo(false)
+    expect(await runClean(t.ctx, ['--all'], done)).toBe(EXIT.ok)
+    expect(done.out[0]).toBe('Removed 1 review checkout:')
+    await t.ctx.settings.write({ checkoutIdleDays: -1 })
+    const off = fakeIo(false)
+    expect(await runClean(t.ctx, [], off)).toBe(EXIT.ok)
+    expect(off.out).toEqual([])
   })
 
   it('removes nothing with idle cleanup off, and says to use --all', async () => {

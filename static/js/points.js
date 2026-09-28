@@ -121,7 +121,7 @@ export function pointCommandsHtml(p, opts = {}) {
   const settle = settleButtonHtml(p)
   return (
     `<span class="tbtns" data-queued="${opts.queued === true ? '1' : '0'}" data-settleable="${settle === '' ? '0' : '1'}">` +
-    `<button class="cmd" type="button" data-copy="${esc(pointToMarkdown(p))}">copy</button>` +
+    `<button class="cmd" type="button" data-copy="${esc(pointToMarkdown(p))}" title="Copy as Markdown">copy</button>` +
     sendCommandsHtml({ kind: 'point', id: p.id, postedUrl: opts.postedUrl, queued: opts.queued }) +
     askButtonHtml(pointContext(p)) +
     settle +

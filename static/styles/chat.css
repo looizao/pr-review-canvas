@@ -32,8 +32,8 @@
   content: '';
   width: 4px;
   height: 36px;
-  border-left: 1px solid currentColor;
-  border-right: 1px solid currentColor;
+  border-left: 1px solid currentcolor;
+  border-right: 1px solid currentcolor;
 }
 .handle:hover,
 .handle:focus-visible {
@@ -125,15 +125,6 @@ textarea:disabled {
 }
 .chat-activity.checking-out {
   color: var(--accent);
-}
-.snip {
-  border: 1px solid var(--ink);
-  background: var(--panel-2);
-  font-size: 12px;
-  line-height: 20px;
-  padding: 6px 10px;
-  margin: 6px 0 8px;
-  white-space: pre;
 }
 .chat-composer {
   padding: 12px 14px;

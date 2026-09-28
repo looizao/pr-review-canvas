@@ -1,5 +1,5 @@
 import type { PendingComment } from '../contract/pending.js'
-import { sameAnchoredComment } from '../../static/js/comment-link.js'
+import { samePostedComment } from '../../static/js/comment-link.js'
 
 /**
  * The `posted` entries for submitted drafts, found in the comment list the
@@ -13,19 +13,24 @@ export function postedFromPending(
     path: string
     line: number | null
     startLine?: number | undefined
+    originalLine?: number | null | undefined
+    originalStartLine?: number | null | undefined
     side: string
     body: string
   }>
-): Array<{ commentId: number; pointFingerprint?: string }> {
-  const entries: Array<{ commentId: number; pointFingerprint?: string }> = []
+): Array<{ commentId: number; pointFingerprint?: string; proposalFingerprint?: string }> {
+  const entries: Array<{ commentId: number; pointFingerprint?: string; proposalFingerprint?: string }> = []
   const used = new Set<number>()
   for (const draft of pending) {
-    const match = comments.find(c => !used.has(c.id) && sameAnchoredComment(c, draft))
+    const match = comments.find(c => !used.has(c.id) && samePostedComment(c, draft))
     if (match !== undefined) {
       used.add(match.id)
       entries.push({
         commentId: match.id,
         ...(draft.pointFingerprint === undefined ? {} : { pointFingerprint: draft.pointFingerprint }),
+        ...(draft.proposalFingerprint === undefined
+          ? {}
+          : { proposalFingerprint: draft.proposalFingerprint }),
       })
     }
   }

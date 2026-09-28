@@ -86,7 +86,7 @@
 .deck-top::after {
   content: '';
   position: absolute;
-  inset: auto 0 -6px 0;
+  inset: auto 0 -6px;
   height: 6px;
   background: var(--stripe-y);
 }
@@ -168,6 +168,9 @@
   width: 100%;
   min-width: 0;
   max-height: 100%;
+  height: 100%;
+  align-items: center;
+  perspective: 1800px;
 }
 .deck-ghost,
 .deck-card {
@@ -183,6 +186,8 @@
   font-weight: 600;
   overflow: hidden;
   transition: transform 0.35s cubic-bezier(0.2, 1.3, 0.4, 1);
+  background: var(--panel-2);
+  height: min(800px, 100%);
 }
 .deck-ghost span {
   display: block;
@@ -193,9 +198,6 @@
 }
 /* The cards waiting underneath show as two edges above the top card, as a pile does; a tilt that
    reads on a small card turns into a skewed hairline across a wide one, so they stay level. */
-.deck-ghost {
-  background: var(--panel-2);
-}
 .deck-ghost-1 {
   transform: translateY(-14px) scaleX(0.975);
 }
@@ -207,7 +209,6 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
   padding: 20px 24px 16px;
   min-width: 0;
@@ -218,6 +219,13 @@
   cursor: grab;
   outline: none;
   will-change: transform;
+  /* One column that never grows past the card: a wide line of code scrolls in its own box. */
+  grid-template:
+    'head' auto
+    'face' minmax(0, 1fr)
+    'foot' auto
+    / minmax(0, 1fr);
+  height: min(800px, 100%);
 }
 /* The card takes focus only so the deck's keys land on the page; it is never tabbed to, and a ring
    around the whole screen's content marks nothing. Its buttons keep their own focus rings. */
@@ -230,7 +238,7 @@
 }
 .deck-card[data-lean='a'] .deck-side-a,
 .deck-card[data-lean='b'] .deck-side-b {
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 
 .deck-kicker {
@@ -306,7 +314,9 @@
   border: 2px solid var(--line);
   transition:
     border-color 0.2s,
-    background 0.2s;
+    background 0.2s,
+    transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1),
+    opacity 0.25s;
 }
 .deck-side-a {
   color: var(--deck-ink-a);
@@ -326,8 +336,8 @@
 }
 .deck-side-h h3 {
   margin: 0;
-  font-size: 17px;
   color: var(--fg);
+  font-size: 19px;
 }
 .deck-letter {
   display: grid;
@@ -366,7 +376,7 @@
   font-size: 12.5px;
   line-height: 1.45;
   background: var(--panel-2);
-  border-left: 3px solid currentColor;
+  border-left: 3px solid currentcolor;
   /* Long lines wrap rather than being cut off: a snippet is at most 8 lines, so every character
      stays on the card without a scroll box of its own. */
   white-space: pre-wrap;
@@ -442,6 +452,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  grid-area: foot;
 }
 .deck-anchor {
   color: var(--fg-muted);
@@ -490,7 +501,7 @@
   font-size: 44px;
   font-weight: 900;
   letter-spacing: 0.08em;
-  border: 5px solid currentColor;
+  border: 5px solid currentcolor;
   opacity: 0;
   pointer-events: none;
   transition:
@@ -682,6 +693,7 @@
   height: 10px;
   opacity: 0;
   background: var(--v1);
+  --a: calc(var(--i, 0) * 20deg);
 }
 .deck-burst i:nth-child(6n + 2) {
   background: var(--v2);
@@ -705,9 +717,6 @@
   animation: deck-confetti 1.1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
 /* Each piece flies along its own angle: deck.js numbers them in --i, 20 degrees apart. */
-.deck-burst i {
-  --a: calc(var(--i, 0) * 20deg);
-}
 @keyframes deck-pop {
   from {
     transform: scale(0.9);
@@ -751,27 +760,9 @@
 .deck-hand {
   min-height: 0;
 }
-.deck-hand {
-  height: 100%;
-  align-items: center;
-  perspective: 1800px;
-}
-.deck-card {
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  /* One column that never grows past the card: a wide line of code scrolls in its own box. */
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'head' 'face' 'foot';
-  height: min(800px, 100%);
-}
-.deck-ghost {
-  height: min(800px, 100%);
-}
 .deck-card-h {
   grid-area: head;
   padding-right: 240px;
-}
-.deck-card-f {
-  grid-area: foot;
 }
 .deck-front,
 .deck-back {
@@ -802,16 +793,6 @@
   font-size: 16px;
   color: var(--fg);
 }
-.deck-side {
-  transition:
-    border-color 0.2s,
-    background 0.2s,
-    transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1),
-    opacity 0.25s;
-}
-.deck-side-h h3 {
-  font-size: 19px;
-}
 .deck-gist {
   font-size: clamp(15px, 1.05vw, 18px);
   font-weight: 560;
@@ -833,7 +814,7 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border: 1px solid color-mix(in srgb, currentcolor 25%, transparent);
   background: var(--panel);
   overflow: hidden;
 }
@@ -849,7 +830,7 @@
 .deck-card[data-picked='a'] .deck-side-a,
 .deck-card[data-picked='b'] .deck-side-b {
   transform: scale(1.025);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 .deck-card[data-picked='a'] .deck-side-b,
 .deck-card[data-picked='b'] .deck-side-a {
@@ -969,7 +950,7 @@
 }
 
 /* Small screens stack the sides and let the page scroll; the no-scroll promise is for desktops. */
-@media (max-width: 900px), (max-height: 700px) {
+@media (width <= 900px), (height <= 700px) {
   .deck-page {
     height: auto;
     min-height: 100dvh;
@@ -1018,7 +999,7 @@
 
 /* Phones: tighter padding, a note that is a bottom sheet, and big touch targets instead of key
    hints, which touch screens have no use for. */
-@media (max-width: 600px) {
+@media (width <= 600px) {
   .deck-top {
     padding: 8px 12px;
     gap: 8px 12px;
@@ -1052,6 +1033,7 @@
   .deck-card-more {
     margin-left: 0;
     width: 100%;
+    flex-wrap: wrap;
   }
   .deck-card-more .cmd,
   .deck-pick {
@@ -1061,7 +1043,7 @@
   }
   .deck-pick {
     align-self: stretch;
-    border: 2px solid currentColor;
+    border: 2px solid currentcolor;
     font-weight: 700;
   }
   .deck-side-a .deck-pick {
@@ -1069,9 +1051,6 @@
   }
   .deck-side-b .deck-pick {
     color: var(--deck-ink-b);
-  }
-  .deck-card-more {
-    flex-wrap: wrap;
   }
   .deck-note {
     position: fixed;

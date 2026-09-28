@@ -54,7 +54,12 @@ export const PrStateSchema = z.preprocess(
     reviewedCanvasSha: z.string().optional(),
     hiddenThreads: z.record(z.string(), z.object({ at: z.string() })),
     posted: z.array(
-      z.object({ commentId: z.number().int(), pointFingerprint: z.string().optional(), at: z.string() })
+      z.object({
+        commentId: z.number().int(),
+        pointFingerprint: z.string().optional(),
+        proposalFingerprint: z.string().optional(),
+        at: z.string(),
+      })
     ),
     dismissed: z.record(z.string(), z.object({ at: z.string(), reason: z.string().optional() })),
     /**

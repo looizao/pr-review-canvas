@@ -197,7 +197,7 @@ ${
 }
 </section>
 </main>
-<footer><span>pr-review ${data.version}</span><span>localhost only · nothing leaves this machine except ${label} posts you confirm</span></footer>
+<footer><span>pr-review ${data.version}</span><span>local review app · ${label} operations and AI requests contact their services</span></footer>
 </div>`,
   })
 }

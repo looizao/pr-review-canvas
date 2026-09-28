@@ -1,6 +1,6 @@
 {
   "name": "@vintasoftware/pr-review-canvas",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Localhost PR review canvas: layered diffs, attention points, and GitHub or GitLab comments for one PR",
   "type": "module",
   "bin": {
@@ -20,9 +20,10 @@
     "prepublishOnly": "pnpm verify",
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --fix --deny-warnings",
+    "lint:css": "stylelint \"static/**/*.css\" \"site/**/*.css\" && node scripts/check-css-usage.mjs",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck",
+    "check": "pnpm lint && pnpm lint:css && pnpm format:check && pnpm typecheck",
     "precommit": "pnpm check && pnpm test",
     "site:dev": "vite --config site/vite.config.js",
     "site:image": "node scripts/render-social-preview.mjs",
@@ -54,6 +55,8 @@
     "happy-dom": "20.11.2",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
+    "stylelint": "^17.15.0",
+    "stylelint-config-standard": "^40.0.0",
     "typescript": "^5.9.3",
     "vite": "~8.0.16",
     "vitest": "^4.1.10"

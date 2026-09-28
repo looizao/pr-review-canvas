@@ -4,9 +4,35 @@ import { splitFences } from './fences.js'
 import {
   PROPOSED_BODY_MAX,
   parseProposedComment,
+  proposalFingerprint,
   splitChatAnswer,
   targetsFromFiles,
 } from './proposed-comment.js'
+
+describe('proposalFingerprint', () => {
+  const original = {
+    path: 'src/app.ts',
+    line: 4,
+    side: /** @type {const} */ ('new'),
+    body: 'Check this.\nNext line.',
+  }
+
+  it('normalizes line endings, trailing whitespace and single-line ranges', () => {
+    expect(proposalFingerprint({ ...original, startLine: 4, body: 'Check this.\r\nNext line.\n' })).toBe(
+      proposalFingerprint(original)
+    )
+  })
+
+  it.each([
+    { path: 'src/other.ts' },
+    { line: 5 },
+    { startLine: 3 },
+    { side: /** @type {const} */ ('old') },
+    { body: 'Different advice.' },
+  ])('distinguishes a changed part of the original proposal: %j', change => {
+    expect(proposalFingerprint({ ...original, ...change })).not.toBe(proposalFingerprint(original))
+  })
+})
 
 /** @type {ReadonlyArray<import('./contract-types.js').FileEntry>} */
 const FILES = [

@@ -9,6 +9,7 @@ import type { PrStore } from './pr-store.js'
 export interface PostedEntry {
   commentId: number
   pointFingerprint?: string
+  proposalFingerprint?: string
 }
 
 /** Per-target local state: reviewed cards, dismissed points, hidden threads, posted comments. */
@@ -166,6 +167,9 @@ export function createStateStore(prs: PrStore, now: () => Date): StateStore {
         ...(input.startLine === undefined ? {} : { startLine: input.startLine }),
         body: input.body,
         ...(input.pointFingerprint === undefined ? {} : { pointFingerprint: input.pointFingerprint }),
+        ...(input.proposalFingerprint === undefined
+          ? {}
+          : { proposalFingerprint: input.proposalFingerprint }),
         headSha,
         createdAt: at,
         updatedAt: at,

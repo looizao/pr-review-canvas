@@ -237,39 +237,42 @@ describe('POST /api/prs/:n/comments', () => {
     await t?.cleanup()
   })
 
-  it('posts an inline comment, records it, and returns the new state', async () => {
-    const gh = ghFor42({ postRoutes: POST_ROUTES })
-    t = await contextWithCanvas(gh)
-    const app = createApp(t.ctx)
-    // The bundle caches the comments, which is what the posted one is appended to.
-    await app.request('/api/prs/42', { headers: LOCAL })
-    const res = await app.request(
-      ...post('/api/prs/42/comments', {
-        kind: 'inline',
+  it.each(['pointFingerprint', 'proposalFingerprint'])(
+    'posts an inline comment and records its %s',
+    async fingerprintKey => {
+      const gh = ghFor42({ postRoutes: POST_ROUTES })
+      t = await contextWithCanvas(gh)
+      const app = createApp(t.ctx)
+      // The bundle caches the comments, which is what the posted one is appended to.
+      await app.request('/api/prs/42', { headers: LOCAL })
+      const res = await app.request(
+        ...post('/api/prs/42/comments', {
+          kind: 'inline',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          body: 'Look at this',
+          [fingerprintKey]: 'fp-1',
+        })
+      )
+      expect(res.status).toBe(201)
+      const body = await json<PostCommentResponse>(res)
+      expect(body.kind).toBe('review')
+      expect(body.comment.id).toBe(5001)
+      expect(body.state.posted).toEqual([
+        { commentId: 5001, [fingerprintKey]: 'fp-1', at: '2026-09-10T12:00:00.000Z' },
+      ])
+      expect(gh.calls.filter(c => c.kind === 'post')[0]?.body).toEqual({
+        body: 'Look at this',
+        commit_id: HEAD_SHA,
         path: 'src/app.ts',
         line: 4,
-        side: 'new',
-        body: 'Look at this',
-        pointFingerprint: 'fp-1',
+        side: 'RIGHT',
       })
-    )
-    expect(res.status).toBe(201)
-    const body = await json<PostCommentResponse>(res)
-    expect(body.kind).toBe('review')
-    expect(body.comment.id).toBe(5001)
-    expect(body.state.posted).toEqual([
-      { commentId: 5001, pointFingerprint: 'fp-1', at: '2026-09-10T12:00:00.000Z' },
-    ])
-    expect(gh.calls.filter(c => c.kind === 'post')[0]?.body).toEqual({
-      body: 'Look at this',
-      commit_id: HEAD_SHA,
-      path: 'src/app.ts',
-      line: 4,
-      side: 'RIGHT',
-    })
-    const cached = await t.ctx.prs.readComments(42)
-    expect(cached?.reviewComments.map(c => c.id)).toEqual([1001, 1002, 1003, 5001])
-  })
+      const cached = await t.ctx.prs.readComments(42)
+      expect(cached?.reviewComments.map(c => c.id)).toEqual([1001, 1002, 1003, 5001])
+    }
+  )
 
   it('posts a reply and a PR-level comment', async () => {
     t = await contextWithCanvas(ghFor42({ postRoutes: POST_ROUTES }))
@@ -750,6 +753,28 @@ describe('the pending review', () => {
 
   const DRAFT = { path: 'src/app.ts', line: 4, side: 'new', body: 'needs a guard' }
 
+  it('carries a proposal fingerprint through draft editing and submission', async () => {
+    t = await contextWithCanvas(reviewGh())
+    const app = createApp(t.ctx)
+    const added = await json<StateResponse>(
+      await app.request(...post('/api/prs/42/pending', { ...DRAFT, proposalFingerprint: 'turn:0' }))
+    )
+    const id = added.state.pending[0]!.id
+    const edited = await app.request(
+      ...patch(`/api/prs/42/pending/${id}`, { body: 'Edited before submission' })
+    )
+    expect(edited.status).toBe(200)
+    const submitted = await app.request(
+      ...post('/api/prs/42/review', { event: 'COMMENT', body: 'Review of the draft' })
+    )
+    expect(submitted.status).toBe(201)
+    const saved = await t.ctx.state.read(42)
+    expect(saved.posted).toMatchObject([{ commentId: 5001, proposalFingerprint: 'turn:0' }])
+    expect(saved.submitted).toMatchObject([
+      { body: 'Edited before submission', proposalFingerprint: 'turn:0' },
+    ])
+  })
+
   it('preserves newly added and edited drafts while a review is being posted', async () => {
     const entered = Promise.withResolvers<void>()
     const release = Promise.withResolvers<void>()
@@ -1064,6 +1089,12 @@ describe('postedFromPending', () => {
     expect(postedFromPending(drafts, [comment({ path: 'src/other.ts' })])).toEqual([])
     // A draft that matches nothing is skipped rather than guessed at.
     expect(postedFromPending(drafts, [])).toEqual([])
+  })
+
+  it('recovers a delayed receipt after GitHub moves its complete original range', () => {
+    const moved = comment({ line: 6, startLine: 5, originalLine: 4, originalStartLine: 3 })
+    expect(postedFromPending([draft({ startLine: 3 })], [moved])).toEqual([{ commentId: 5001 }])
+    expect(postedFromPending([draft({ startLine: 2 })], [moved])).toEqual([])
   })
 
   it('never gives one comment to two drafts that read the same', () => {

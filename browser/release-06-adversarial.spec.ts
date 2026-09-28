@@ -17,23 +17,43 @@ for (const receipt of ['available', 'unavailable']) {
     }
     const proposal = {
       path: 'src/app.ts',
-      line: 5,
-      startLine: 4,
+      line: 3,
+      startLine: 2,
       body: 'Cover both lines with a regression test.',
     }
+    const secondProposal = { ...proposal, line: 5, startLine: 4 }
+    let movedBy = 0
+    let edited = false
     const { url } = await chatServer({
       setup: async ({ ctx }) => {
-        if (receipt === 'unavailable') {
-          const api = ctx.gh.api.bind(ctx.gh)
-          ctx.gh.api = async (path, params) => {
-            if (path.endsWith('/reviews/7001/comments')) throw new Error('receipt temporarily unavailable')
-            return api(path, params)
+        const api = ctx.gh.api.bind(ctx.gh)
+        ctx.gh.api = async (path, params) => {
+          if (receipt === 'unavailable' && path.endsWith('/reviews/7001/comments')) {
+            throw new Error('receipt temporarily unavailable')
           }
+          const result = await api(path, params)
+          if (movedBy === 0 || !path.endsWith('/pulls/42/comments')) return result
+          // GitHub keeps the original range after new commits move the commented code.
+          return (result as Array<Record<string, unknown>>).map(comment =>
+            comment['pull_request_review_id'] === 7001
+              ? {
+                  ...comment,
+                  line: (comment['line'] as number) + movedBy,
+                  start_line: (comment['start_line'] as number) + movedBy,
+                  ...(edited ? { body: 'Edited on GitHub after posting.' } : {}),
+                }
+              : comment
+          )
         }
       },
       runner: {
         script: [
-          { type: 'chunk', text: '```comment\n' + JSON.stringify(proposal) + '\n```' },
+          {
+            type: 'chunk',
+            text: [proposal, secondProposal]
+              .map(p => '```comment\n' + JSON.stringify(p) + '\n```')
+              .join('\n'),
+          },
           { type: 'done', stopReason: 'end_turn' },
         ],
       },
@@ -42,7 +62,8 @@ for (const receipt of ['available', 'unavailable']) {
     await openChat()
     await page.locator('#msg').fill('Propose a comment')
     await page.locator('#chat-send').click()
-    const card = page.locator('.proposed')
+    const card = page.locator('.proposed').first()
+    const secondCard = page.locator('.proposed').nth(1)
     await card.locator('[data-act="proposed-queue"]').click()
     await expect(card).toContainText('in your review')
     await page.reload()
@@ -55,6 +76,12 @@ for (const receipt of ['available', 'unavailable']) {
     await openChat()
     await expect(card.locator('[data-act="proposed-queue"]')).toBeVisible()
     await card.locator('[data-act="proposed-queue"]').click()
+    await secondCard.locator('[data-act="proposed-queue"]').click()
+    await page.locator('#msg').fill('Propose the same comments again')
+    await page.locator('#chat-send').click()
+    await expect(page.locator('.proposed')).toHaveCount(4)
+    await expect(page.locator('.proposed').nth(2)).toContainText('in your review')
+    await expect(page.locator('.proposed').nth(3)).toContainText('in your review')
     await closeChat()
     await page.locator('[data-act="pending-finish"]').click()
     await page.locator('[data-act="signoff-post"]').click()
@@ -71,14 +98,26 @@ for (const receipt of ['available', 'unavailable']) {
     await expect(card.locator('[data-act="proposed-post"]')).toHaveCount(0)
     await page.reload()
     await openChat()
-    if (receipt === 'available') {
-      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-    } else {
+    for (const offset of [2, 4]) {
+      movedBy = offset
       await closeChat()
       await page.locator('#refresh').click()
       await openChat()
       await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+      await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
+      await page.reload()
+      await openChat()
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+      await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
     }
+    edited = true
+    await closeChat()
+    await page.locator('#refresh').click()
+    await openChat()
+    await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
+    await expect(page.locator('.proposed').nth(2).locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    await expect(page.locator('.proposed').nth(3).locator('a[href$="discussion_r8002"]')).toHaveCount(1)
     await expect(card.locator('[data-act="proposed-queue"], [data-act="proposed-post"]')).toHaveCount(0)
   })
 }
@@ -281,8 +320,15 @@ test('Recent labels prepared PRs without a canvas and pages serve the SVG favico
   const { url, ctx } = await chatServer()
   await ctx.prs.writePr(42, syntheticArtifact().pr)
   await page.goto(new URL('/', url).href)
+  await expect(page.locator('footer')).toContainText(
+    'GitHub operations and AI requests contact their services'
+  )
   await expect(page.locator('main')).toContainText('no canvas yet')
   const href = await page.locator('link[rel="icon"]').getAttribute('href')
   expect(href).toBe('/static/brand.svg')
   expect((await page.request.get(new URL(href!, url).href)).status()).toBe(200)
+  await page.goto(url)
+  await expect(page.locator('footer')).toContainText(
+    'GitHub operations and AI requests contact their services'
+  )
 })

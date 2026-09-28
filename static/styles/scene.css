@@ -11,7 +11,7 @@
   --ink: var(--ink-a);
   --fg: light-dark(#1f2328, #e6edf3);
   --muted: light-dark(#59636e, #9198a1);
-  --paper: light-dark(#ffffff, #151b23);
+  --paper: light-dark(#fff, #151b23);
   --line: light-dark(#d1d9e0, #3d444d);
   --good: light-dark(#1a7f37, #3fb950);
   --bad: light-dark(#cf222e, #f85149);
@@ -63,6 +63,7 @@ body {
 }
 .scene {
   width: 100%;
+  position: relative;
 }
 .row {
   display: flex;
@@ -255,10 +256,7 @@ body {
   height: var(--len, 1.4rem);
 }
 .arrow.down::after {
-  right: auto;
-  top: auto;
-  left: 50%;
-  bottom: -0.1rem;
+  inset: auto auto -0.1rem 50%;
   border: 0.32rem solid transparent;
   border-top: 0.5rem solid var(--c, var(--muted));
   border-bottom: 0;
@@ -662,7 +660,7 @@ td:where(.ink, .good, .bad, .warn) {
 .msg.me {
   align-self: flex-end;
   border-color: transparent;
-  border-radius: 0.7rem 0.7rem 0.2rem 0.7rem;
+  border-radius: 0.7rem 0.7rem 0.2rem;
   background: var(--c, var(--ink));
   color: var(--paper);
 }
@@ -725,9 +723,6 @@ td:where(.ink, .good, .bad, .warn) {
 }
 
 /* A rubber stamp over the scene's corner, usually `on-pick`: the verdict, toned. */
-.scene {
-  position: relative;
-}
 .stamp {
   position: absolute;
   top: 0.2rem;

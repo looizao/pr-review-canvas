@@ -72,12 +72,14 @@
   font-size: 11px;
   color: var(--fg-muted);
 }
+/* `--dc` is the layer's color; layers.js sets it inline on each dot. */
 .tree .dot {
+  --dc: var(--fg-dim);
   grid-area: d;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid var(--dc, var(--fg-dim));
+  border: 2px solid var(--dc);
   margin-top: 4px;
 }
 .tree .dot.on {

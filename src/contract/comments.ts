@@ -9,6 +9,8 @@ export const ReviewCommentSchema = z.object({
   path: z.string(),
   line: z.number().int().nullable(),
   originalLine: z.number().int().nullable(),
+  /** Original range start; null means a single line, absent means the host did not supply it. */
+  originalStartLine: z.number().int().nullable().optional(),
   side: SideSchema,
   startLine: z.number().int().optional(),
   outdated: z.boolean(),
@@ -66,6 +68,7 @@ export const PostCommentInputSchema = z.discriminatedUnion('kind', [
     body: BodySchema,
     /** Set when the comment comes from an attention point, so the sign-off body can name it. */
     pointFingerprint: z.string().min(1).optional(),
+    proposalFingerprint: z.string().min(1).max(300).optional(),
     /** The commit the page was showing. The server refuses the post when the head moved on. */
     headSha: HeadShaSchema,
   }),

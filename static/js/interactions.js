@@ -1375,6 +1375,9 @@ export function wireReview(root, session, opts = {}) {
           line: comment.line,
           side: comment.side,
           body: comment.body,
+          ...(comment.proposalFingerprint === undefined
+            ? {}
+            : { proposalFingerprint: comment.proposalFingerprint }),
         }
         if (comment.startLine !== undefined && comment.startLine !== comment.line) {
           options.startLine = comment.startLine
@@ -1392,6 +1395,9 @@ export function wireReview(root, session, opts = {}) {
         line: comment.line,
         side: comment.side,
         body: comment.body,
+        ...(comment.proposalFingerprint === undefined
+          ? {}
+          : { proposalFingerprint: comment.proposalFingerprint }),
         ...(comment.startLine === undefined || comment.startLine === comment.line
           ? {}
           : { startLine: comment.startLine }),

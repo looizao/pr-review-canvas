@@ -26,7 +26,7 @@ import {
   writeChatMinimized,
   writeChatWidth,
 } from './chat.js'
-import { targetsFromFiles } from './proposed-comment.js'
+import { proposalFingerprint, targetsFromFiles } from './proposed-comment.js'
 import { wireQuickQuestions } from './quick-questions.js'
 import { createReviewSession } from './review-session.js'
 
@@ -570,6 +570,40 @@ describe('the unseen bubble', () => {
 })
 
 describe('answerHtml', () => {
+  it('keeps proposal identities when earlier files leave the diff across two updates', () => {
+    const filePaths = ['first.ts', 'second.ts', 'third.ts']
+    const text = filePaths
+      .map(path => '```comment\n' + JSON.stringify({ path, line: 1, body: 'Test this.' }) + '\n```')
+      .join('\n')
+    const render = (/** @type {string[]} */ present) => {
+      const sink = new Map()
+      answerHtml(
+        text,
+        { hasPath: path => present.includes(path), hasLine: () => true },
+        sink,
+        new Set(present),
+        'turn'
+      )
+      return [...sink.values()]
+    }
+    const initial = render(filePaths)
+    for (const removed of [1, 2]) {
+      const remaining = render(filePaths.slice(removed))
+      expect(remaining.map(c => c.proposalFingerprint)).toEqual(
+        initial.slice(removed).map(c => c.proposalFingerprint)
+      )
+    }
+  })
+
+  it('recognizes identical proposals in another turn', () => {
+    const text = '```comment\n{"path":"src/app.ts","line":3,"body":"Rename this."}\n```'
+    const first = new Map()
+    const second = new Map()
+    answerHtml(text, targets, first, paths, 'first')
+    answerHtml(text, targets, second, paths, 'second')
+    expect([...first.values()][0].proposalFingerprint).toBe([...second.values()][0].proposalFingerprint)
+  })
+
   it('renders a posted proposal with a view link when the answer is drawn again', () => {
     const posted = { ...mapReviewComment(GH_REVIEW_COMMENTS[0], new Set()), body: 'Rename this.', line: 3 }
     document.body.innerHTML = answerHtml(
@@ -652,18 +686,22 @@ describe('answerHtml', () => {
 
 describe('the proposed-comment commands', () => {
   it('hands the card the reader clicked to the page', async () => {
-    /** @type {Array<[string, string]>} */
+    /** @type {Array<[string, string, string | undefined]>} */
     const seen = []
     const { root } = mount(
       {
         streamChat: async (_pr, _input, opts) => {
+          opts.onEvent({
+            event: 'turn',
+            data: { thread: 't1', agent: 'claude', seeded: true },
+          })
           opts.onEvent({
             event: 'chunk',
             data: { text: '```comment\n{"path":"src/app.ts","line":3,"body":"Rename."}\n```\n' },
           })
         },
       },
-      { onProposed: (what, comment) => seen.push([what, comment.body]) }
+      { onProposed: (what, comment) => seen.push([what, comment.body, comment.proposalFingerprint]) }
     )
     const box = el(root, '#msg')
     if (!(box instanceof HTMLTextAreaElement)) {
@@ -675,10 +713,11 @@ describe('the proposed-comment commands', () => {
     el(root, '[data-act="proposed-post"]').click()
     el(root, '[data-act="proposed-queue"]').click()
     el(root, '[data-act="proposed-edit"]').click()
+    const fingerprint = proposalFingerprint({ path: 'src/app.ts', line: 3, side: 'new', body: 'Rename.' })
     expect(seen).toEqual([
-      ['post', 'Rename.'],
-      ['queue', 'Rename.'],
-      ['edit', 'Rename.'],
+      ['post', 'Rename.', fingerprint],
+      ['queue', 'Rename.', fingerprint],
+      ['edit', 'Rename.', fingerprint],
     ])
   })
 })

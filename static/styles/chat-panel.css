@@ -22,7 +22,7 @@
 .chat-minimize {
   margin-left: auto;
 }
-@media (max-width: 1360px) {
+@media (width <= 1360px) {
   dialog.chat-dialog {
     position: fixed;
     inset: auto 20px 20px auto;
@@ -63,9 +63,9 @@
     max-height: 25dvh;
   }
 }
-@media (max-width: 600px) {
+@media (width <= 600px) {
   dialog.chat-dialog {
-    inset: auto 8px max(8px, env(safe-area-inset-bottom)) 8px;
+    inset: auto 8px max(8px, env(safe-area-inset-bottom));
     width: auto;
     height: calc(100dvh - 24px - env(safe-area-inset-bottom));
   }

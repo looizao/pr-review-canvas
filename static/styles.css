@@ -1,17 +1,17 @@
 /* Keep this order: shared styles, components, responsive rules, interaction controls, and the
    github skin last, because it repaints the rules above it. */
-@import './styles/base.css';
-@import './styles/commands.css';
-@import './styles/header.css';
-@import './styles/layout.css';
-@import './styles/review.css';
-@import './styles/diff.css';
-@import './styles/chat.css';
-@import './styles/panels.css';
-@import './styles/responsive.css';
-@import './styles/review-actions.css';
-@import './styles/pending.css';
-@import './styles/chat-tools.css';
-@import './styles/deck.css';
-@import './styles/skin-github.css';
-@import './styles/chat-panel.css';
+@import url('./styles/base.css');
+@import url('./styles/commands.css');
+@import url('./styles/header.css');
+@import url('./styles/layout.css');
+@import url('./styles/review.css');
+@import url('./styles/diff.css');
+@import url('./styles/chat.css');
+@import url('./styles/panels.css');
+@import url('./styles/responsive.css');
+@import url('./styles/review-actions.css');
+@import url('./styles/pending.css');
+@import url('./styles/chat-tools.css');
+@import url('./styles/deck.css');
+@import url('./styles/skin-github.css');
+@import url('./styles/chat-panel.css');

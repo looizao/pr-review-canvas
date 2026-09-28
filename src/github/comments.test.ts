@@ -8,6 +8,15 @@ import { fetchResolvedCommentIds, THREADS_QUERY } from './threads.js'
 const now = () => new Date('2026-09-10T12:00:00.000Z')
 
 describe('mapReviewComment', () => {
+  it.each([null, 3])('preserves the original start of a moved comment: %s', originalStart => {
+    expect(
+      mapReviewComment(
+        { ...GH_REVIEW_COMMENTS[0], line: 6, start_line: 5, original_start_line: originalStart },
+        new Set()
+      )
+    ).toMatchObject({ line: 6, startLine: 5, originalLine: 4, originalStartLine: originalStart })
+  })
+
   it('maps a root comment on the new side', () => {
     expect(mapReviewComment(GH_REVIEW_COMMENTS[0], new Set([1001]))).toEqual({
       id: 1001,

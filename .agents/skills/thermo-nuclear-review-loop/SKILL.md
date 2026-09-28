@@ -21,7 +21,9 @@ If the ref cannot be resolved or the scope is ambiguous, stop and ask.
 
 ## Spawn the reviewer
 
-**Model**: an Opus-like model, meaning the highest or second-highest model on the default plan for that agent (Claude: Opus; Codex: the top or second reasoning model at `xhigh` effort), at its highest reasoning effort. Name the tier, never a specific model id.
+**Model**: an Opus-like model, meaning the highest or second-highest model on the default plan for that agent (Claude: Opus; Codex: the top or second reasoning model). Name the tier, never a specific model id.
+
+**Reasoning effort**: use `high` or lower throughout the loop. Explicitly configure the reviewer at `high` or lower when spawning a subagent or starting a cross-host session, including when the host uses a higher effort setting.
 
 **Host**: when the reviewer runs on the same agent as the host, spawn a subagent with a stable name (`tnr-reviewer`) and keep it for the whole loop so later passes reuse its context. When the reviewer runs on a different agent, use `acpx` with a named persistent session (see Host notes). The user chooses; default to the same host.
 
@@ -168,4 +170,4 @@ Approve when the scope has: no verified correctness or security defect, no rule 
     acpx --approve-reads --non-interactive-permissions deny <agent> -s tnr-reviewer -f review-prompt.md
     ```
 
-    `<agent>` is `claude` or `codex`. Use `--model` to request the Opus-like tier when the adapter advertises models (Codex also takes `--config-option reasoning_effort=xhigh`). From a Codex host, acpx needs network, which the default sandbox blocks: expect one approval prompt. Paste the Review Standard (or `REVIEW.md`) into the prompt file when the reviewer agent cannot read this skill. The tree-integrity check in Spawn the reviewer is the real guard; the flags reduce the chance of needing it.
+    `<agent>` is `claude` or `codex`. Use `--model` to request the Opus-like tier when the adapter advertises models (Codex also takes `--config-option reasoning_effort=high`). From a Codex host, acpx needs network, which the default sandbox blocks: expect one approval prompt. Paste the Review Standard (or `REVIEW.md`) into the prompt file when the reviewer agent cannot read this skill. The tree-integrity check in Spawn the reviewer is the real guard; the flags reduce the chance of needing it.

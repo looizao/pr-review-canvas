@@ -2053,7 +2053,15 @@ describe('the AI Chat commands', () => {
     expect(calls).toEqual([
       [
         'pending-add',
-        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+        {
+          path: 'src/app.ts',
+          line: 3,
+          startLine: 2,
+          side: 'new',
+          body: 'Rename.',
+          headSha: HEAD,
+          proposalFingerprint: 'proposal:45747567ecdc439b',
+        },
       ],
     ])
     expect(cardCommands(root)).toEqual(['in your review', 'edit', 'copy'])
@@ -2070,7 +2078,15 @@ describe('the AI Chat commands', () => {
     expect(calls).toEqual([
       [
         'comment',
-        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
+        {
+          kind: 'inline',
+          path: 'src/app.ts',
+          line: 3,
+          side: 'new',
+          body: 'One line.',
+          headSha: HEAD,
+          proposalFingerprint: 'proposal:ef576f5b6d27a0fa',
+        },
       ],
     ])
     expect(cardCommands(root)).toEqual(['view comment', 'edit', 'copy'])
@@ -2086,7 +2102,14 @@ describe('the AI Chat commands', () => {
     root.appendChild(button)
     wiring.onProposedComment(
       'edit',
-      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
+      {
+        path: 'src/app.ts',
+        line: 3,
+        startLine: 2,
+        side: 'new',
+        body: 'Rename.',
+        proposalFingerprint: 'turn:0',
+      },
       button
     )
     const box = root.querySelector('.composer-box textarea')
@@ -2095,6 +2118,7 @@ describe('the AI Chat commands', () => {
     }
     expect(box.value).toBe('Rename.')
     expect(root.querySelector('.composer-box')?.getAttribute('data-start-line')).toBe('2')
+    expect(root.querySelector('.composer-box')?.getAttribute('data-proposal-fingerprint')).toBe('turn:0')
   })
 
   it('says why it cannot edit a comment whose file or line is not on screen', () => {

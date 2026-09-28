@@ -108,22 +108,22 @@
 }
 .pill.open {
   color: var(--ok);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 .pill.draft,
 .pill.closed {
   color: var(--fg-muted);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 .pill.merged {
   color: var(--purple);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 /* The two local reviews: work with no pull request, so neither open nor closed. */
 .pill.branch,
 .pill.uncommitted {
   color: var(--accent);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 .pill.agent {
   color: var(--fg);

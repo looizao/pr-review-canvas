@@ -219,12 +219,12 @@ For a `--base/--head` run, `sharing.status` is `"local"` too, but the canvas has
 own. Report the stored commit and export it:
 
 ```bash
-pr-review export --head <headSha>
+pr-review export --head <headSha> --json
 ```
 
 Export prints `{ "status": "exported", "path", "name", "headSha", "prNumber" }`; `prNumber`
 is absent for a refs-only export. Give the returned absolute `path`. Re-exporting the same canvas
-uses the same name and replaces an existing ZIP at that path. Once a PR exists, `pr-review export --head <headSha> --pr <n>`
+uses the same name and replaces an existing ZIP at that path. Once a PR exists, `pr-review export --head <headSha> --pr <n> --json`
 stamps its number for manual upload, or rerun this skill for the PR number with `--force` to share
 automatically. A canvas of a working-tree snapshot cannot be carried to a pull request this way:
 its commit is on no branch, so generate a fresh one for the PR.
