@@ -514,8 +514,10 @@ dd code {
   background: #fffefa;
 }
 .config-example pre {
-  padding: 24px;
+  padding: 20px 24px;
   color: #4c435e;
+  font-size: 13px;
+  line-height: 1.65;
 }
 .code-comment {
   color: #707363;
