@@ -215,6 +215,10 @@ export function testEntrySchema(caps: Caps) {
     behavior: text(caps, 'testBehavior'),
     status: z.enum(TEST_STATUSES),
     testPath: z.string().min(1).optional(),
+    audience: z.enum(['author', 'reviewer']).optional(),
+    anchor: z
+      .object({ path: z.string().min(1), line: z.number().int().positive(), side: SideSchema })
+      .optional(),
     note: z.string().optional(),
   })
 }

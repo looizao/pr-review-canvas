@@ -1,5 +1,6 @@
 // Every rule the client relies on, checked here and nowhere else. Pure: the caller passes the
 // hunk index and the config; the report lists one line per problem and never fixes anything.
+import { missingTestAnchor } from './missing-tests.js'
 import type { z } from 'zod'
 import { extractLinks, type LinkTargets, parseLink, resolveLink } from '../contract/links.js'
 import { diagramKind, mermaidBlocks, withoutMermaid } from '../contract/mermaid-fences.js'
@@ -25,6 +26,7 @@ import { validateFolds } from './validate-folds.js'
 
 export interface ValidationInput {
   files: readonly FileEntry[]
+  patches?: Readonly<Record<string, string>>
   caps: TextCaps
   limits: Limits
   highRisk: readonly HighRiskRule[]
@@ -566,7 +568,21 @@ export function validateModelOutput(raw: unknown, input: ValidationInput): Valid
   checkTests(output, index, input.headPaths ?? new Set(), input.testPatterns ?? DEFAULT_TEST_PATTERNS, report)
   checkRisk(output, input.highRisk, report)
   checkAnnotations(output, index, report)
+  for (const layer of output.layers) {
+    for (const test of layer.tests) {
+      if (test.status !== 'missing') continue
+      const anchor = missingTestAnchor(test, layer, input.files, input.patches ?? {})
+      if (anchor === null) {
+        report.add(
+          'POINT_OUTSIDE_DIFF',
+          `layer:${layer.key}`,
+          `the point generated from the missing test '${test.behavior}' needs an anchor inside this layer's chunks`
+        )
+      }
+    }
+  }
   for (const error of validateFolds(output, input.files, {
+    patches: input.patches ?? {},
     testPatterns: input.testPatterns ?? DEFAULT_TEST_PATTERNS,
     storedArtifact: input.storedArtifact === true,
   })) {

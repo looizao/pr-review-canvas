@@ -164,6 +164,7 @@ export async function validationInput(
   }
   return {
     files: context.files,
+    patches: (await ctx.derived.ensure(context.headSha, context.mergeBaseSha)).patches,
     caps: context.caps,
     limits: context.limits,
     highRisk: context.highRisk,
@@ -256,6 +257,7 @@ export async function publish(
   const artifact = normalize(result.output, {
     pr: context.pr,
     files: context.files,
+    patches: (await ctx.derived.ensure(context.headSha, context.mergeBaseSha)).patches,
     highRisk: context.highRisk,
     caps: context.caps,
     generatedAt: now,

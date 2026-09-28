@@ -254,7 +254,13 @@ export function syntheticArtifact(): ReviewArtifact {
         risk: [{ label: 'schema', source: 'config' }],
         tests: [
           { behavior: 'run() adds b()', status: 'covered', testPath: 'src/app.test.ts' },
-          { behavior: 'other() returns x', status: 'missing', note: 'y is unused' },
+          {
+            behavior: 'other() returns x',
+            status: 'missing',
+            note: 'y is unused',
+            audience: 'author',
+            anchor: { path: 'src/app.ts', line: 1, side: 'new' },
+          },
           { behavior: 'binary asset', status: 'not-needed' },
         ],
         files: [
