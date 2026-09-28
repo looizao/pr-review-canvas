@@ -191,7 +191,23 @@ async function startServer(
     vendorRoots: resolveVendorRoots(),
     ...extra,
   })
-  const server = serve({ fetch: createApp(t.ctx).fetch, port: 0, hostname: '127.0.0.1' })
+  // Closing the server drops the sockets, not the handlers: a request the page fired and the test
+  // never waited for (a rebuild of `derived/` behind a reload or refresh) keeps writing into the
+  // data dir. `stop` waits for every handler to return before that dir is removed, or `rm` races
+  // the write and fails with ENOTEMPTY.
+  const app = createApp(t.ctx)
+  const inFlight = new Set<Request>()
+  const settled: Array<() => void> = []
+  const fetch = async (request: Request): Promise<Response> => {
+    inFlight.add(request)
+    try {
+      return await app.fetch(request)
+    } finally {
+      inFlight.delete(request)
+      if (inFlight.size === 0) settled.splice(0).forEach(resolve => resolve())
+    }
+  }
+  const server = serve({ fetch, port: 0, hostname: '127.0.0.1' })
   await once(server, 'listening')
   const address = server.address()
   if (address === null || typeof address === 'string') {
@@ -204,6 +220,9 @@ async function startServer(
         server.closeAllConnections()
       }
       await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())))
+      if (inFlight.size > 0) {
+        await new Promise<void>(resolve => settled.push(resolve))
+      }
     } finally {
       await t.cleanup()
     }
