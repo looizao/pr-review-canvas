@@ -1,35 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
-### Release QA fixes
-
-- Outdated canvases suggest incremental generation; `--force` is suggested only for the same head.
-- Resolving, reopening, and publishing update cached Conversation comments through the same
-  cross-process store lock as ordinary comments and full comment refreshes (including the fetch).
-  Posting acquires that lock before writing remotely, so contention cannot invite duplicate submissions.
-  Completed self-review shows the done note and reviewer count.
-- GitHub review receipts load full inline coordinates, tolerate line-ending normalization, and
-  recover submitted proposal links in one state update on refresh within the submitted review.
-  Refreshing known receipts performs no state writes.
-- Submitted chat proposals keep their comment links when later commits move or remove the
-  commented lines. Proposal fingerprints follow drafts and identify their posted GitHub comments,
-  including after edits. Identical proposals in other turns share the same status. Delayed receipts
-  and older records match the complete original GitHub range.
-- Fold-repair messages explain when no single contiguous range can be kept. The page footer
-  makes clear that forge operations and AI requests contact their services.
-- Missing tests accept audience and anchor, default to reviewer and changed code, and produce
-  word-boundary titles. Fold repairs name generated points and drop remnants under three lines.
-- Settings size to their active tab and keep **test agent** in AI Chat. One-layer navigation
-  preserves hashes, returns to Overview with `k`, and opens reviewed layers and Other.
-- Help prints to stdout, Recent labels unpublished entries, pages have a favicon, and refs exports
-  omit PR upload hints. The reference explains ZIP replacement on re-export.
-- Incremental prompts use a model-only basis file, list carried coordinates, and explain chunk
-  renumbering and risk tags. Carried missing-test entries preserve their published title, audience,
-  anchor, and author resolutions. Folding rules name their context-inclusive row count. Generation
-  guidance clarifies diagrams, compatibility fields, tests outside the diff, Other, and folds.
-- Prepare reports the sharing mode; the skill explains scratch-directory sharing, export output,
-  generated-point counts, and which file-writing instruction takes precedence.
+Changes since 0.5.0. Details are in the [reference](docs/reference.md).
 
 ### Self-review
 
@@ -132,9 +105,21 @@
 
 ### Breaking changes
 
-- 0.5.0 readers open 0.6 canvases but ignore resolutions: they see every point, with dismiss
+- 0.5.0 readers open 0.6.0 canvases but ignore resolutions: they see every point, with dismiss
   instead of resolve and no reasons. Teams should upgrade together.
 - `pr-review doctor` prints a checklist instead of a JSON line. Pass `--json` for the JSON line.
+
+### Upgrade from 0.5.0
+
+1. Run `pr-review upgrade` in each project. It updates pr-review, acpx, and the skill copies.
+   Commit the skill copies, then restart `pr-review serve`.
+2. Upgrade the whole team together. 0.5.0 opens 0.6.0 canvases but shows resolved points as open.
+3. Scripts that read `pr-review doctor` output should pass `--json`. Scripts that pass
+   `serve --agent` or `--model` should switch to `--chat-agent` and `--chat-model`.
+4. Claude now generates canvases with Opus. To keep another model, set it under
+   `generation.models` in `pr-review.config.yml` (for example `claude: sonnet`).
+5. If you override `generation-format.md` or the `*-incremental.md` templates, merge in this
+   release's changes so generated points name their audience.
 
 ## 0.5.0
 
