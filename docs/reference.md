@@ -797,6 +797,9 @@ machine lacks that canvas or cannot rebuild either diff, no marks follow.
 
 ## AI Chat
 
+The review app runs locally. Forge operations contact GitHub or GitLab, and AI Chat sends requests
+through your configured agent to its service.
+
 Install `acpx` globally to enable chat inside the canvas:
 
 ```bash

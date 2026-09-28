@@ -140,7 +140,9 @@ describe('applyFoldFixes', () => {
 
     expect(fixes).toHaveLength(1)
     expect(fixes[0]?.to).toBeNull()
-    expect(describeFoldFix(fixes[0]!)).toMatch(/^dropped fold "lines 1-5" at new 1-5: no single range/)
+    expect(describeFoldFix(fixes[0]!)).toContain(
+      'dropped fold "lines 1-5" at new 1-5: cannot keep one contiguous range while leaving the attention point at '
+    )
     expect(foldsOf(output)).toEqual([])
   })
 

@@ -289,8 +289,15 @@ test('Recent labels prepared PRs without a canvas and pages serve the SVG favico
   const { url, ctx } = await chatServer()
   await ctx.prs.writePr(42, syntheticArtifact().pr)
   await page.goto(new URL('/', url).href)
+  await expect(page.locator('footer')).toContainText(
+    'GitHub operations and AI requests contact their services'
+  )
   await expect(page.locator('main')).toContainText('no canvas yet')
   const href = await page.locator('link[rel="icon"]').getAttribute('href')
   expect(href).toBe('/static/brand.svg')
   expect((await page.request.get(new URL(href!, url).href)).status()).toBe(200)
+  await page.goto(url)
+  await expect(page.locator('footer')).toContainText(
+    'GitHub operations and AI requests contact their services'
+  )
 })
