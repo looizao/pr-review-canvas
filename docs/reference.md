@@ -459,7 +459,7 @@ The data directory's `settings.yml` accepts these keys and values:
 | Key                    | Default  | Accepted values                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------- |
 | `version`              | `1`      | `1`                                                                              |
-| `skin`                 | `github` | `terminal`, `github`                                                             |
+| `skin`                 | `github` | `terminal`, `github`, `sage`                                                     |
 | `theme`                | `auto`   | `auto`, `light`, `dark`                                                          |
 | `foldLevel`            | `light`  | `light`, `moderate`, `aggressive`                                                |
 | `layerView`            | `all`    | `all`, `one`                                                                     |

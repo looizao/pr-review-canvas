@@ -113,7 +113,7 @@ export function renderHeader(bundle, opts) {
     `<button class="cmd" type="button" id="refresh" title="${refreshTitle}">refresh</button>` +
     '<button class="cmd" type="button" id="settings" data-act="settings" aria-haspopup="dialog" title="Configure the default reading level, how layers show, and the AI Chat agent, model, and limits">settings</button>' +
     '<button class="cmd" type="button" data-act="help" title="Show keyboard shortcuts and review help" aria-haspopup="dialog">help</button>' +
-    `<button class="cmd" type="button" id="skin-toggle" title="Switch between Terminal and GitHub styling">${esc(skinLabel(opts.skin))}</button>` +
+    `<button class="cmd" type="button" id="skin-toggle" title="Switch between Terminal, GitHub, and Sage styling">${esc(skinLabel(opts.skin))}</button>` +
     `<button class="cmd" type="button" id="theme-toggle" title="Switch between Light, Dark, and Auto themes">${esc(themeLabel(opts.theme))}</button>` +
     '</div></div>' +
     '<div class="stripe" aria-hidden="true"></div>' +

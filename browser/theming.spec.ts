@@ -46,7 +46,7 @@ async function clickAppearance(page: Page, selector: string) {
   expect((await saved).ok()).toBe(true)
 }
 
-test('starts in the github skin, switches to terminal, and remembers the choice', async ({
+test('starts in the github skin, cycles through sage to terminal, and remembers the choice', async ({
   page,
   reviewUrl,
 }) => {
@@ -55,6 +55,16 @@ test('starts in the github skin, switches to terminal, and remembers the choice'
   const toggle = page.locator('#skin-toggle')
   await expect(root).toHaveAttribute('data-skin', 'github')
   await expect(toggle).toHaveText('skin: github')
+  expect(await readLook(page)).toMatchObject({
+    cardRadius: '6px',
+    stripeHeight: '1px',
+    commandBracket: 'none',
+  })
+
+  // Sage wears the github layout, so only the palette changes.
+  await clickAppearance(page, '#skin-toggle')
+  await expect(root).toHaveAttribute('data-skin', 'sage')
+  await expect(toggle).toHaveText('skin: sage')
   expect(await readLook(page)).toMatchObject({
     cardRadius: '6px',
     stripeHeight: '1px',
@@ -160,6 +170,22 @@ const COMBINATIONS = [
     addedLineBg: 'rgb(38, 56, 52)',
     cardRadius: '6px',
   },
+  {
+    skin: 'sage',
+    theme: 'light',
+    pageBg: 'rgb(247, 247, 242)',
+    cardHeaderBg: 'rgb(243, 244, 236)',
+    addedLineBg: 'rgb(237, 244, 231)',
+    cardRadius: '6px',
+  },
+  {
+    skin: 'sage',
+    theme: 'dark',
+    pageBg: 'rgb(29, 31, 26)',
+    cardHeaderBg: 'rgb(44, 48, 39)',
+    addedLineBg: 'rgba(168, 201, 127, 0.12)',
+    cardRadius: '6px',
+  },
 ] as const
 
 for (const want of COMBINATIONS) {
@@ -175,13 +201,13 @@ for (const want of COMBINATIONS) {
       cardHeaderBg: want.cardHeaderBg,
       addedLineBg: want.addedLineBg,
       cardRadius: want.cardRadius,
-      stripeHeight: want.skin === 'github' ? '1px' : '6px',
-      commandBracket: want.skin === 'github' ? 'none' : '" ]"',
+      stripeHeight: want.skin === 'terminal' ? '6px' : '1px',
+      commandBracket: want.skin === 'terminal' ? '" ]"' : 'none',
     })
   })
 }
 
-for (const skin of ['terminal', 'github'] as const) {
+for (const skin of ['terminal', 'github', 'sage'] as const) {
   test(`keeps collapse and dismissal working in the ${skin} skin`, async ({ page, reviewUrl }) => {
     await page.goto(`${reviewUrl}?skin=${skin}`)
     const layer = page.locator('section.layer[data-layer="run-path"]')

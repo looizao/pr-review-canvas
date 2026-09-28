@@ -1,0 +1,81 @@
+/* ---- Sage skin ----
+   The project site's look on the GitHub skin's layout: warm paper and ink, olive links and
+   progress, a muted purple for attention, and lime for done. skin-github.css draws the layout for
+   both skins, so this file only sets the tokens it reads.
+
+   Where you are is olive, like the site's current layer. The primary button is ink on paper, like
+   the site's buttons. Dark mode is the site's dark band: ink ground, paper text, lime accents. */
+
+:root[data-skin='sage'] {
+  /* `--ink` is the border color the component files draw with. */
+  --ink: light-dark(#dcded3, #3a3e33);
+  --line: light-dark(#dcded3, #3a3e33);
+
+  --bg: light-dark(#f7f7f2, #1d1f1a);
+  --panel: light-dark(#fffefa, #252821);
+  --panel-2: light-dark(#f3f4ec, #2c3027);
+  --fg: light-dark(#252821, #e9eae1);
+  --fg-muted: light-dark(#686c62, #a6aa9c);
+  --fg-dim: light-dark(#85897c, #8a8e80);
+
+  --accent: light-dark(#50643f, #b5cf8f);
+  --accent-bg: light-dark(#e4ecd7, rgb(181 207 143 / 14%));
+  --purple: light-dark(#6d5985, #b9a6d4);
+  --annot-bg: light-dark(#f1eef5, rgb(185 166 212 / 12%));
+  /* Purple marks what needs attention; olive marks links, tests, and done. */
+  --tint-attention: light-dark(#eae5ef, rgb(185 166 212 / 14%));
+  --tint-done: light-dark(#e1efc8, rgb(181 207 143 / 18%));
+  --here: light-dark(#50643f, #b5cf8f);
+  --here-bg: light-dark(#e4ecd7, rgb(181 207 143 / 14%));
+  --ok: light-dark(#4a6a2e, #a8c97f);
+  --bad: light-dark(#a8432c, #e98a6f);
+  --warn: light-dark(#86681a, #d4b25a);
+  --warn-bg: light-dark(#f6f0d9, rgb(212 178 90 / 15%));
+  --progress: light-dark(#50643f, #a8c97f);
+
+  --sev-blocker: light-dark(#a8432c, #e98a6f);
+  --sev-major: light-dark(#b58a1f, #d4b25a);
+  --sev-minor: light-dark(#9a9e90, #6f7466);
+  --sq-mark: light-dark(#fffefa, #252821);
+
+  --add-bg: light-dark(#edf4e7, rgb(168 201 127 / 12%));
+  --add-w: light-dark(#d0e2b8, rgb(168 201 127 / 30%));
+  --del-bg: light-dark(#f9e8e1, rgb(233 138 111 / 12%));
+  --del-w: light-dark(#f0c9bb, rgb(233 138 111 / 30%));
+  --mv-bg: light-dark(#f1eef5, rgb(185 166 212 / 10%));
+  --hunk-bg: light-dark(#eeeee7, #2c3027);
+
+  --btn-bg: light-dark(#fffefa, #2c3027);
+  --btn-bg-hover: light-dark(#f1f2ec, #353a30);
+  --btn-primary: light-dark(#252821, #b5cf8f);
+  --btn-primary-hover: light-dark(#3a3e33, #c6dca4);
+  --btn-primary-fg: light-dark(#f7f7f2, #1d1f1a);
+  --drop-shadow: light-dark(0 8px 30px rgb(37 40 33 / 19%), 0 8px 24px rgb(0 0 0 / 60%));
+
+  /* Syntax tokens: earthy, from the same palette. */
+  --syn-comment: light-dark(#75796c, #8f9385);
+  --syn-keyword: light-dark(#6d5985, #c3b2dc);
+  --syn-string: light-dark(#4a6a2e, #b5cf8f);
+  --syn-number: light-dark(#94562a, #e3a574);
+  --syn-title: light-dark(#2f5d6b, #8fc4d1);
+  --syn-type: light-dark(#86681a, #d9bd6c);
+  --syn-attr: light-dark(#94562a, #e3a574);
+  --syn-tag: light-dark(#50643f, #a8c97f);
+  --syn-meta: light-dark(#686c62, #a6aa9c);
+
+  /* Surfaces the layout paints directly. */
+  --hdr-bg: light-dark(#f7f7f2, #1d1f1a);
+  --on-fill: #fffefa;
+  --state-open: light-dark(#50643f, #5e7c45);
+  --state-merged: light-dark(#6d5985, #7d6897);
+  --state-closed: light-dark(#a8432c, #b5523a);
+  --state-draft: light-dark(#707363, #5f6356);
+  --state-local: light-dark(#4c6b7a, #55798a);
+  --hunk-fg: light-dark(#50643f, #a6aa9c);
+  --ln-rule: light-dark(#dcded3, transparent);
+  --add-ln-bg: light-dark(#dfe8d1, rgb(168 201 127 / 22%));
+  --del-ln-bg: light-dark(#f3d9cf, rgb(233 138 111 / 22%));
+  --ln-fg-changed: light-dark(#707363, #d8dacf);
+  --code-bg: light-dark(rgb(80 100 63 / 10%), rgb(181 207 143 / 12%));
+  --backdrop: rgb(37 40 33 / 55%);
+}

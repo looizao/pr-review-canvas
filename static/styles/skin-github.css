@@ -1,7 +1,8 @@
-/* ---- GitHub skin ----
-   Loaded last so it repaints the terminal skin without the component files knowing about it.
-   Everything here hangs off `[data-skin="github"]` on <html>, and every color goes through
-   light-dark(), so the light/dark theme keeps working the same way in both skins.
+/* ---- GitHub skin, and the layout the sage skin shares ----
+   Loaded after the component files so it repaints the terminal skin without them knowing about
+   it. GitHub's palette hangs off `[data-skin="github"]` on <html>; the layout below it applies to
+   every skin listed in its `:is()` and reads only tokens, so a skin built on it is a palette (see
+   skin-sage.css). Every color goes through light-dark(), so light and dark work in each skin.
 
    What changes: Primer colors, rounded corners, hairline borders, real buttons in place of the
    [ bracket ] commands, icons, and denser spacing. Each section of a card gets a plain title over
@@ -17,18 +18,9 @@
    Dark is GitHub's "dark dimmed": a softer grey-blue ground rather than the near-black one. */
 
 :root[data-skin='github'] {
-  --r: 6px;
-  --fs: 13px;
-  --gap: 16px;
-  --main-pad: 16px 16px 40px;
-  /* How far a section's Box sits in from its card's edge. */
-  --inset: 12px;
-
-  /* Structure. `--ink` is the border color the component files draw with, and `--shadow` is the
-     offset drop shadow: transparent turns every hard shadow off at once. */
+  /* `--ink` is the border color the component files draw with. */
   --ink: light-dark(#d1d9e0, #3d444d);
   --line: light-dark(#d1d9e0, #3d444d);
-  --shadow: transparent;
 
   --bg: light-dark(#fff, #212830);
   --panel: light-dark(#fff, #212830);
@@ -45,6 +37,9 @@
      the link color, as on GitHub. */
   --tint-attention: light-dark(#f7f2ff, rgb(152 110 226 / 14%));
   --tint-done: light-dark(#dafbe1, rgb(87 171 90 / 15%));
+  /* Where you are: the current rail item and the layer label. */
+  --here: var(--purple);
+  --here-bg: var(--tint-attention);
   --ok: light-dark(#1a7f37, #57ab5a);
   --bad: light-dark(#d1242f, #e5534b);
   --warn: light-dark(#9a6700, #c69026);
@@ -82,6 +77,34 @@
   --syn-tag: light-dark(#116329, #8ddb8c);
   --syn-meta: light-dark(#0550ae, #6cb6ff);
 
+  /* Surfaces the rules paint directly. */
+  --hdr-bg: light-dark(#fff, #151b23);
+  --on-fill: #fff;
+  --state-open: light-dark(#1f883d, #347d39);
+  --state-merged: light-dark(#8250df, #8256d0);
+  --state-closed: light-dark(#cf222e, #c93c37);
+  --state-draft: light-dark(#6e7781, #636e7b);
+  --state-local: light-dark(#0969da, #1f6feb);
+  --hunk-fg: light-dark(#0550ae, #9198a1);
+  --ln-rule: light-dark(#d1d9e0, transparent);
+  --add-ln-bg: light-dark(#e6ffec, #31503d);
+  --del-ln-bg: light-dark(#ffebe9, rgb(229 83 75 / 30%));
+  --ln-fg-changed: light-dark(#818b98, #d1d7e0);
+  --code-bg: light-dark(rgb(129 139 152 / 20%), rgb(99 110 123 / 40%));
+  --backdrop: rgb(28 33 40 / 60%);
+}
+
+/* The layout the GitHub-built skins share. Each skin sets its palette in its own `:root` block
+   (this file for github, skin-sage.css for sage); everything below reads only tokens. */
+:is([data-skin='github'], [data-skin='sage']) {
+  --r: 6px;
+  --fs: 13px;
+  --gap: 16px;
+  --main-pad: 16px 16px 40px;
+  /* How far a section's Box sits in from its card's edge. */
+  --inset: 12px;
+  --shadow: transparent;
+
   /* Octicons, drawn as masks so each one takes the text color of its button in both themes. */
   --i-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/%3E%3Cpath d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
   --i-comment: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
@@ -97,74 +120,72 @@
   --i-sun: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.060a.749.749 0 0 1-1.060-1.060l1.060-1.060a.75.75 0 0 1 1.060 0Zm-9.193 9.193a.75.75 0 0 1 0 1.060l-1.060 1.061a.75.75 0 1 1-1.061-1.060l1.060-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13Zm3.536-1.464a.75.75 0 0 1 1.060 0l1.061 1.060a.75.75 0 0 1-1.060 1.061l-1.061-1.060a.75.75 0 0 1 0-1.061ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.060 1.061a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-1.060-1.060a.75.75 0 0 1 0-1.060Z'/%3E%3C/svg%3E");
   --i-moon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.598 1.591a.749.749 0 0 1 .785-.175 7.001 7.001 0 1 1-8.967 8.967.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.046-7.046.75.75 0 0 1 .175-.786Zm1.616 1.945a7 7 0 0 1-7.678 7.678 5.499 5.499 0 1 0 7.678-7.678Z'/%3E%3C/svg%3E");
   --i-auto: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm0 1.5v13a6.5 6.5 0 0 0 0-13Z'/%3E%3C/svg%3E");
-}
 
-/* ---- Header ---- */
-[data-skin='github'] .hdr-bar {
-  background: light-dark(#fff, #151b23);
-}
+  /* ---- Header ---- */
+  .hdr-bar {
+    background: var(--hdr-bg);
+  }
 
-[data-skin='github'] .brand {
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 14px;
-}
-/* The rainbow bar becomes the hairline that runs under GitHub's page header. */
-[data-skin='github'] .stripe {
-  height: 1px;
-  background: var(--ink);
-}
-[data-skin='github'] .hdr-actions {
-  --btn-h: 28px;
-  --btn-pad: 10px;
-  --icon-size: 16px;
-  gap: 8px;
-  align-items: center;
-}
-[data-skin='github'] .hdr-title {
-  padding-bottom: 16px;
-}
+  .brand {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 14px;
+  }
+  /* The rainbow bar becomes the hairline that runs under GitHub's page header. */
+  .stripe {
+    height: 1px;
+    background: var(--ink);
+  }
+  .hdr-actions {
+    --btn-h: 28px;
+    --btn-pad: 10px;
+    --icon-size: 16px;
+    gap: 8px;
+    align-items: center;
+  }
+  .hdr-title {
+    padding-bottom: 16px;
+  }
 
-/* ---- Commands ---- */
-[data-skin='github'] .cmd::before,
-[data-skin='github'] .cmd::after {
-  content: none;
-}
-[data-skin='github'] .cmd,
-[data-skin='github'] .fold-toggle {
-  font-weight: 500;
-}
-[data-skin='github'] .cmd.fill,
-[data-skin='github'] .cmd.big {
-  border: 1px solid transparent;
-  border-radius: var(--r);
-  background: var(--btn-primary);
-  color: var(--btn-primary-fg);
-  box-shadow: none;
-  padding: 5px 16px;
-}
-[data-skin='github'] .cmd.big {
-  padding: 8px 20px;
-  font-size: 14px;
-}
-[data-skin='github'] .cmd.fill:hover,
-[data-skin='github'] .cmd.big:hover,
-[data-skin='github'] .cmd.fill:active {
-  background: var(--btn-primary-hover);
-  transform: none;
-  box-shadow: none;
-}
-[data-skin='github'] .chat-composer .cmd.fill {
-  box-shadow: none;
-}
-[data-skin='github'] .proposed .cmd.fill {
-  padding: 2px 10px;
-}
+  /* ---- Commands ---- */
+  .cmd::before,
+  .cmd::after {
+    content: none;
+  }
+  .cmd,
+  .fold-toggle {
+    font-weight: 500;
+  }
+  .cmd.fill,
+  .cmd.big {
+    border: 1px solid transparent;
+    border-radius: var(--r);
+    background: var(--btn-primary);
+    color: var(--btn-primary-fg);
+    box-shadow: none;
+    padding: 5px 16px;
+  }
+  .cmd.big {
+    padding: 8px 20px;
+    font-size: 14px;
+  }
+  .cmd.fill:hover,
+  .cmd.big:hover,
+  .cmd.fill:active {
+    background: var(--btn-primary-hover);
+    transform: none;
+    box-shadow: none;
+  }
+  .chat-composer .cmd.fill {
+    box-shadow: none;
+  }
+  .proposed .cmd.fill {
+    padding: 2px 10px;
+  }
 
-/* Buttons, GitHub's btn-sm. This list is the one place that decides which commands are buttons:
+  /* Buttons, GitHub's btn-sm. This list is the one place that decides which commands are buttons:
    the header toolbar, sign-off, a point's verbs, the ask of a layer or file, the layer's last
    step, the author's resolve, and the "reviewed" toggles. */
-[data-skin='github']
   :is(
     .hdr-actions .cmd,
     .signoff .cmd,
@@ -180,467 +201,467 @@
     .layer-end .cmd,
     .chk:has(input[data-reviewed-id])
   ) {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--btn-h, 26px);
-  padding: 0 var(--btn-pad, 8px);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--btn-bg);
-  color: var(--fg);
-  font-size: var(--btn-fs, 12px);
-  font-weight: 500;
-  line-height: 1;
-
-  &:hover {
-    background: var(--btn-bg-hover);
-    text-decoration: none;
-  }
-  &:is(:disabled, [aria-disabled='true']) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: var(--btn-h, 26px);
+    padding: 0 var(--btn-pad, 8px);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
     background: var(--btn-bg);
-    color: var(--fg-dim);
+    color: var(--fg);
+    font-size: var(--btn-fs, 12px);
+    font-weight: 500;
+    line-height: 1;
+
+    &:hover {
+      background: var(--btn-bg-hover);
+      text-decoration: none;
+    }
+    &:is(:disabled, [aria-disabled='true']) {
+      background: var(--btn-bg);
+      color: var(--fg-dim);
+    }
+    /* The primary action of its block: approving the review, saving the author's reason. */
+    &:is(#approve, [data-act='settle-save']):not(:disabled) {
+      border-color: transparent;
+      background: var(--btn-primary);
+      color: var(--btn-primary-fg);
+    }
+    &:is(#approve, [data-act='settle-save']):not(:disabled):hover {
+      background: var(--btn-primary-hover);
+    }
+    /* Once ticked, "reviewed" turns green: done. */
+    &:has(input:checked) {
+      border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+      background: var(--tint-done);
+      color: var(--ok);
+    }
+    /* Every command button but sign-off draws the glyph its `--icon` names below. A command left
+     without one draws nothing rather than a solid square. The text stays the accessible name. */
+    &.cmd:not(.signoff .cmd)::before {
+      content: '';
+      flex: 0 0 var(--icon-size, 14px);
+      width: var(--icon-size, 14px);
+      height: var(--icon-size, 14px);
+      background: currentcolor;
+      mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
+      opacity: 0.85;
+    }
+    /* Icon-only buttons, square: the word is hidden from sight and kept for screen readers and the
+     tooltip. */
+    &:is(
+      .findings [data-copy],
+      .ifind [data-copy],
+      .file-h .cmd,
+      #settings,
+      [data-act='help'],
+      #skin-toggle,
+      #theme-toggle
+    ) {
+      justify-content: center;
+      width: var(--btn-h, 26px);
+      padding: 0;
+      gap: 0;
+      font-size: 0;
+    }
   }
-  /* The primary action of its block: approving the review, saving the author's reason. */
-  &:is(#approve, [data-act='settle-save']):not(:disabled) {
+  .signoff {
+    --btn-h: 32px;
+    --btn-pad: 14px;
+    --btn-fs: 13px;
+    gap: 8px;
+  }
+  /* A wider gap sets the icon-only toggles apart from the verbs. */
+  .hdr-actions #settings {
+    margin-left: 8px;
+  }
+
+  /* Links: the light, reversible, or navigating commands of a point stay quiet text after its
+   buttons. Dismissing or restoring the point sits apart at the end of the row. */
+  :is(.findings, .ifind) .tbtns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin-top: 8px;
+  }
+  :is(.findings, .ifind)
+    .cmd:is(
+      [data-act='ask'],
+      [data-act='point-dismiss'],
+      [data-act='point-restore'],
+      [data-act='point-unsettle'],
+      [data-act='settle-cancel']
+    ) {
+    padding: 0 4px;
+    color: var(--fg-muted);
+    font-size: 12px;
+  }
+  :is(.findings, .ifind) .cmd:is([data-act='point-dismiss'], [data-act='point-restore']) {
+    margin-left: auto;
+  }
+
+  /* Glyphs. */
+  .cmd[data-copy] {
+    --icon: var(--i-copy);
+  }
+  .cmd[data-act='point-post'] {
+    --icon: var(--i-send);
+  }
+  .cmd[data-act='point-queue'] {
+    --icon: var(--i-plus);
+  }
+  .cmd[data-act='ask'] {
+    --icon: var(--i-comment);
+  }
+  :is(.layer-end .cmd, [data-act='point-settle'], [data-act='settle-save']) {
+    --icon: var(--i-check);
+  }
+  #regenerate {
+    --icon: var(--i-sparkle);
+  }
+  #export-zip {
+    --icon: var(--i-download);
+  }
+  #refresh {
+    --icon: var(--i-sync);
+  }
+  #settings {
+    --icon: var(--i-gear);
+  }
+  .hdr-actions [data-act='help'] {
+    --icon: var(--i-question);
+  }
+  #skin-toggle {
+    --icon: var(--i-brush);
+  }
+  /* The theme button shows the theme it is on. */
+  #theme-toggle {
+    --icon: var(--i-auto);
+  }
+  &[data-theme='light'] #theme-toggle {
+    --icon: var(--i-sun);
+  }
+  &[data-theme='dark'] #theme-toggle {
+    --icon: var(--i-moon);
+  }
+
+  /* ---- Pills: GitHub's rounded labels, with the state ones filled ---- */
+  .pill {
+    border-radius: 2em;
+    padding: 0 8px;
+    font-size: 12px;
+    line-height: 20px;
+    border-color: var(--line);
+  }
+  .pill.open,
+  .pill.merged,
+  .pill.closed,
+  .pill.draft,
+  .pill.branch,
+  .pill.uncommitted {
     border-color: transparent;
-    background: var(--btn-primary);
-    color: var(--btn-primary-fg);
+    color: var(--on-fill);
   }
-  &:is(#approve, [data-act='settle-save']):not(:disabled):hover {
-    background: var(--btn-primary-hover);
+  .pill.open {
+    background: var(--state-open);
   }
-  /* Once ticked, "reviewed" turns green: done. */
-  &:has(input:checked) {
-    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  .pill.merged {
+    background: var(--state-merged);
+  }
+  .pill.closed {
+    background: var(--state-closed);
+  }
+  .pill.draft {
+    background: var(--state-draft);
+  }
+  .pill.branch,
+  .pill.uncommitted {
+    background: var(--state-local);
+  }
+  .pill.risk,
+  .pill.kind,
+  .pill.agent {
+    background: var(--panel-2);
+    color: var(--fg-muted);
+    font-weight: 500;
+  }
+  .pill.test-tag {
     background: var(--tint-done);
     color: var(--ok);
+    border-color: transparent;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 11px;
   }
-  /* Every command button but sign-off draws the glyph its `--icon` names below. A command left
-     without one draws nothing rather than a solid square. The text stays the accessible name. */
-  &.cmd:not(.signoff .cmd)::before {
-    content: '';
-    flex: 0 0 var(--icon-size, 14px);
-    width: var(--icon-size, 14px);
-    height: var(--icon-size, 14px);
-    background: currentcolor;
-    mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
-    opacity: 0.85;
-  }
-  /* Icon-only buttons, square: the word is hidden from sight and kept for screen readers and the
-     tooltip. */
-  &:is(
-    .findings [data-copy],
-    .ifind [data-copy],
-    .file-h .cmd,
-    #settings,
-    [data-act='help'],
-    #skin-toggle,
-    #theme-toggle
-  ) {
-    justify-content: center;
-    width: var(--btn-h, 26px);
-    padding: 0;
-    gap: 0;
-    font-size: 0;
-  }
-}
-[data-skin='github'] .signoff {
-  --btn-h: 32px;
-  --btn-pad: 14px;
-  --btn-fs: 13px;
-  gap: 8px;
-}
-/* A wider gap sets the icon-only toggles apart from the verbs. */
-[data-skin='github'] .hdr-actions #settings {
-  margin-left: 8px;
-}
 
-/* Links: the light, reversible, or navigating commands of a point stay quiet text after its
-   buttons. Dismissing or restoring the point sits apart at the end of the row. */
-[data-skin='github'] :is(.findings, .ifind) .tbtns {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-top: 8px;
-}
-[data-skin='github']
-  :is(.findings, .ifind)
-  .cmd:is(
-    [data-act='ask'],
-    [data-act='point-dismiss'],
-    [data-act='point-restore'],
-    [data-act='point-unsettle'],
-    [data-act='settle-cancel']
-  ) {
-  padding: 0 4px;
-  color: var(--fg-muted);
-  font-size: 12px;
-}
-[data-skin='github'] :is(.findings, .ifind) .cmd:is([data-act='point-dismiss'], [data-act='point-restore']) {
-  margin-left: auto;
-}
-
-/* Glyphs. */
-[data-skin='github'] .cmd[data-copy] {
-  --icon: var(--i-copy);
-}
-[data-skin='github'] .cmd[data-act='point-post'] {
-  --icon: var(--i-send);
-}
-[data-skin='github'] .cmd[data-act='point-queue'] {
-  --icon: var(--i-plus);
-}
-[data-skin='github'] .cmd[data-act='ask'] {
-  --icon: var(--i-comment);
-}
-[data-skin='github'] :is(.layer-end .cmd, [data-act='point-settle'], [data-act='settle-save']) {
-  --icon: var(--i-check);
-}
-[data-skin='github'] #regenerate {
-  --icon: var(--i-sparkle);
-}
-[data-skin='github'] #export-zip {
-  --icon: var(--i-download);
-}
-[data-skin='github'] #refresh {
-  --icon: var(--i-sync);
-}
-[data-skin='github'] #settings {
-  --icon: var(--i-gear);
-}
-[data-skin='github'] .hdr-actions [data-act='help'] {
-  --icon: var(--i-question);
-}
-[data-skin='github'] #skin-toggle {
-  --icon: var(--i-brush);
-}
-/* The theme button shows the theme it is on. */
-[data-skin='github'] #theme-toggle {
-  --icon: var(--i-auto);
-}
-:root[data-skin='github'][data-theme='light'] #theme-toggle {
-  --icon: var(--i-sun);
-}
-:root[data-skin='github'][data-theme='dark'] #theme-toggle {
-  --icon: var(--i-moon);
-}
-
-/* ---- Pills: GitHub's rounded labels, with the state ones filled ---- */
-[data-skin='github'] .pill {
-  border-radius: 2em;
-  padding: 0 8px;
-  font-size: 12px;
-  line-height: 20px;
-  border-color: var(--line);
-}
-[data-skin='github'] .pill.open,
-[data-skin='github'] .pill.merged,
-[data-skin='github'] .pill.closed,
-[data-skin='github'] .pill.draft,
-[data-skin='github'] .pill.branch,
-[data-skin='github'] .pill.uncommitted {
-  border-color: transparent;
-  color: #fff;
-}
-[data-skin='github'] .pill.open {
-  background: light-dark(#1f883d, #347d39);
-}
-[data-skin='github'] .pill.merged {
-  background: light-dark(#8250df, #8256d0);
-}
-[data-skin='github'] .pill.closed {
-  background: light-dark(#cf222e, #c93c37);
-}
-[data-skin='github'] .pill.draft {
-  background: light-dark(#6e7781, #636e7b);
-}
-[data-skin='github'] .pill.branch,
-[data-skin='github'] .pill.uncommitted {
-  background: light-dark(#0969da, #1f6feb);
-}
-[data-skin='github'] .pill.risk,
-[data-skin='github'] .pill.kind,
-[data-skin='github'] .pill.agent {
-  background: var(--panel-2);
-  color: var(--fg-muted);
-  font-weight: 500;
-}
-[data-skin='github'] .pill.test-tag {
-  background: var(--tint-done);
-  color: var(--ok);
-  border-color: transparent;
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 11px;
-}
-
-/* ---- Cards ---- */
-[data-skin='github'] .panel,
-[data-skin='github'] .layer,
-[data-skin='github'] .diagram {
-  border-radius: var(--r);
-}
-[data-skin='github'] .panel-h,
-[data-skin='github'] .layer-h,
-[data-skin='github'] .diagram-h {
-  border-radius: calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
-}
-[data-skin='github'] .chev {
-  color: var(--fg-muted);
-}
-[data-skin='github'] .summary h3,
-[data-skin='github'] .judgment .lbl,
-[data-skin='github'] .role,
-[data-skin='github'] .diff th {
-  text-transform: none;
-  letter-spacing: normal;
-}
-[data-skin='github'] .summary h3 {
-  font-size: 14px;
-  color: var(--fg);
-}
-[data-skin='github'] .prose ul {
-  list-style: disc;
-}
-[data-skin='github'] .sq {
-  border-radius: 2px;
-}
-[data-skin='github'] .sevsum > .legend {
-  border-radius: var(--r);
-  box-shadow: var(--drop-shadow);
-}
-/* GitHub draws progress as a filled track rather than a hairline. */
-[data-skin='github'] .pline {
-  background: var(--line);
-  border-radius: var(--r);
-}
-[data-skin='github'] .pline span {
-  border-radius: var(--r);
-}
-[data-skin='github'] .body {
-  padding: 12px;
-}
-[data-skin='github'] .summary {
-  font-size: 14px;
-}
-[data-skin='github'] .layer-h {
-  padding: 8px 12px;
-}
-[data-skin='github'] .layer-h h2 {
-  font-size: 16px;
-}
-[data-skin='github'] .layer-h .lbl {
-  color: var(--purple);
-}
-
-/* ---- Sections: a plain title over the section's own Box ---- */
-[data-skin='github'] .lbl.sub {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 16px var(--inset) 6px;
-  padding: 0 2px;
-  border: 0;
-  background: none;
-  font-size: 13px;
-  font-weight: 600;
-}
-[data-skin='github'] .lbl.sub + :is(.testmap, .findings, .conversation) {
-  margin: 0 var(--inset);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-}
-/* A square before the title says what the section holds: green for tests, purple for points. */
-[data-skin='github'] .lbl.sub:is(:has(+ .testmap), :has(+ .findings))::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--sect);
-}
-[data-skin='github'] .lbl.sub:has(+ .testmap) {
-  --sect: var(--progress);
-}
-[data-skin='github'] .lbl.sub:has(+ .findings) {
-  --sect: var(--purple);
-}
-[data-skin='github'] .lbl.sub:has(+ .files) {
-  margin-top: 20px;
-}
-[data-skin='github'] .testmap {
-  width: calc(100% - 2 * var(--inset));
-  border-collapse: separate;
-  border-spacing: 0;
-  overflow: hidden;
-}
-[data-skin='github'] .testmap th {
-  padding: 4px 12px;
-  font-weight: 500;
-}
-[data-skin='github'] .testmap td {
-  padding: 4px 12px;
-}
-[data-skin='github'] .findings li {
-  padding: 10px 12px;
-}
-[data-skin='github'] .f-title {
-  font-size: 14px;
-}
-
-/* ---- Files: each one is its own card, with space between them ---- */
-[data-skin='github'] .files {
-  padding: 0 var(--inset);
-}
-[data-skin='github'] .file {
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  overflow: clip;
-}
-[data-skin='github'] pr-file + pr-file > .file {
-  margin-top: 12px;
-}
-/* The Other changes layer holds its cards straight under the summary, with no files list and no
-   closing row, so it insets them itself and keeps a gap under the last one. */
-[data-skin='github'] details > pr-file > .file {
-  margin-inline: var(--inset);
-}
-[data-skin='github'] details > pr-file:last-child > .file {
-  margin-bottom: var(--inset);
-}
-[data-skin='github'] .file-h {
-  gap: 8px;
-  min-height: 38px;
-  padding: 4px 6px 4px 10px;
-}
-[data-skin='github'] .file-h .path {
-  font-weight: 600;
-}
-[data-skin='github'] .note {
-  background: var(--tint-attention);
-}
-[data-skin='github'] .layer-end {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px;
-}
-
-/* ---- Rail ---- */
-[data-skin='github'] .tree a {
-  margin: 0 8px;
-  padding: 4px 8px;
-  border-radius: var(--r);
-}
-[data-skin='github'] .tree .layers a {
-  padding-left: 20px;
-}
-/* Where you are is purple, so blue keeps meaning "a link". */
-[data-skin='github'] .tree a[aria-current] {
-  background: var(--tint-attention);
-  box-shadow: inset 3px 0 0 var(--purple);
-}
-
-/* ---- Diff ---- */
-[data-skin='github'] .plus {
-  border: 0;
-  border-radius: var(--r);
-  background: var(--accent);
-  color: #fff;
-}
-[data-skin='github'] .av {
-  border-radius: 50%;
-  border-color: var(--line);
-  background: var(--panel-2);
-}
-[data-skin='github'] tr.hunk td {
-  color: light-dark(#0550ae, #9198a1);
-}
-
-[data-skin='github'] .diff .ln {
-  border-right-color: light-dark(#d1d9e0, transparent);
-}
-[data-skin='github'] tr.add .ln {
-  background: light-dark(#e6ffec, #31503d);
-  color: light-dark(#818b98, #d1d7e0);
-}
-[data-skin='github'] tr.del .ln {
-  background: light-dark(#ffebe9, rgb(229 83 75 / 30%));
-  color: light-dark(#818b98, #d1d7e0);
-}
-
-/* ---- Boxes, menus, and overlays ---- */
-[data-skin='github'] code,
-[data-skin='github'] .ctx-chip,
-[data-skin='github'] .diagram-src,
-[data-skin='github'] .cmdbox code,
-[data-skin='github'] .notice,
-[data-skin='github'] .callout,
-[data-skin='github'] .stale-bar,
-[data-skin='github'] .proposed,
-[data-skin='github'] .proposed-invalid,
-[data-skin='github'] .drop,
-[data-skin='github'] .prose pre,
-[data-skin='github'] dialog.settings .panel-ro {
-  border-radius: var(--r);
-}
-[data-skin='github'] code {
-  border: 0;
-  background: light-dark(rgb(129 139 152 / 20%), rgb(99 110 123 / 40%));
-  padding: 0.2em 0.4em;
-}
-[data-skin='github'] .cmdbox code,
-[data-skin='github'] .diagram-src {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-}
-[data-skin='github'] .drop {
-  border-width: 1px;
-  background: var(--panel-2);
-}
-[data-skin='github'] .drop:hover,
-[data-skin='github'] .drop.over {
-  transform: none;
-  background: var(--accent-bg);
-}
-[data-skin='github'] .proposed,
-[data-skin='github'] .cmd.unseen,
-[data-skin='github'] .qq-menu {
-  border-width: 1px;
-}
-[data-skin='github'] .cmd.unseen,
-[data-skin='github'] .qq-menu,
-[data-skin='github'] .toast {
-  border-radius: var(--r);
-  box-shadow: var(--drop-shadow);
-}
-[data-skin='github'] select,
-[data-skin='github'] input,
-[data-skin='github'] textarea,
-[data-skin='github'] .composer-box textarea,
-[data-skin='github'] dialog.signoff-dialog textarea {
-  border-width: 1px;
-  border-color: var(--line);
-  border-radius: var(--r);
-  padding: 5px 12px;
-}
-[data-skin='github'] dialog {
-  border-width: 1px;
-  border-color: var(--line);
-  border-radius: 12px;
-  box-shadow: var(--drop-shadow);
-}
-[data-skin='github'] dialog::backdrop {
-  background: rgb(28 33 40 / 60%);
-}
-
-@media (width <= 1000px) {
-  /* The rail is a strip of chips at this width; the current one is underlined, not filled. */
-  [data-skin='github'] .tree a {
-    margin: 0;
+  /* ---- Cards ---- */
+  .panel,
+  .layer,
+  .diagram {
     border-radius: var(--r);
   }
-  [data-skin='github'] .tree a[aria-current] {
-    box-shadow: inset 0 -3px 0 var(--purple);
+  .panel-h,
+  .layer-h,
+  .diagram-h {
+    border-radius: calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
+  }
+  .chev {
+    color: var(--fg-muted);
+  }
+  .summary h3,
+  .judgment .lbl,
+  .role,
+  .diff th {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .summary h3 {
+    font-size: 14px;
+    color: var(--fg);
+  }
+  .prose ul {
+    list-style: disc;
+  }
+  .sq {
+    border-radius: 2px;
+  }
+  .sevsum > .legend {
+    border-radius: var(--r);
+    box-shadow: var(--drop-shadow);
+  }
+  /* GitHub draws progress as a filled track rather than a hairline. */
+  .pline {
+    background: var(--line);
+    border-radius: var(--r);
+  }
+  .pline span {
+    border-radius: var(--r);
+  }
+  .body {
+    padding: 12px;
+  }
+  .summary {
+    font-size: 14px;
+  }
+  .layer-h {
+    padding: 8px 12px;
+  }
+  .layer-h h2 {
+    font-size: 16px;
+  }
+  .layer-h .lbl {
+    color: var(--here);
+  }
+
+  /* ---- Sections: a plain title over the section's own Box ---- */
+  .lbl.sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px var(--inset) 6px;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .lbl.sub + :is(.testmap, .findings, .conversation) {
+    margin: 0 var(--inset);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+  }
+  /* A square before the title says what the section holds: green for tests, purple for points. */
+  .lbl.sub:is(:has(+ .testmap), :has(+ .findings))::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--sect);
+  }
+  .lbl.sub:has(+ .testmap) {
+    --sect: var(--progress);
+  }
+  .lbl.sub:has(+ .findings) {
+    --sect: var(--purple);
+  }
+  .lbl.sub:has(+ .files) {
+    margin-top: 20px;
+  }
+  .testmap {
+    width: calc(100% - 2 * var(--inset));
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+  }
+  .testmap th {
+    padding: 4px 12px;
+    font-weight: 500;
+  }
+  .testmap td {
+    padding: 4px 12px;
+  }
+  .findings li {
+    padding: 10px 12px;
+  }
+  .f-title {
+    font-size: 14px;
+  }
+
+  /* ---- Files: each one is its own card, with space between them ---- */
+  .files {
+    padding: 0 var(--inset);
+  }
+  .file {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: clip;
+  }
+  pr-file + pr-file > .file {
+    margin-top: 12px;
+  }
+  /* The Other changes layer holds its cards straight under the summary, with no files list and no
+   closing row, so it insets them itself and keeps a gap under the last one. */
+  details > pr-file > .file {
+    margin-inline: var(--inset);
+  }
+  details > pr-file:last-child > .file {
+    margin-bottom: var(--inset);
+  }
+  .file-h {
+    gap: 8px;
+    min-height: 38px;
+    padding: 4px 6px 4px 10px;
+  }
+  .file-h .path {
+    font-weight: 600;
+  }
+  .note {
+    background: var(--tint-attention);
+  }
+  .layer-end {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px;
+  }
+
+  /* ---- Rail ---- */
+  .tree a {
+    margin: 0 8px;
+    padding: 4px 8px;
+    border-radius: var(--r);
+  }
+  .tree .layers a {
+    padding-left: 20px;
+  }
+  /* Where you are has its own color, apart from the link color. */
+  .tree a[aria-current] {
+    background: var(--here-bg);
+    box-shadow: inset 3px 0 0 var(--here);
+  }
+
+  /* ---- Diff ---- */
+  .plus {
+    border: 0;
+    border-radius: var(--r);
+    background: var(--accent);
+    color: var(--on-fill);
+  }
+  .av {
+    border-radius: 50%;
+    border-color: var(--line);
+    background: var(--panel-2);
+  }
+  tr.hunk td {
+    color: var(--hunk-fg);
+  }
+
+  .diff .ln {
+    border-right-color: var(--ln-rule);
+  }
+  tr.add .ln {
+    background: var(--add-ln-bg);
+    color: var(--ln-fg-changed);
+  }
+  tr.del .ln {
+    background: var(--del-ln-bg);
+    color: var(--ln-fg-changed);
+  }
+
+  /* ---- Boxes, menus, and overlays ---- */
+  code,
+  .ctx-chip,
+  .diagram-src,
+  .cmdbox code,
+  .notice,
+  .callout,
+  .stale-bar,
+  .proposed,
+  .proposed-invalid,
+  .drop,
+  .prose pre,
+  dialog.settings .panel-ro {
+    border-radius: var(--r);
+  }
+  code {
+    border: 0;
+    background: var(--code-bg);
+    padding: 0.2em 0.4em;
+  }
+  .cmdbox code,
+  .diagram-src {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+  .drop {
+    border-width: 1px;
+    background: var(--panel-2);
+  }
+  .drop:hover,
+  .drop.over {
+    transform: none;
+    background: var(--accent-bg);
+  }
+  .proposed,
+  .cmd.unseen,
+  .qq-menu {
+    border-width: 1px;
+  }
+  .cmd.unseen,
+  .qq-menu,
+  .toast {
+    border-radius: var(--r);
+    box-shadow: var(--drop-shadow);
+  }
+  select,
+  input,
+  textarea,
+  .composer-box textarea,
+  dialog.signoff-dialog textarea {
+    border-width: 1px;
+    border-color: var(--line);
+    border-radius: var(--r);
+    padding: 5px 12px;
+  }
+  dialog {
+    border-width: 1px;
+    border-color: var(--line);
+    border-radius: 12px;
+    box-shadow: var(--drop-shadow);
+  }
+  dialog::backdrop {
+    background: var(--backdrop);
+  }
+
+  @media (width <= 1000px) {
+    /* The rail is a strip of chips at this width; the current one is underlined, not filled. */
+    .tree a {
+      margin: 0;
+      border-radius: var(--r);
+    }
+    .tree a[aria-current] {
+      box-shadow: inset 0 -3px 0 var(--here);
+    }
   }
 }
