@@ -11,8 +11,8 @@
   width: 6px;
   height: 6px;
   flex: 0 0 6px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
   transform: rotate(-45deg);
 }
 .chat-tool-calls[open] > summary::before {
@@ -203,7 +203,7 @@ dialog.settings .panel-ro h4 {
 dialog.settings .probe-result:empty {
   display: none;
 }
-@media (max-width: 480px) {
+@media (width <= 480px) {
   dialog.settings .field {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -211,7 +211,7 @@ dialog.settings .probe-result:empty {
     flex-wrap: wrap;
   }
 }
-@media (max-width: 1360px) {
+@media (width <= 1360px) {
   .cmd.unseen {
     bottom: 160px;
   }

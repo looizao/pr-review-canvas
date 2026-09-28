@@ -4,15 +4,25 @@
    light-dark(), so the light/dark theme keeps working the same way in both skins.
 
    What changes: Primer colors, rounded corners, hairline borders, real buttons in place of the
-   [ bracket ] commands, and softer spacing. What does not change: where anything sits on the
-   page. Rules here only repaint and re-space.
+   [ bracket ] commands, icons, and denser spacing. Each section of a card gets a plain title over
+   its own Box, and each file is its own card. What does not change: which block sits where.
+   Rules here repaint and re-space, and may realign commands within their own row, but never move
+   a block.
+
+   Buttons or links: a command that changes state or is the main verb of its block is a button
+   (approve, add to review, resolve, ask about a layer). One whose verb is universal is an icon
+   button (copy, ask about a file, settings). A light, reversible, or navigating one (a point's
+   ask, dismiss, reopen, view comment) stays a link.
 
    Dark is GitHub's "dark dimmed": a softer grey-blue ground rather than the near-black one. */
 
 :root[data-skin='github'] {
   --r: 6px;
+  --fs: 13px;
   --gap: 16px;
   --main-pad: 16px 16px 40px;
+  /* How far a section's Box sits in from its card's edge. */
+  --inset: 12px;
 
   /* Structure. `--ink` is the border color the component files draw with, and `--shadow` is the
      offset drop shadow: transparent turns every hard shadow off at once. */
@@ -20,33 +30,37 @@
   --line: light-dark(#d1d9e0, #3d444d);
   --shadow: transparent;
 
-  --bg: light-dark(#ffffff, #212830);
-  --panel: light-dark(#ffffff, #212830);
+  --bg: light-dark(#fff, #212830);
+  --panel: light-dark(#fff, #212830);
   --panel-2: light-dark(#f6f8fa, #262c36);
   --fg: light-dark(#1f2328, #d1d7e0);
   --fg-muted: light-dark(#59636e, #9198a1);
   --fg-dim: light-dark(#818b98, #9198a1);
 
   --accent: light-dark(#0969da, #539bf5);
-  --accent-bg: light-dark(#ddf4ff, rgba(65, 132, 228, 0.15));
+  --accent-bg: light-dark(#ddf4ff, rgb(65 132 228 / 15%));
   --purple: light-dark(#8250df, #986ee2);
-  --annot-bg: light-dark(#fbefff, rgba(152, 110, 226, 0.15));
+  --annot-bg: light-dark(#fbefff, rgb(152 110 226 / 15%));
+  /* Purple marks where you are and what needs attention; green marks tests and done. Blue stays
+     the link color, as on GitHub. */
+  --tint-attention: light-dark(#f7f2ff, rgb(152 110 226 / 14%));
+  --tint-done: light-dark(#dafbe1, rgb(87 171 90 / 15%));
   --ok: light-dark(#1a7f37, #57ab5a);
   --bad: light-dark(#d1242f, #e5534b);
   --warn: light-dark(#9a6700, #c69026);
-  --warn-bg: light-dark(#fff8c5, rgba(174, 124, 20, 0.15));
+  --warn-bg: light-dark(#fff8c5, rgb(174 124 20 / 15%));
   --progress: light-dark(#1f883d, #57ab5a);
 
   --sev-blocker: light-dark(#cf222e, #e5534b);
   --sev-major: light-dark(#bf8700, #c69026);
   --sev-minor: light-dark(#818b98, #636e7b);
-  --sq-mark: light-dark(#ffffff, #212830);
+  --sq-mark: light-dark(#fff, #212830);
 
   --add-bg: light-dark(#e6ffec, #263834);
-  --add-w: light-dark(#abf2bc, rgba(87, 171, 90, 0.4));
-  --del-bg: light-dark(#ffebe9, rgba(229, 83, 75, 0.15));
-  --del-w: light-dark(#ffc1c0, rgba(229, 83, 75, 0.4));
-  --mv-bg: light-dark(#fbefff, rgba(152, 110, 226, 0.1));
+  --add-w: light-dark(#abf2bc, rgb(87 171 90 / 40%));
+  --del-bg: light-dark(#ffebe9, rgb(229 83 75 / 15%));
+  --del-w: light-dark(#ffc1c0, rgb(229 83 75 / 40%));
+  --mv-bg: light-dark(#fbefff, rgb(152 110 226 / 10%));
   --hunk-bg: light-dark(#ddf4ff, #253142);
 
   /* Buttons. GitHub's default button is a filled box with a hairline; the primary one is green. */
@@ -54,8 +68,8 @@
   --btn-bg-hover: light-dark(#eff2f5, #3d444d);
   --btn-primary: light-dark(#1f883d, #347d39);
   --btn-primary-hover: light-dark(#1a7f37, #46954a);
-  --btn-primary-fg: #ffffff;
-  --drop-shadow: light-dark(0 8px 24px rgba(66, 74, 83, 0.24), 0 8px 24px rgba(28, 33, 40, 0.85));
+  --btn-primary-fg: #fff;
+  --drop-shadow: light-dark(0 8px 24px rgb(66 74 83 / 24%), 0 8px 24px rgb(28 33 40 / 85%));
 
   /* Syntax tokens: GitHub's own light and dark code colors. */
   --syn-comment: light-dark(#59636e, #9198a1);
@@ -67,11 +81,27 @@
   --syn-attr: light-dark(#0550ae, #6cb6ff);
   --syn-tag: light-dark(#116329, #8ddb8c);
   --syn-meta: light-dark(#0550ae, #6cb6ff);
+
+  /* Octicons, drawn as masks so each one takes the text color of its button in both themes. */
+  --i-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/%3E%3Cpath d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
+  --i-comment: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
+  --i-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
+  --i-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M.989 8 .064 2.68a1.342 1.342 0 0 1 1.85-1.462l13.402 5.744a1.13 1.13 0 0 1 0 2.076L1.913 14.782a1.343 1.343 0 0 1-1.85-1.463L.99 8Zm.603-5.288L2.38 7.25h4.87a.75.75 0 0 1 0 1.5H2.38l-.788 4.538L13.929 8Z'/%3E%3C/svg%3E");
+  --i-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z'/%3E%3C/svg%3E");
+  --i-sync: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z'/%3E%3C/svg%3E");
+  --i-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z'/%3E%3Cpath d='M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z'/%3E%3C/svg%3E");
+  --i-sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.53 1.282a.5.5 0 0 1 .94 0l.478 1.306a7.492 7.492 0 0 0 4.464 4.464l1.305.478a.5.5 0 0 1 0 .94l-1.305.478a7.492 7.492 0 0 0-4.464 4.464l-.478 1.305a.5.5 0 0 1-.94 0l-.478-1.305a7.492 7.492 0 0 0-4.464-4.464L1.282 8.47a.5.5 0 0 1 0-.94l1.306-.478a7.492 7.492 0 0 0 4.464-4.464Z'/%3E%3C/svg%3E");
+  --i-gear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.038.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.05-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.038-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.820-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z'/%3E%3C/svg%3E");
+  --i-question: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.92 6.085h.001a.749.749 0 1 1-1.342-.67c.169-.339.436-.701.849-.977C6.845 4.16 7.369 4 8 4a2.756 2.756 0 0 1 1.637.525c.503.377.863.965.863 1.725 0 .448-.115.83-.329 1.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6.24 6.24 0 0 0-.26.16.952.952 0 0 0-.276.245.75.75 0 0 1-1.248-.832c.184-.264.42-.489.692-.661.103-.067.207-.132.313-.195l.007-.004c.1-.061.182-.11.258-.161a.969.969 0 0 0 .277-.245C8.96 6.514 9 6.427 9 6.25a.612.612 0 0 0-.262-.525A1.27 1.27 0 0 0 8 5.5c-.369 0-.595.09-.74.187a1.01 1.01 0 0 0-.34.398ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'/%3E%3C/svg%3E");
+  --i-brush: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M11.134 1.535c.7-.509 1.416-.942 2.076-1.155.649-.21 1.463-.267 2.069.34.603.601.568 1.411.368 2.07-.202.668-.624 1.39-1.125 2.096-1.011 1.424-2.496 2.987-3.775 4.249-1.098 1.084-2.132 1.839-3.04 2.3a3.744 3.744 0 0 1-1.055 3.217c-.431.431-1.065.691-1.657.861-.614.177-1.294.287-1.914.357A21.151 21.151 0 0 1 .797 16H.743l.007-.75H.749L.742 16a.75.75 0 0 1-.743-.742l.743-.008-.742.007v-.054a21.25 21.25 0 0 1 .13-2.284c.067-.647.187-1.287.358-1.914.17-.591.43-1.226.86-1.657a3.746 3.746 0 0 1 3.227-1.054c.466-.893 1.225-1.907 2.314-2.982 1.271-1.255 2.833-2.75 4.245-3.777ZM1.62 13.089c-.051.464-.086.929-.104 1.395.466-.018.932-.053 1.396-.104a10.511 10.511 0 0 0 1.668-.309c.526-.151.856-.325 1.011-.48a2.25 2.25 0 1 0-3.182-3.182c-.155.155-.329.485-.48 1.01a10.515 10.515 0 0 0-.309 1.670Zm10.396-10.340c-1.224.890-2.605 2.189-3.822 3.384l1.718 1.718c1.210-1.205 2.510-2.597 3.387-3.833.470-.662.780-1.227.912-1.662.134-.444.032-.551.009-.575h-.001V1.78c-.014-.014-.113-.113-.548.027-.432.140-.995.462-1.655.9ZM7.525 7.2c-.27.296-.51.585-.72.864l.584.584a8.8 8.8 0 0 0 .863-.721Z'/%3E%3C/svg%3E");
+  --i-sun: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.060a.749.749 0 0 1-1.060-1.060l1.060-1.060a.75.75 0 0 1 1.060 0Zm-9.193 9.193a.75.75 0 0 1 0 1.060l-1.060 1.061a.75.75 0 1 1-1.061-1.060l1.060-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13Zm3.536-1.464a.75.75 0 0 1 1.060 0l1.061 1.060a.75.75 0 0 1-1.060 1.061l-1.061-1.060a.75.75 0 0 1 0-1.061ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.060 1.061a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-1.060-1.060a.75.75 0 0 1 0-1.060Z'/%3E%3C/svg%3E");
+  --i-moon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.598 1.591a.749.749 0 0 1 .785-.175 7.001 7.001 0 1 1-8.967 8.967.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.046-7.046.75.75 0 0 1 .175-.786Zm1.616 1.945a7 7 0 0 1-7.678 7.678 5.499 5.499 0 1 0 7.678-7.678Z'/%3E%3C/svg%3E");
+  --i-auto: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm0 1.5v13a6.5 6.5 0 0 0 0-13Z'/%3E%3C/svg%3E");
 }
 
 /* ---- Header ---- */
 [data-skin='github'] .hdr-bar {
-  background: light-dark(#ffffff, #151b23);
+  background: light-dark(#fff, #151b23);
 }
 
 [data-skin='github'] .brand {
@@ -85,6 +115,9 @@
   background: var(--ink);
 }
 [data-skin='github'] .hdr-actions {
+  --btn-h: 28px;
+  --btn-pad: 10px;
+  --icon-size: 16px;
   gap: 8px;
   align-items: center;
 }
@@ -100,24 +133,6 @@
 [data-skin='github'] .cmd,
 [data-skin='github'] .fold-toggle {
   font-weight: 500;
-}
-/* The header's commands read as GitHub's toolbar buttons; commands inside the page stay links. */
-[data-skin='github'] .hdr-actions .cmd {
-  padding: 3px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--btn-bg);
-  color: var(--fg);
-  font-size: 12px;
-  line-height: 20px;
-}
-[data-skin='github'] .hdr-actions .cmd:hover {
-  background: var(--btn-bg-hover);
-  text-decoration: none;
-}
-[data-skin='github'] .hdr-actions .cmd:disabled,
-[data-skin='github'] .hdr-actions .cmd[aria-disabled='true'] {
-  color: var(--fg-dim);
 }
 [data-skin='github'] .cmd.fill,
 [data-skin='github'] .cmd.big {
@@ -146,6 +161,172 @@
   padding: 2px 10px;
 }
 
+/* Buttons, GitHub's btn-sm. This list is the one place that decides which commands are buttons:
+   the header toolbar, sign-off, a point's verbs, the ask of a layer or file, the layer's last
+   step, the author's resolve, and the "reviewed" toggles. */
+[data-skin='github']
+  :is(
+    .hdr-actions .cmd,
+    .signoff .cmd,
+    :is(.findings, .ifind)
+      .cmd:is(
+        [data-copy],
+        [data-act='point-post'],
+        [data-act='point-queue'],
+        [data-act='point-settle'],
+        [data-act='settle-save']
+      ),
+    :is(.layer-ctl, .file-h) .cmd[data-act='ask'],
+    .layer-end .cmd,
+    .chk:has(input[data-reviewed-id])
+  ) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--btn-h, 26px);
+  padding: 0 var(--btn-pad, 8px);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--btn-bg);
+  color: var(--fg);
+  font-size: var(--btn-fs, 12px);
+  font-weight: 500;
+  line-height: 1;
+
+  &:hover {
+    background: var(--btn-bg-hover);
+    text-decoration: none;
+  }
+  &:is(:disabled, [aria-disabled='true']) {
+    background: var(--btn-bg);
+    color: var(--fg-dim);
+  }
+  /* The primary action of its block: approving the review, saving the author's reason. */
+  &:is(#approve, [data-act='settle-save']):not(:disabled) {
+    border-color: transparent;
+    background: var(--btn-primary);
+    color: var(--btn-primary-fg);
+  }
+  &:is(#approve, [data-act='settle-save']):not(:disabled):hover {
+    background: var(--btn-primary-hover);
+  }
+  /* Once ticked, "reviewed" turns green: done. */
+  &:has(input:checked) {
+    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+    background: var(--tint-done);
+    color: var(--ok);
+  }
+  /* Every command button but sign-off draws the glyph its `--icon` names below. A command left
+     without one draws nothing rather than a solid square. The text stays the accessible name. */
+  &.cmd:not(.signoff .cmd)::before {
+    content: '';
+    flex: 0 0 var(--icon-size, 14px);
+    width: var(--icon-size, 14px);
+    height: var(--icon-size, 14px);
+    background: currentcolor;
+    mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
+    opacity: 0.85;
+  }
+  /* Icon-only buttons, square: the word is hidden from sight and kept for screen readers and the
+     tooltip. */
+  &:is(
+    .findings [data-copy],
+    .ifind [data-copy],
+    .file-h .cmd,
+    #settings,
+    [data-act='help'],
+    #skin-toggle,
+    #theme-toggle
+  ) {
+    justify-content: center;
+    width: var(--btn-h, 26px);
+    padding: 0;
+    gap: 0;
+    font-size: 0;
+  }
+}
+[data-skin='github'] .signoff {
+  --btn-h: 32px;
+  --btn-pad: 14px;
+  --btn-fs: 13px;
+  gap: 8px;
+}
+/* A wider gap sets the icon-only toggles apart from the verbs. */
+[data-skin='github'] .hdr-actions #settings {
+  margin-left: 8px;
+}
+
+/* Links: the light, reversible, or navigating commands of a point stay quiet text after its
+   buttons. Dismissing or restoring the point sits apart at the end of the row. */
+[data-skin='github'] :is(.findings, .ifind) .tbtns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 8px;
+}
+[data-skin='github']
+  :is(.findings, .ifind)
+  .cmd:is(
+    [data-act='ask'],
+    [data-act='point-dismiss'],
+    [data-act='point-restore'],
+    [data-act='point-unsettle'],
+    [data-act='settle-cancel']
+  ) {
+  padding: 0 4px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+[data-skin='github'] :is(.findings, .ifind) .cmd:is([data-act='point-dismiss'], [data-act='point-restore']) {
+  margin-left: auto;
+}
+
+/* Glyphs. */
+[data-skin='github'] .cmd[data-copy] {
+  --icon: var(--i-copy);
+}
+[data-skin='github'] .cmd[data-act='point-post'] {
+  --icon: var(--i-send);
+}
+[data-skin='github'] .cmd[data-act='point-queue'] {
+  --icon: var(--i-plus);
+}
+[data-skin='github'] .cmd[data-act='ask'] {
+  --icon: var(--i-comment);
+}
+[data-skin='github'] :is(.layer-end .cmd, [data-act='point-settle'], [data-act='settle-save']) {
+  --icon: var(--i-check);
+}
+[data-skin='github'] #regenerate {
+  --icon: var(--i-sparkle);
+}
+[data-skin='github'] #export-zip {
+  --icon: var(--i-download);
+}
+[data-skin='github'] #refresh {
+  --icon: var(--i-sync);
+}
+[data-skin='github'] #settings {
+  --icon: var(--i-gear);
+}
+[data-skin='github'] .hdr-actions [data-act='help'] {
+  --icon: var(--i-question);
+}
+[data-skin='github'] #skin-toggle {
+  --icon: var(--i-brush);
+}
+/* The theme button shows the theme it is on. */
+[data-skin='github'] #theme-toggle {
+  --icon: var(--i-auto);
+}
+:root[data-skin='github'][data-theme='light'] #theme-toggle {
+  --icon: var(--i-sun);
+}
+:root[data-skin='github'][data-theme='dark'] #theme-toggle {
+  --icon: var(--i-moon);
+}
+
 /* ---- Pills: GitHub's rounded labels, with the state ones filled ---- */
 [data-skin='github'] .pill {
   border-radius: 2em;
@@ -161,7 +342,7 @@
 [data-skin='github'] .pill.branch,
 [data-skin='github'] .pill.uncommitted {
   border-color: transparent;
-  color: #ffffff;
+  color: #fff;
 }
 [data-skin='github'] .pill.open {
   background: light-dark(#1f883d, #347d39);
@@ -187,8 +368,8 @@
   font-weight: 500;
 }
 [data-skin='github'] .pill.test-tag {
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: var(--tint-done);
+  color: var(--ok);
   border-color: transparent;
   text-transform: none;
   letter-spacing: normal;
@@ -238,19 +419,126 @@
 [data-skin='github'] .pline span {
   border-radius: var(--r);
 }
+[data-skin='github'] .body {
+  padding: 12px;
+}
+[data-skin='github'] .summary {
+  font-size: 14px;
+}
+[data-skin='github'] .layer-h {
+  padding: 8px 12px;
+}
+[data-skin='github'] .layer-h h2 {
+  font-size: 16px;
+}
+[data-skin='github'] .layer-h .lbl {
+  color: var(--purple);
+}
+
+/* ---- Sections: a plain title over the section's own Box ---- */
+[data-skin='github'] .lbl.sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px var(--inset) 6px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+[data-skin='github'] .lbl.sub + :is(.testmap, .findings, .conversation) {
+  margin: 0 var(--inset);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+/* A square before the title says what the section holds: green for tests, purple for points. */
+[data-skin='github'] .lbl.sub:is(:has(+ .testmap), :has(+ .findings))::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--sect);
+}
+[data-skin='github'] .lbl.sub:has(+ .testmap) {
+  --sect: var(--progress);
+}
+[data-skin='github'] .lbl.sub:has(+ .findings) {
+  --sect: var(--purple);
+}
+[data-skin='github'] .lbl.sub:has(+ .files) {
+  margin-top: 20px;
+}
+[data-skin='github'] .testmap {
+  width: calc(100% - 2 * var(--inset));
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+[data-skin='github'] .testmap th {
+  padding: 4px 12px;
+  font-weight: 500;
+}
+[data-skin='github'] .testmap td {
+  padding: 4px 12px;
+}
+[data-skin='github'] .findings li {
+  padding: 10px 12px;
+}
+[data-skin='github'] .f-title {
+  font-size: 14px;
+}
+
+/* ---- Files: each one is its own card, with space between them ---- */
+[data-skin='github'] .files {
+  padding: 0 var(--inset);
+}
+[data-skin='github'] .file {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: clip;
+}
+[data-skin='github'] pr-file + pr-file > .file {
+  margin-top: 12px;
+}
+/* The Other changes layer holds its cards straight under the summary, with no files list and no
+   closing row, so it insets them itself and keeps a gap under the last one. */
+[data-skin='github'] details > pr-file > .file {
+  margin-inline: var(--inset);
+}
+[data-skin='github'] details > pr-file:last-child > .file {
+  margin-bottom: var(--inset);
+}
+[data-skin='github'] .file-h {
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 6px 4px 10px;
+}
+[data-skin='github'] .file-h .path {
+  font-weight: 600;
+}
+[data-skin='github'] .note {
+  background: var(--tint-attention);
+}
+[data-skin='github'] .layer-end {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+}
 
 /* ---- Rail ---- */
 [data-skin='github'] .tree a {
   margin: 0 8px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: var(--r);
 }
 [data-skin='github'] .tree .layers a {
   padding-left: 20px;
 }
+/* Where you are is purple, so blue keeps meaning "a link". */
 [data-skin='github'] .tree a[aria-current] {
-  background: var(--accent-bg);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--tint-attention);
+  box-shadow: inset 3px 0 0 var(--purple);
 }
 
 /* ---- Diff ---- */
@@ -258,7 +546,7 @@
   border: 0;
   border-radius: var(--r);
   background: var(--accent);
-  color: #ffffff;
+  color: #fff;
 }
 [data-skin='github'] .av {
   border-radius: 50%;
@@ -277,13 +565,12 @@
   color: light-dark(#818b98, #d1d7e0);
 }
 [data-skin='github'] tr.del .ln {
-  background: light-dark(#ffebe9, rgba(229, 83, 75, 0.3));
+  background: light-dark(#ffebe9, rgb(229 83 75 / 30%));
   color: light-dark(#818b98, #d1d7e0);
 }
 
 /* ---- Boxes, menus, and overlays ---- */
 [data-skin='github'] code,
-[data-skin='github'] .snip,
 [data-skin='github'] .ctx-chip,
 [data-skin='github'] .diagram-src,
 [data-skin='github'] .cmdbox code,
@@ -299,7 +586,7 @@
 }
 [data-skin='github'] code {
   border: 0;
-  background: light-dark(rgba(129, 139, 152, 0.2), rgba(99, 110, 123, 0.4));
+  background: light-dark(rgb(129 139 152 / 20%), rgb(99 110 123 / 40%));
   padding: 0.2em 0.4em;
 }
 [data-skin='github'] .cmdbox code,
@@ -344,16 +631,16 @@
   box-shadow: var(--drop-shadow);
 }
 [data-skin='github'] dialog::backdrop {
-  background: rgba(28, 33, 40, 0.6);
+  background: rgb(28 33 40 / 60%);
 }
 
-@media (max-width: 1000px) {
+@media (width <= 1000px) {
   /* The rail is a strip of chips at this width; the current one is underlined, not filled. */
   [data-skin='github'] .tree a {
     margin: 0;
     border-radius: var(--r);
   }
   [data-skin='github'] .tree a[aria-current] {
-    box-shadow: inset 0 -3px 0 var(--accent);
+    box-shadow: inset 0 -3px 0 var(--purple);
   }
 }

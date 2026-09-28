@@ -43,20 +43,20 @@
     var(--v6) 5px 6px
   );
 
-  --bg: light-dark(#ffffff, #1e1f2b);
-  --panel: light-dark(#ffffff, #282a3a);
+  --bg: light-dark(#fff, #1e1f2b);
+  --panel: light-dark(#fff, #282a3a);
   --panel-2: light-dark(#f3f3f3, #303341);
   --ink: light-dark(#3a3739, #eaf2f1);
   --shadow: light-dark(#3a3739, #696d77);
-  --line: light-dark(#dddddd, #3a3d4b);
+  --line: light-dark(#ddd, #3a3d4b);
   --line-strong: var(--ink);
   --fg: light-dark(#3a3739, #eaf2f1);
   --fg-muted: light-dark(#565554, #a4a8b3);
   --fg-dim: var(--fg-muted);
   --accent: light-dark(#3b5bdb, #91a7ff);
-  --accent-bg: light-dark(#edf2ff, rgba(145, 167, 255, 0.14));
+  --accent-bg: light-dark(#edf2ff, rgb(145 167 255 / 14%));
   --purple: light-dark(#8b4dff, #c39ac9);
-  --annot-bg: light-dark(#f3f0ff, rgba(195, 154, 201, 0.14));
+  --annot-bg: light-dark(#f3f0ff, rgb(195 154 201 / 14%));
   --ok: light-dark(#0c7411, #bad761);
   --bad: light-dark(#c40400, #ff657a);
   --warn: light-dark(#caa512, #ffd76d);
@@ -67,11 +67,11 @@
   --sq-mark: light-dark(#3a3739, #1e1f2b);
   /* Added and deleted lines carry GitHub's light tints in both skins, so a diff reads the same
      here as it does on the pull request. */
-  --add-bg: light-dark(#e6ffec, rgba(186, 215, 97, 0.14));
-  --add-w: light-dark(#abf2bc, rgba(186, 215, 97, 0.4));
-  --del-bg: light-dark(#ffebe9, rgba(255, 101, 122, 0.14));
-  --del-w: light-dark(#ffc1c0, rgba(255, 101, 122, 0.42));
-  --mv-bg: light-dark(rgba(139, 77, 255, 0.07), rgba(195, 154, 201, 0.1));
+  --add-bg: light-dark(#e6ffec, rgb(186 215 97 / 14%));
+  --add-w: light-dark(#abf2bc, rgb(186 215 97 / 40%));
+  --del-bg: light-dark(#ffebe9, rgb(255 101 122 / 14%));
+  --del-w: light-dark(#ffc1c0, rgb(255 101 122 / 42%));
+  --mv-bg: light-dark(rgb(139 77 255 / 7%), rgb(195 154 201 / 10%));
   --hunk-bg: var(--accent-bg);
   --focus: var(--accent);
   --progress: light-dark(#0f8a15, #bad761);
@@ -104,6 +104,7 @@ html {
   font-size: var(--fs);
   line-height: var(--lh);
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 body {
   margin: 0;
@@ -154,8 +155,7 @@ code,
 pre,
 .mono,
 .path,
-.loc,
-.snip {
+.loc {
   font-family: var(--mono);
   font-size: 0.92em;
 }
@@ -184,7 +184,7 @@ strong {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 .skip {

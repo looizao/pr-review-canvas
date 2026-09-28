@@ -153,9 +153,9 @@ table.keys td:first-child {
 }
 .pill.audience.author {
   color: var(--accent);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
 .pill.audience.reviewer {
   color: var(--fg-muted);
-  border-color: currentColor;
+  border-color: currentcolor;
 }
