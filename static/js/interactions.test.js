@@ -2086,7 +2086,14 @@ describe('the AI Chat commands', () => {
     root.appendChild(button)
     wiring.onProposedComment(
       'edit',
-      { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.' },
+      {
+        path: 'src/app.ts',
+        line: 3,
+        startLine: 2,
+        side: 'new',
+        body: 'Rename.',
+        proposalFingerprint: 'turn:0',
+      },
       button
     )
     const box = root.querySelector('.composer-box textarea')
@@ -2095,6 +2102,7 @@ describe('the AI Chat commands', () => {
     }
     expect(box.value).toBe('Rename.')
     expect(root.querySelector('.composer-box')?.getAttribute('data-start-line')).toBe('2')
+    expect(root.querySelector('.composer-box')?.getAttribute('data-proposal-fingerprint')).toBe('turn:0')
   })
 
   it('says why it cannot edit a comment whose file or line is not on screen', () => {

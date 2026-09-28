@@ -17,11 +17,13 @@ for (const receipt of ['available', 'unavailable']) {
     }
     const proposal = {
       path: 'src/app.ts',
-      line: 5,
-      startLine: 4,
+      line: 3,
+      startLine: 2,
       body: 'Cover both lines with a regression test.',
     }
-    let moved = false
+    const secondProposal = { ...proposal, line: 5, startLine: 4 }
+    let movedBy = 0
+    let edited = false
     const { url } = await chatServer({
       setup: async ({ ctx }) => {
         const api = ctx.gh.api.bind(ctx.gh)
@@ -30,18 +32,28 @@ for (const receipt of ['available', 'unavailable']) {
             throw new Error('receipt temporarily unavailable')
           }
           const result = await api(path, params)
-          if (!moved || !path.endsWith('/pulls/42/comments')) return result
+          if (movedBy === 0 || !path.endsWith('/pulls/42/comments')) return result
           // GitHub keeps the original range after new commits move the commented code.
           return (result as Array<Record<string, unknown>>).map(comment =>
-            comment['id'] === 8001
-              ? { ...comment, line: 7, start_line: 6, original_line: 5, original_start_line: 4 }
+            comment['pull_request_review_id'] === 7001
+              ? {
+                  ...comment,
+                  line: (comment['line'] as number) + movedBy,
+                  start_line: (comment['start_line'] as number) + movedBy,
+                  ...(edited ? { body: 'Edited on GitHub after posting.' } : {}),
+                }
               : comment
           )
         }
       },
       runner: {
         script: [
-          { type: 'chunk', text: '```comment\n' + JSON.stringify(proposal) + '\n```' },
+          {
+            type: 'chunk',
+            text: [proposal, secondProposal]
+              .map(p => '```comment\n' + JSON.stringify(p) + '\n```')
+              .join('\n'),
+          },
           { type: 'done', stopReason: 'end_turn' },
         ],
       },
@@ -50,7 +62,8 @@ for (const receipt of ['available', 'unavailable']) {
     await openChat()
     await page.locator('#msg').fill('Propose a comment')
     await page.locator('#chat-send').click()
-    const card = page.locator('.proposed')
+    const card = page.locator('.proposed').first()
+    const secondCard = page.locator('.proposed').nth(1)
     await card.locator('[data-act="proposed-queue"]').click()
     await expect(card).toContainText('in your review')
     await page.reload()
@@ -63,6 +76,7 @@ for (const receipt of ['available', 'unavailable']) {
     await openChat()
     await expect(card.locator('[data-act="proposed-queue"]')).toBeVisible()
     await card.locator('[data-act="proposed-queue"]').click()
+    await secondCard.locator('[data-act="proposed-queue"]').click()
     await closeChat()
     await page.locator('[data-act="pending-finish"]').click()
     await page.locator('[data-act="signoff-post"]').click()
@@ -79,14 +93,24 @@ for (const receipt of ['available', 'unavailable']) {
     await expect(card.locator('[data-act="proposed-post"]')).toHaveCount(0)
     await page.reload()
     await openChat()
-    moved = true
+    for (const offset of [2, 4]) {
+      movedBy = offset
+      await closeChat()
+      await page.locator('#refresh').click()
+      await openChat()
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+      await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
+      await page.reload()
+      await openChat()
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+      await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
+    }
+    edited = true
     await closeChat()
     await page.locator('#refresh').click()
     await openChat()
     await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-    await page.reload()
-    await openChat()
-    await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    await expect(secondCard.locator('a[href$="discussion_r8002"]')).toHaveCount(1)
     await expect(card.locator('[data-act="proposed-queue"], [data-act="proposed-post"]')).toHaveCount(0)
   })
 }

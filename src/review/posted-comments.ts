@@ -18,8 +18,8 @@ export function postedFromPending(
     side: string
     body: string
   }>
-): Array<{ commentId: number; pointFingerprint?: string }> {
-  const entries: Array<{ commentId: number; pointFingerprint?: string }> = []
+): Array<{ commentId: number; pointFingerprint?: string; proposalFingerprint?: string }> {
+  const entries: Array<{ commentId: number; pointFingerprint?: string; proposalFingerprint?: string }> = []
   const used = new Set<number>()
   for (const draft of pending) {
     const match = comments.find(c => !used.has(c.id) && samePostedComment(c, draft))
@@ -28,6 +28,9 @@ export function postedFromPending(
       entries.push({
         commentId: match.id,
         ...(draft.pointFingerprint === undefined ? {} : { pointFingerprint: draft.pointFingerprint }),
+        ...(draft.proposalFingerprint === undefined
+          ? {}
+          : { proposalFingerprint: draft.proposalFingerprint }),
       })
     }
   }

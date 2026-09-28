@@ -26,13 +26,13 @@ describe('sseFrame', () => {
 describe('sseStream', () => {
   it('writes one frame per event and then closes', async () => {
     const events: ChatEvent[] = [
-      { event: 'turn', thread: 't1', agent: 'claude', seeded: true },
+      { event: 'turn', thread: 't1', turnId: 't1:0', agent: 'claude', seeded: true },
       { event: 'chunk', text: 'Yes.' },
       { event: 'done', stopReason: 'end_turn' },
     ]
     const text = await drain(sseStream(toIterable(events)))
     expect(text).toBe(
-      'event: turn\ndata: {"thread":"t1","agent":"claude","seeded":true}\n\n' +
+      'event: turn\ndata: {"thread":"t1","turnId":"t1:0","agent":"claude","seeded":true}\n\n' +
         'event: chunk\ndata: {"text":"Yes."}\n\n' +
         'event: done\ndata: {"stopReason":"end_turn"}\n\n'
     )
@@ -98,7 +98,7 @@ describe('sseStream', () => {
     // agent would keep running if the stream only asked the iterator to return.
     const silent: AsyncIterable<ChatEvent> = {
       async *[Symbol.asyncIterator]() {
-        yield { event: 'turn', thread: 't1', agent: 'claude', seeded: true } as ChatEvent
+        yield { event: 'turn', thread: 't1', turnId: 't1:0', agent: 'claude', seeded: true } as ChatEvent
         await new Promise<void>(resolve => {
           gate.open = resolve
         })

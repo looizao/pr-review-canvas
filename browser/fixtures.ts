@@ -159,6 +159,7 @@ async function startServer(
         ),
         'repos/acme/widgets/pulls/42/comments': ghHandler(() => [...GH_REVIEW_COMMENTS, ...submitted]),
         'repos/acme/widgets/pulls/comments/8001': ghHandler(() => submitted[0]),
+        'repos/acme/widgets/pulls/comments/8002': ghHandler(() => submitted[1]),
       },
       postRoutes: {
         'repos/acme/widgets/pulls/42/reviews': ghPost(body => {
@@ -174,6 +175,7 @@ async function startServer(
             pull_request_review_id: 7001,
             commit_id: input.commit_id,
             original_line: comment['line'],
+            original_start_line: comment['start_line'] ?? null,
             html_url: `https://github.com/acme/widgets/pull/42#discussion_r${8001 + index}`,
           }))
           return {

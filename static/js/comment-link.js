@@ -37,29 +37,34 @@ export function sameAnchoredComment(a, b) {
 }
 
 /**
- * GitHub moves current coordinates as a PR changes. The complete original range still names
- * the submitted text. Callers must scope comments to known posts or one review receipt.
+ * GitHub's original range names the submitted text even after its current range moves.
+ * Callers must scope comments to known posts or one review receipt.
  * @param {{ path: string, line: number | null, side: string, startLine?: number | undefined, body: string, originalLine?: number | null | undefined, originalStartLine?: number | null | undefined }} posted
  * @param {{ path: string, line: number, side: string, startLine?: number | undefined, body: string }} draft
  */
 export function samePostedComment(posted, draft) {
-  return (
-    sameAnchoredComment(posted, draft) ||
-    (typeof posted.originalLine === 'number' &&
-      posted.originalStartLine !== undefined &&
-      sameAnchoredComment(
-        { ...posted, line: posted.originalLine, startLine: posted.originalStartLine ?? undefined },
-        draft
-      ))
-  )
+  const anchor =
+    typeof posted.originalLine === 'number' && posted.originalStartLine !== undefined
+      ? { ...posted, line: posted.originalLine, startLine: posted.originalStartLine ?? undefined }
+      : posted
+  return sameAnchoredComment(anchor, draft)
 }
 
 /**
  * @param {import('./proposed-comment.js').ProposedComment} proposed
- * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
+ * @param {ReadonlyArray<import('./contract-types.js').ReviewComment & { proposalFingerprint?: string | undefined }>} posted
  */
 export function postedCommentUrl(proposed, posted) {
-  return posted.find(c => c.inReplyToId === undefined && samePostedComment(c, proposed))?.url
+  const known = posted.find(
+    c => c.proposalFingerprint !== undefined && c.proposalFingerprint === proposed.proposalFingerprint
+  )
+  return (
+    known?.url ??
+    posted.find(
+      c =>
+        c.proposalFingerprint === undefined && c.inReplyToId === undefined && samePostedComment(c, proposed)
+    )?.url
+  )
 }
 
 /**
@@ -68,7 +73,11 @@ export function postedCommentUrl(proposed, posted) {
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
  */
 export function isQueuedComment(proposed, pending) {
-  return pending.some(p => sameAnchoredComment(p, proposed))
+  return pending.some(p =>
+    p.proposalFingerprint === undefined
+      ? sameAnchoredComment(p, proposed)
+      : p.proposalFingerprint === proposed.proposalFingerprint
+  )
 }
 
 /**

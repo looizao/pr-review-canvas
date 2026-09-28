@@ -109,7 +109,7 @@ describe('createChatManager().send', () => {
     )
     expect(events).toEqual([
       { event: 'checkout', status: 'preparing', sha: HEAD_SHA, creating: true },
-      { event: 'turn', thread: T1, agent: 'claude', seeded: true },
+      { event: 'turn', thread: T1, turnId: `${T1}:0`, agent: 'claude', seeded: true },
       { event: 'chunk', text: 'Yes. ' },
       { event: 'chunk', text: 'The behavior is covered at `src/a.ts:10`.' },
       { event: 'done', stopReason: 'end_turn' },
@@ -132,6 +132,7 @@ describe('createChatManager().send', () => {
     expect(events.find(e => e.event === 'turn')).toEqual({
       event: 'turn',
       thread: T1,
+      turnId: `${T1}:2`,
       agent: 'claude',
       seeded: true,
     })
@@ -208,6 +209,7 @@ describe('createChatManager().send', () => {
         context: { kind: 'file', path: 'src/app.ts' },
       },
       {
+        id: `${T1}:0`,
         role: 'assistant',
         text: 'Yes. The behavior is covered at `src/a.ts:10`.',
         at: '2026-09-11T10:00:00.000Z',
@@ -221,9 +223,12 @@ describe('createChatManager().send', () => {
   })
 
   it('keeps the first message as the title when more are sent', async () => {
-    await collect(manager.send(target(), { message: 'first', context: { kind: 'pr' } }))
-    await collect(manager.send(target(), { message: 'second', context: { kind: 'pr' } }))
+    const first = await collect(manager.send(target(), { message: 'first', context: { kind: 'pr' } }))
+    const second = await collect(manager.send(target(), { message: 'second', context: { kind: 'pr' } }))
     expect((await manager.threads(42)).threads[0]?.title).toBe('first')
+    const ids = [first, second].map(events => events.find(e => e.event === 'turn')?.turnId)
+    expect(ids[0]).not.toBe(ids[1])
+    expect((await transcripts.read(42, T1)).filter(t => t.role === 'assistant').map(t => t.id)).toEqual(ids)
   })
 
   it('writes the scrubbed acpx lines to the raw event log', async () => {
@@ -539,7 +544,7 @@ describe('a stop that arrives before the agent has started', () => {
       rest.push(next.value)
     }
     expect(rest).toEqual([
-      { event: 'turn', thread: T1, agent: 'claude', seeded: true },
+      { event: 'turn', thread: T1, turnId: `${T1}:0`, agent: 'claude', seeded: true },
       { event: 'cancelled' },
     ])
     // No agent was started at all, so there was nothing left to cancel.

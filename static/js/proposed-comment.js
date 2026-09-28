@@ -5,7 +5,7 @@
 import { splitFences } from './fences.js'
 
 /**
- * @typedef {{ path: string, line: number, side: 'new' | 'old', startLine?: number, body: string }} ProposedComment
+ * @typedef {{ path: string, line: number, side: 'new' | 'old', startLine?: number, body: string, proposalFingerprint?: string }} ProposedComment
  */
 
 /**

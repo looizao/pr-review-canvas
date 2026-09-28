@@ -13,7 +13,8 @@
   recover submitted proposal links in one state update on refresh within the submitted review.
   Refreshing known receipts performs no state writes.
 - Submitted chat proposals keep their comment links when later commits move or remove the
-  commented lines. Matching uses the complete original GitHub range when the current range differs.
+  commented lines. Proposal fingerprints follow drafts and identify their posted GitHub comments,
+  including after edits. Delayed receipts and older records match the complete original GitHub range.
 - Fold-repair messages explain when no single contiguous range can be kept. The page footer
   makes clear that forge operations and AI requests contact their services.
 - Missing tests accept audience and anchor, default to reviewer and changed code, and produce

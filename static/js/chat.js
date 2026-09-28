@@ -19,7 +19,7 @@ import {
   unseenLabel,
 } from './chat-scroll.js'
 import { runCommand, runControl, showCommandError } from './commands.js'
-import { isQueuedComment, postedCommentUrl, sameAnchoredComment, sendCommandsHtml } from './comment-link.js'
+import { isQueuedComment, postedCommentUrl, sendCommandsHtml } from './comment-link.js'
 import { esc, qs } from './dom.js'
 import { getRenderContext } from './layers.js'
 import { renderMarkdown } from './markdown.js'
@@ -265,7 +265,7 @@ export function proposedCommentHtml(comment, id, send = {}) {
 /**
  * Where a proposed comment stands against the posted comments and the pending review.
  * @param {ProposedComment} comment
- * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
+ * @param {ReadonlyArray<import('./contract-types.js').ReviewComment & { proposalFingerprint?: string | undefined }>} posted
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} submitted
  * @returns {SendState}
@@ -274,7 +274,7 @@ function sendStateOf(comment, posted, pending, submitted) {
   return {
     postedUrl: postedCommentUrl(comment, posted),
     queued: isQueuedComment(comment, pending),
-    submitted: submitted.some(draft => sameAnchoredComment(draft, comment)),
+    submitted: isQueuedComment(comment, submitted),
   }
 }
 
@@ -288,9 +288,10 @@ function sendStateOf(comment, posted, pending, submitted) {
  * @param {Map<string, ProposedComment>} sink cards found, by key
  * @param {ReadonlySet<string>} paths
  * @param {string} [turnKey] the prefix of this turn's card keys
- * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} [posted]
+ * @param {ReadonlyArray<import('./contract-types.js').ReviewComment & { proposalFingerprint?: string | undefined }>} [posted]
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [pending]
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} [submitted]
+ * @param {string} [proposalKey] stable turn identity, independent of this render's DOM ids
  */
 export function answerHtml(
   text,
@@ -300,7 +301,8 @@ export function answerHtml(
   turnKey = 'turn',
   posted = [],
   pending = [],
-  submitted = []
+  submitted = [],
+  proposalKey
 ) {
   let index = 0
   return splitChatAnswer(text, targets)
@@ -310,13 +312,13 @@ export function answerHtml(
       }
       if (segment.type === 'comment') {
         const id = `${turnKey}-${index}`
+        const comment = {
+          ...segment.comment,
+          ...(proposalKey === undefined ? {} : { proposalFingerprint: `${proposalKey}:${index}` }),
+        }
         index += 1
-        sink.set(id, segment.comment)
-        return proposedCommentHtml(
-          segment.comment,
-          id,
-          sendStateOf(segment.comment, posted, pending, submitted)
-        )
+        sink.set(id, comment)
+        return proposedCommentHtml(comment, id, sendStateOf(comment, posted, pending, submitted))
       }
       return `<pre class="proposed-invalid"><code>${esc(segment.text)}</code></pre><p class="muted small">${esc(segment.reason)}</p>`
     })
@@ -385,8 +387,12 @@ export function wireChat(options) {
   /** @type {Map<string, ProposedComment>} */
   const proposed = new Map()
   const postedComments = () => {
-    const ids = new Set(session.state.posted.map(p => p.commentId))
-    return getRenderContext()?.comments.filter(c => ids.has(c.id)) ?? []
+    const receipts = new Map(session.state.posted.map(p => [p.commentId, p]))
+    return (
+      getRenderContext()
+        ?.comments.filter(c => receipts.has(c.id))
+        .map(c => ({ ...c, proposalFingerprint: receipts.get(c.id)?.proposalFingerprint })) ?? []
+    )
   }
   /** @type {string | null} */
   let activeThread = null
@@ -574,7 +580,8 @@ export function wireChat(options) {
                       `history-${i}`,
                       postedComments(),
                       pendingComments(session.state),
-                      session.state.submitted
+                      session.state.submitted,
+                      turn.id ?? `history:${name}:${i}`
                     )
                   : renderMarkdown(turn.text, { paths }),
                 {
@@ -612,8 +619,9 @@ export function wireChat(options) {
    * The answer as HTML. A redraw replaces this turn's cards and leaves every other turn's alone.
    * @param {string} text
    * @param {string} turnKey
+   * @param {string | undefined} proposalKey
    */
-  const renderAnswer = (text, turnKey) => {
+  const renderAnswer = (text, turnKey, proposalKey) => {
     for (const key of [...proposed.keys()]) {
       if (key.startsWith(`${turnKey}-`)) {
         proposed.delete(key)
@@ -627,7 +635,8 @@ export function wireChat(options) {
       turnKey,
       postedComments(),
       pendingComments(session.state),
-      session.state.submitted
+      session.state.submitted,
+      proposalKey
     )
   }
 
@@ -663,6 +672,8 @@ export function wireChat(options) {
     answer.turn.append(toolDetails)
     const tools = new Map()
     const turnKey = answer.turn.id
+    /** @type {string | undefined} */
+    let proposalKey
     setStreaming(true)
     let text = ''
     inFlight = new AbortController()
@@ -678,6 +689,8 @@ export function wireChat(options) {
             const thread = field('thread')
             if (event.event === 'turn' && typeof thread === 'string') {
               activeThread = thread
+              const turnId = field('turnId')
+              proposalKey = typeof turnId === 'string' ? turnId : undefined
               void refreshThreads()
               // The checkout, if there was one, is done once the turn starts.
               phase = 'Preparing answer'
@@ -723,7 +736,7 @@ export function wireChat(options) {
               if (!scroll.pinned && scroll.unseen === 0) {
                 dispatch({ type: 'append', id: turnKey, belowFold: true })
               }
-              scheduleRender(answer.body, () => renderAnswer(text, turnKey))
+              scheduleRender(answer.body, () => renderAnswer(text, turnKey, proposalKey))
               return
             }
             if (event.event === 'error') {
@@ -749,7 +762,7 @@ export function wireChat(options) {
       }
       setStreaming(false)
       answer.body.innerHTML =
-        text === '' ? '<span class="muted">no answer</span>' : renderAnswer(text, turnKey)
+        text === '' ? '<span class="muted">no answer</span>' : renderAnswer(text, turnKey, proposalKey)
       if (scroll.pinned) {
         scrollToBottom('follow')
       }

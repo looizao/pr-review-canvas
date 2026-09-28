@@ -156,21 +156,24 @@ describe('composerInput', () => {
     })
   })
 
-  it('carries the attention point it was opened from', () => {
-    const box = mount(
-      composerHtml({
-        id: 'c1',
-        label: 'x',
-        kind: 'inline',
-        path: 'src/app.ts',
-        line: 4,
-        side: 'new',
-        pointFingerprint: 'fp-1',
-      })
-    )
-    type(box, 'body')
-    expect(composerInput(box)).toMatchObject({ pointFingerprint: 'fp-1' })
-  })
+  it.each(['pointFingerprint', 'proposalFingerprint'])(
+    'carries the source %s through editing',
+    fingerprintKey => {
+      const box = mount(
+        composerHtml({
+          id: 'c1',
+          label: 'x',
+          kind: 'inline',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          [fingerprintKey]: 'fp-1',
+        })
+      )
+      type(box, 'body')
+      expect(composerInput(box)).toMatchObject({ [fingerprintKey]: 'fp-1' })
+    }
+  )
 
   it('builds a reply and a PR-level comment', () => {
     const reply = mount(composerHtml({ id: 'c1', label: 'Reply', kind: 'reply', inReplyToId: 1001 }))

@@ -652,18 +652,22 @@ describe('answerHtml', () => {
 
 describe('the proposed-comment commands', () => {
   it('hands the card the reader clicked to the page', async () => {
-    /** @type {Array<[string, string]>} */
+    /** @type {Array<[string, string, string | undefined]>} */
     const seen = []
     const { root } = mount(
       {
         streamChat: async (_pr, _input, opts) => {
+          opts.onEvent({
+            event: 'turn',
+            data: { thread: 't1', turnId: 't1:0', agent: 'claude', seeded: true },
+          })
           opts.onEvent({
             event: 'chunk',
             data: { text: '```comment\n{"path":"src/app.ts","line":3,"body":"Rename."}\n```\n' },
           })
         },
       },
-      { onProposed: (what, comment) => seen.push([what, comment.body]) }
+      { onProposed: (what, comment) => seen.push([what, comment.body, comment.proposalFingerprint]) }
     )
     const box = el(root, '#msg')
     if (!(box instanceof HTMLTextAreaElement)) {
@@ -676,9 +680,9 @@ describe('the proposed-comment commands', () => {
     el(root, '[data-act="proposed-queue"]').click()
     el(root, '[data-act="proposed-edit"]').click()
     expect(seen).toEqual([
-      ['post', 'Rename.'],
-      ['queue', 'Rename.'],
-      ['edit', 'Rename.'],
+      ['post', 'Rename.', 't1:0:0'],
+      ['queue', 'Rename.', 't1:0:0'],
+      ['edit', 'Rename.', 't1:0:0'],
     ])
   })
 })

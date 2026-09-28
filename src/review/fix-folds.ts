@@ -179,7 +179,7 @@ export function applyFoldFixes(
             )
             .join(', ')
           if (piece === null) {
-            drop(`cannot keep one contiguous range while leaving ${at} visible`)
+            drop(`cannot automatically keep one contiguous range while leaving ${at} visible`)
             continue
           }
           range = piece

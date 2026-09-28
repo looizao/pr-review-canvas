@@ -52,6 +52,37 @@ it('matches an explicitly single-line original anchor', () => {
   expect(postedCommentUrl(singleLine, [moved])).toBe(posted.url)
 })
 
+it('keeps identical proposals linked to their own comments through two line moves', () => {
+  const second = { ...proposed, line: 6, startLine: 5 }
+  const originals = [
+    { ...posted, originalLine: 4, originalStartLine: 3 },
+    {
+      ...posted,
+      id: 1002,
+      url: 'https://github.com/acme/widgets/pull/42#discussion_r1002',
+      originalLine: 6,
+      originalStartLine: 5,
+    },
+  ]
+  for (const offset of [2, 4]) {
+    const moved = originals.map(c => ({
+      ...c,
+      line: c.originalLine + offset,
+      startLine: c.originalStartLine + offset,
+    }))
+    expect(postedCommentUrl(proposed, moved)).toBe(originals[0]?.url)
+    expect(postedCommentUrl(second, moved)).toBe(originals[1]?.url)
+    expect(postedCommentUrl(proposed, moved.toReversed())).toBe(originals[0]?.url)
+  }
+})
+
+it('uses the saved proposal fingerprint after the posted text and coordinates change', () => {
+  const proposal = { ...proposed, proposalFingerprint: 'turn:0' }
+  const changed = { ...posted, body: 'Edited on GitHub', line: null, proposalFingerprint: 'turn:0' }
+  expect(postedCommentUrl(proposal, [changed])).toBe(posted.url)
+  expect(postedCommentUrl(proposal, [{ ...posted, proposalFingerprint: 'other-turn:0' }])).toBeUndefined()
+})
+
 it.each([
   { originalLine: null },
   { originalStartLine: undefined },
@@ -91,6 +122,14 @@ const queued = {
 
 it('finds a queued proposal by its body and complete diff location', () => {
   expect(isQueuedComment(proposed, [queued])).toBe(true)
+})
+
+it('keeps an edited draft associated with its proposal and distinguishes repeated proposals', () => {
+  const proposal = { ...proposed, proposalFingerprint: 'turn:0' }
+  expect(
+    isQueuedComment(proposal, [{ ...queued, body: 'Edited draft', proposalFingerprint: 'turn:0' }])
+  ).toBe(true)
+  expect(isQueuedComment(proposal, [{ ...queued, proposalFingerprint: 'other-turn:0' }])).toBe(false)
 })
 
 it.each([

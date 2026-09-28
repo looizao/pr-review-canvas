@@ -19,6 +19,8 @@ export const PendingCommentSchema = z.object({
   body: z.string().min(1).max(COMMENT_BODY_MAX),
   /** Set when the comment came from an attention point, so the point can be marked posted. */
   pointFingerprint: z.string().min(1).optional(),
+  /** Identity of the chat proposal, preserved when its draft is edited. */
+  proposalFingerprint: z.string().min(1).max(300).optional(),
   /** The commit the reviewer was reading when they wrote it. */
   headSha: z.string(),
   /** Receipt scope after submission, for recovering comment links on refresh. */
@@ -37,6 +39,7 @@ export const AddPendingInputSchema = z.object({
   startLine: z.number().int().positive().optional(),
   body: z.string().min(1).max(COMMENT_BODY_MAX),
   pointFingerprint: z.string().min(1).optional(),
+  proposalFingerprint: z.string().min(1).max(300).optional(),
   headSha: z
     .string()
     .regex(/^[0-9a-f]{40}$/)
