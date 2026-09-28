@@ -78,7 +78,7 @@ function gh(extra: Parameters<typeof ghFor42>[0] = {}): FakeGh {
     ...extra,
     postRoutes: {
       'repos/acme/widgets/pulls/42/comments': ghPost(() => INLINE),
-      'repos/acme/widgets/issues/42/comments': ghPost(() => CANVAS_COMMENT),
+      'repos/acme/widgets/issues/42/comments': ghPost(body => ({ ...CANVAS_COMMENT, ...(body as object) })),
       ...extra.postRoutes,
     },
   })
@@ -125,6 +125,10 @@ describe('settling an attention point', () => {
     const settlement = { reason: 'Covered by e2e.', at: '2026-09-10T12:00:00.000Z' }
     expect(body.settled).toEqual({ 'fp-2': settlement })
     expect(body.sharing).toEqual({ status: 'shared', url: CANVAS_COMMENT.html_url })
+    expect(body.issueComments).toContainEqual(
+      expect.objectContaining({ id: 6001, body: expect.stringContaining('**Resolved by the author:** 1') })
+    )
+    expect((await t.ctx.prs.readComments(42))?.issueComments).toEqual(body.issueComments)
     const stored = await t.ctx.canvases.readArtifact(HEAD_SHA)
     expect(stored).toMatchObject({ settled: body.settled, revisedAt: '2026-09-10T12:00:00.000Z' })
     expect((await t.ctx.canvases.readIndex()).canvases[HEAD_SHA]?.revisedAt).toBe('2026-09-10T12:00:00.000Z')

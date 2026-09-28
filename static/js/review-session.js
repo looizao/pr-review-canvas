@@ -78,6 +78,8 @@ export function createReviewSession(options) {
   let state = options.state
   /** @type {ReviewComment[]} */
   let submittedComments = []
+  /** @type {import('./contract-types.js').IssueComment[] | null} */
+  let issueComments = null
   /** @type {Capabilities} */
   let capabilities = options.capabilities
   /** The canvas's settled points, as the server last answered them. */
@@ -280,6 +282,7 @@ export function createReviewSession(options) {
           headSha: options.headSha,
         })
         settled = answer.settled
+        issueComments = answer.issueComments ?? null
         return answer
       })
     },
@@ -306,6 +309,9 @@ export function createReviewSession(options) {
       return run(() => api.postComment(options.prNumber, { ...input, headSha: options.headSha }))
     },
     /** Comments returned by reviews submitted during this session. */
+    get issueComments() {
+      return issueComments
+    },
     get submittedComments() {
       return submittedComments
     },

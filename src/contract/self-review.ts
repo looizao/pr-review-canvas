@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { IssueComment } from './comments.js'
 import { SETTLEMENT_REASON_MAX, type Settlement } from './review-artifact.js'
 import type { PrState } from './state.js'
 
@@ -35,6 +36,7 @@ export interface SettleResponse {
   /** Every settled point of the canvas, by fingerprint, after this change. */
   settled: Record<string, Settlement>
   state: PrState
+  issueComments?: IssueComment[]
   /** `local` for a review with no pull request, where there is nothing to share. */
   sharing: CanvasSharing | { status: 'local' }
 }

@@ -143,7 +143,14 @@ describe('publish', () => {
       ...t.ctx.config.host,
       shareCanvas: async (_client, _repo, _number, body) => {
         bodies.push(body)
-        return 'https://github.com/acme/widgets/pull/42#issuecomment-1'
+        return {
+          id: 1,
+          author: 'octocat',
+          body,
+          createdAt: '2026-09-10T12:00:00.000Z',
+          updatedAt: '2026-09-10T12:00:00.000Z',
+          url: 'https://github.com/acme/widgets/pull/42#issuecomment-1',
+        }
       },
     }
     const result = await publish(t.ctx, canvasDir, OPTS)
@@ -153,6 +160,9 @@ describe('publish', () => {
     })
     expect(readCanvasZip(readCanvasComment(bodies[0]!)!.bytes).manifest.headSha).toBe(HEAD_SHA)
 
+    expect((await t.ctx.prs.readComments(42))?.issueComments).toContainEqual(
+      expect.objectContaining({ id: 1, body: bodies[0] })
+    )
     for (const failure of [new Error('permission denied'), 'network unavailable']) {
       t.ctx.config.host.shareCanvas = async () => {
         throw failure
@@ -176,7 +186,14 @@ describe('publish', () => {
   it('keeps the canvas local when the config turns the canvas comment off, and the user file wins', async () => {
     const canvasDir = await prepared()
     await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
-    const shareCanvas = vi.fn(async () => 'https://github.com/acme/widgets/pull/42#issuecomment-1')
+    const shareCanvas = vi.fn(async () => ({
+      id: 1,
+      author: 'octocat',
+      body: '',
+      createdAt: '2026-09-10T12:00:00.000Z',
+      updatedAt: '2026-09-10T12:00:00.000Z',
+      url: 'https://github.com/acme/widgets/pull/42#issuecomment-1',
+    }))
     t.ctx.config.host = { ...t.ctx.config.host, shareCanvas }
     const project = t.ctx.projectConfig.config
     t.ctx.projectConfig = {

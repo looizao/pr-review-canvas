@@ -985,3 +985,64 @@ describe('the reading level', () => {
     expect(counter?.textContent).toContain(' lines hidden')
   })
 })
+
+it('adds a submitted thread once while leaving lazy cards and unrelated drafts alone', async () => {
+  const { refreshCardDecorations } = await import('./layers.js')
+  const context = { ...ctx(), comments: [] }
+  document.body.innerHTML = renderLayers(artifact, files, state)
+  const app = /** @type {HTMLElement} */ (document.querySelector('#file-src_app_ts'))
+  hydrateFileCard(app, context)
+  const posted = {
+    ...comments[0],
+    id: 999,
+    author: 'octocat',
+    body: 'New receipt',
+    path: 'src/app.ts',
+    line: 4,
+    originalLine: 4,
+    side: /** @type {const} */ ('new'),
+    outdated: false,
+    commitId: artifact.pr.headSha,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    url: 'https://github.com/x',
+    resolved: false,
+  }
+  expect(refreshCardDecorations(document.body, context, undefined, [posted])).toBe(1)
+  expect(app.querySelectorAll('[data-thread="999"]')).not.toHaveLength(0)
+  const html = app.innerHTML
+  refreshCardDecorations(document.body, context, new Set(['src/app.ts']), [posted])
+  expect(app.innerHTML).toBe(html)
+  expect(refreshCardDecorations(document.body, context, new Set(['src/new.ts']), [posted])).toBe(0)
+})
+
+it('reopens routine files when the reading level drops and leaves reviewed files collapsed', () => {
+  const layer = artifact.layers[0]
+  if (!layer) throw new Error('no layer')
+  const copy = {
+    ...artifact,
+    layers: artifact.layers.map(l => ({
+      ...l,
+      files: l.files.map(f => ({ ...f, collapsed: /** @type {const} */ ('moderate') })),
+    })),
+  }
+  const context = { ...ctx(), artifact: copy, comments: [] }
+  setRenderContext(context)
+  document.body.innerHTML = renderLayers(copy, files, state)
+  try {
+    setFoldLevel(document.body, 'moderate')
+    const testCard = /** @type {HTMLElement} */ (document.querySelector('#file-src_app_test_ts'))
+    expect(testCard.querySelector('.file-body')?.hasAttribute('hidden')).toBe(true)
+    setFoldLevel(document.body, 'light')
+    expect(testCard.querySelector('.file-body')?.hasAttribute('hidden')).toBe(false)
+    testCard.classList.add('is-reviewed')
+    setFoldLevel(document.body, 'aggressive')
+    setFoldLevel(document.body, 'light')
+    expect(testCard.querySelector('.file-body')?.hasAttribute('hidden')).toBe(true)
+    document.querySelector('[data-layer="run-path"]')?.removeAttribute('data-layer')
+    refreshFolds(document.body)
+  } finally {
+    setRenderContext(null)
+    setFoldLevel(document.body, 'light')
+  }
+})

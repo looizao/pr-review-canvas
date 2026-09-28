@@ -79,15 +79,27 @@ export const test = base.extend<{
   },
   /** PR #42 with a published canvas, served to its author, who may settle its points. */
   selfReviewUrl: async ({ page }, use) => {
+    let shared: Record<string, unknown> | null = null
+    const share = ghPost(body => {
+      shared = {
+        ...GH_ISSUE_COMMENTS[0],
+        ...(body as object),
+        id: 6001,
+        html_url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001',
+      }
+      return shared
+    })
     const server = await startServer(page, {
       gh: ghFor42({
+        routes: {
+          'repos/acme/widgets/issues/42/comments': ghHandler(() =>
+            shared === null ? GH_ISSUE_COMMENTS : [...GH_ISSUE_COMMENTS, shared]
+          ),
+        },
         postRoutes: {
           'repos/acme/widgets/pulls/42/comments': POSTED_INLINE,
-          'repos/acme/widgets/issues/42/comments': ghPost(() => ({
-            ...GH_ISSUE_COMMENTS[0],
-            id: 6001,
-            html_url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001',
-          })),
+          'repos/acme/widgets/issues/42/comments': share,
+          'repos/acme/widgets/issues/comments/6001': share,
         },
       }),
       fixtureArtifact: null,
@@ -136,7 +148,18 @@ async function startServer(
   const t = await makeTestContext({
     git: gitFor42(),
     gh: ghFor42({
-      routes: { 'repos/acme/widgets/pulls/42/reviews/7001/comments': ghHandler(() => submitted) },
+      routes: {
+        'repos/acme/widgets/pulls/42/reviews/7001/comments': ghHandler(() =>
+          submitted.map(
+            ({ line: _line, start_line: _start, side: _side, original_line: _original, ...c }) => ({
+              ...c,
+              position: 17,
+            })
+          )
+        ),
+        'repos/acme/widgets/pulls/42/comments': ghHandler(() => [...GH_REVIEW_COMMENTS, ...submitted]),
+        'repos/acme/widgets/pulls/comments/8001': ghHandler(() => submitted[0]),
+      },
       postRoutes: {
         'repos/acme/widgets/pulls/42/reviews': ghPost(body => {
           const input = body as {
@@ -148,6 +171,7 @@ async function startServer(
             ...GH_REVIEW_COMMENTS[0],
             ...comment,
             id: 8001 + index,
+            pull_request_review_id: 7001,
             commit_id: input.commit_id,
             original_line: comment['line'],
             html_url: `https://github.com/acme/widgets/pull/42#discussion_r${8001 + index}`,

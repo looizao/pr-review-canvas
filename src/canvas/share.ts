@@ -1,5 +1,6 @@
 // Sharing a stored canvas on its pull request as the author's canvas comment. Publish shares a new
 // canvas this way, and self-review shares the author's revision of it.
+import { emptyComments } from '../contract/comments.js'
 import type { CanvasSharing } from '../contract/self-review.js'
 import { resolveSharing } from '../contract/settings.js'
 import type { AppContext } from '../server/context.js'
@@ -22,8 +23,13 @@ export async function shareCanvasOnPr(
   try {
     const { zip, artifact } = await zipStoredCanvas(ctx, headSha, number)
     const body = buildCanvasComment(zip, tallyCanvas(artifact), ctx.config.host.canvasCommentLimit)
-    const url = await ctx.config.host.shareCanvas(ctx.gh, ctx.config.repo, number, body)
-    return { status: 'shared', url }
+    const comment = await ctx.config.host.shareCanvas(ctx.gh, ctx.config.repo, number, body)
+    const cached = (await ctx.prs.readComments(number)) ?? emptyComments(headSha, ctx.now().toISOString())
+    await ctx.prs.writeComments(number, {
+      ...cached,
+      issueComments: [...cached.issueComments.filter(c => c.id !== comment.id), comment],
+    })
+    return { status: 'shared', url: comment.url }
   } catch (err) {
     const exported = await exportCanvas(ctx, { headSha, prNumber: number })
     return {

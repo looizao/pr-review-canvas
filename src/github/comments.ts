@@ -14,6 +14,7 @@ const GhReviewCommentSchema = z.object({
   side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
   start_line: z.number().int().nullable().optional(),
   commit_id: z.string(),
+  pull_request_review_id: z.number().int().optional(),
   in_reply_to_id: z.number().int().optional(),
   created_at: z.string(),
   updated_at: z.string().optional(),
@@ -44,6 +45,7 @@ export function mapReviewComment(raw: unknown, resolvedIds: ReadonlySet<number>)
     // GitHub clears `line` when the commented code is no longer in the diff.
     outdated: line === null,
     commitId: c.commit_id,
+    ...(c.pull_request_review_id === undefined ? {} : { reviewId: c.pull_request_review_id }),
     createdAt: c.created_at,
     updatedAt: c.updated_at ?? c.created_at,
     url: c.html_url,

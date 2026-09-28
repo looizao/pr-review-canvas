@@ -1079,3 +1079,69 @@ describe('postedFromPending', () => {
     expect(postedFromPending(drafts, [comment()])).toEqual([{ commentId: 5001, pointFingerprint: 'fp-1' }])
   })
 })
+
+it('recovers submitted links on refresh only from the saved review receipt', async () => {
+  const raw = {
+    id: 9001,
+    user: { login: 'octocat' },
+    body: 'match\r\n',
+    path: 'src/app.ts',
+    line: 4,
+    original_line: 4,
+    side: 'RIGHT',
+    start_line: null,
+    commit_id: HEAD_SHA,
+    created_at: '2026-09-10T12:00:00Z',
+    html_url: 'https://github.com/acme/widgets/pull/42#discussion_r9001',
+    pull_request_review_id: 7001,
+  }
+  const t = await makeTestContext({
+    git: gitFor42(),
+    gh: ghFor42({
+      routes: {
+        'repos/acme/widgets/pulls/42/comments': ghJson([
+          { ...raw, id: 9000, pull_request_review_id: 6999 },
+          raw,
+        ]),
+      },
+    }),
+  })
+  try {
+    await t.ctx.state.completePending(
+      42,
+      [
+        {
+          id: 'draft',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          body: 'match',
+          headSha: HEAD_SHA,
+          createdAt: raw.created_at,
+          updatedAt: raw.created_at,
+          reviewId: 7001,
+          pointFingerprint: 'point',
+        },
+        {
+          id: 'legacy',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          body: 'match',
+          headSha: HEAD_SHA,
+          createdAt: raw.created_at,
+          updatedAt: raw.created_at,
+          pointFingerprint: 'legacy-point',
+        },
+      ],
+      []
+    )
+    const res = await createApp(t.ctx).request('/api/prs/42?refresh=1', { headers: LOCAL })
+    expect(res.status).toBe(200)
+    expect((await t.ctx.state.read(42)).posted).toEqual([
+      { commentId: 9001, pointFingerprint: 'point', at: '2026-09-10T12:00:00.000Z' },
+    ])
+  } finally {
+    await t.cleanup()
+  }
+})

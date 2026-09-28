@@ -24,6 +24,7 @@ import { buildSkillCommand } from '../review/skill-command.js'
 import type { CanvasLookup } from '../store/canvas-store.js'
 import type { AppContext } from './context.js'
 import { AppError } from './errors.js'
+import { postedFromPending } from '../review/posted-comments.js'
 
 export interface BundleOptions {
   refresh: boolean
@@ -111,6 +112,15 @@ export function createPrLoader(ctx: AppContext) {
     await ctx.prs.writePr(number, pr)
     const { payload, warnings } = await host.fetchComments(ctx.gh, repo, number, shas.headSha, ctx.now)
     await ctx.prs.writeComments(number, payload)
+    const state = await ctx.state.read(number)
+    for (const reviewId of new Set(state.submitted.map(d => d.reviewId))) {
+      if (reviewId === undefined) continue
+      const drafts = state.submitted.filter(d => d.reviewId === reviewId)
+      const receipt = payload.reviewComments.filter(c => c.reviewId === reviewId)
+      for (const posted of postedFromPending(drafts, receipt)) {
+        await ctx.state.addPosted(number, posted)
+      }
+    }
     refreshed.add(number)
     return { pr, comments: payload, warnings }
   }
@@ -286,8 +296,8 @@ function canvasScreen(
   if (found.status === 'missing') {
     return { status: 'missing', skillCommand: buildSkillCommand(key, { force: false }) }
   }
-  // A canvas exists for this target, so regenerating always needs --force.
-  const skillCommand = buildSkillCommand(key, { force: true })
+  // A new head can build incrementally from the existing canvas.
+  const skillCommand = buildSkillCommand(key, { force: found.headSha === pr.headSha })
   if (loaded === null) {
     return {
       status: 'missing',

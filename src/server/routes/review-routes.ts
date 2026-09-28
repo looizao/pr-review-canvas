@@ -1,5 +1,7 @@
 // The routes that write: local review state, and the three things the tool posts to GitHub.
 import { Hono } from 'hono'
+import { postedFromPending } from '../../review/posted-comments.js'
+export { postedFromPending } from '../../review/posted-comments.js'
 import { z } from 'zod'
 import type { ReviewBodyResponse, StateResponse } from '../../contract/api.js'
 import {
@@ -7,7 +9,7 @@ import {
   PostCommentInputSchema,
   type PostCommentResult,
 } from '../../contract/comments.js'
-import { AddPendingInputSchema, EditPendingInputSchema, type PendingComment } from '../../contract/pending.js'
+import { AddPendingInputSchema, EditPendingInputSchema } from '../../contract/pending.js'
 import type { Pr, ReviewArtifact } from '../../contract/review-artifact.js'
 import { resolveSharing } from '../../contract/settings.js'
 import type { PrState } from '../../contract/state.js'
@@ -163,45 +165,6 @@ function requireInlineTarget(diff: Derived, target: Parameters<typeof checkInlin
   if (problem !== null) {
     throw new AppError('COMMENT_LINE_NOT_IN_DIFF', problem, 422, 'comment on a line the diff shows')
   }
-}
-
-/**
- * The `posted` entries for submitted drafts, found in the comment list the
- * forge created in this submission. Match the full range and body inside that receipt,
- * never against historical comments. A failed comment read is reported by the host adapter.
- */
-export function postedFromPending(
-  pending: ReadonlyArray<PendingComment>,
-  comments: ReadonlyArray<{
-    id: number
-    path: string
-    line: number | null
-    startLine?: number | undefined
-    side: string
-    body: string
-  }>
-): Array<{ commentId: number; pointFingerprint?: string }> {
-  const entries: Array<{ commentId: number; pointFingerprint?: string }> = []
-  const used = new Set<number>()
-  for (const draft of pending) {
-    const match = comments.find(
-      c =>
-        !used.has(c.id) &&
-        c.path === draft.path &&
-        c.line === draft.line &&
-        (c.startLine ?? c.line) === (draft.startLine ?? draft.line) &&
-        c.side === draft.side &&
-        c.body === draft.body
-    )
-    if (match !== undefined) {
-      used.add(match.id)
-      entries.push({
-        commentId: match.id,
-        ...(draft.pointFingerprint === undefined ? {} : { pointFingerprint: draft.pointFingerprint }),
-      })
-    }
-  }
-  return entries
 }
 
 /** Whether text posted from the page may name the canvas (`sharing.mentionCanvas`). */
@@ -444,7 +407,11 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
     const next =
       pending.length === 0
         ? await ctx.state.read(number)
-        : await ctx.state.completePending(number, pending, postedFromPending(pending, submittedComments))
+        : await ctx.state.completePending(
+            number,
+            pending.map(p => ({ ...p, reviewId: review.id })),
+            postedFromPending(pending, submittedComments)
+          )
     if (submittedComments.length > 0) {
       await appendComments(
         ctx,

@@ -1559,3 +1559,41 @@ describe('checkoutActivityText', () => {
     expect(checkoutActivityText({ sha: 'd'.repeat(40), creating: false })).toBe('Checking out ddddddd')
   })
 })
+
+it('upgrades a submitted proposal to its link when a normalized receipt arrives', () => {
+  const draft = {
+    id: 'draft',
+    path: 'src/app.ts',
+    line: 3,
+    side: /** @type {const} */ ('new'),
+    body: 'Rename this.',
+    headSha: artifact.pr.headSha,
+    createdAt: '',
+    updatedAt: '',
+  }
+  const text = '```comment\n{"path":"src/app.ts","line":3,"body":"Rename this."}\n```'
+  document.body.innerHTML = answerHtml(text, targets, new Map(), paths, 'history-0', [], [], [draft])
+  expect(document.querySelector('.proposed .tbtns .pill')?.textContent).toBe('submitted')
+  const posted = { ...mapReviewComment(GH_REVIEW_COMMENTS[0], new Set()), body: 'Rename this.\r\n', line: 3 }
+  document.body.innerHTML = answerHtml(text, targets, new Map(), paths, 'history-0', [posted], [], [draft])
+  expect(document.querySelector('.proposed .tbtns a')?.getAttribute('href')).toBe(posted.url)
+})
+
+it('renders sparse tool updates and an agent error without a message', async () => {
+  const { root, chat } = mount({
+    streamChat: async (_pr, _input, opts) => {
+      opts.onEvent({ event: 'tool', data: {} })
+      opts.onEvent({ event: 'tool', data: { title: 'Read code' } })
+      opts.onEvent({ event: 'tool', data: { status: 'completed' } })
+      opts.onEvent({ event: 'error', data: {} })
+    },
+  })
+  await flush()
+  const box = /** @type {HTMLTextAreaElement} */ (el(root, 'textarea'))
+  box.value = 'Explain'
+  el(root, 'form').dispatchEvent(new Event('submit', { cancelable: true }))
+  await flush()
+  expect(el(root, '.chat-tool-calls li').textContent).toBe('Read code · completed')
+  expect(root.textContent).toContain('the agent failed')
+  chat.stop()
+})

@@ -21,6 +21,8 @@ export const PendingCommentSchema = z.object({
   pointFingerprint: z.string().min(1).optional(),
   /** The commit the reviewer was reading when they wrote it. */
   headSha: z.string(),
+  /** Receipt scope after submission, for recovering comment links on refresh. */
+  reviewId: z.number().int().optional(),
   createdAt: z.string(),
   /** Creation time until the reviewer edits the draft. */
   updatedAt: z.string(),

@@ -3,6 +3,7 @@ import { shareGitlabCanvas } from '../gitlab/canvas-comment.js'
 import type { Capabilities, PublicHost, ReviewSummary } from '../contract/api.js'
 import type {
   FetchCommentsResult,
+  IssueComment,
   PostCommentInput,
   PostCommentResult,
   ReviewComment,
@@ -95,7 +96,7 @@ export interface Host {
   ): Promise<PostedReview>
   probeCapabilities(client: HostClient, repo: Repo): Promise<Capabilities>
   canvasCommentLimit: number
-  shareCanvas(client: HostClient, repo: Repo, number: number, body: string): Promise<string>
+  shareCanvas(client: HostClient, repo: Repo, number: number, body: string): Promise<IssueComment>
   attachments: HostAttachments
 }
 
