@@ -296,3 +296,27 @@ describe('pr-store and state-store', () => {
     await expect(state.read(42)).rejects.toThrow()
   })
 })
+
+it('merges comments from independent store instances and leaves an absent cache for a full fetch', async () => {
+  const server = createPrStore(dir)
+  const cli = createPrStore(dir)
+  const comment = {
+    id: 6001,
+    author: 'octocat',
+    body: 'original',
+    url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001',
+    createdAt: '2026-09-10T12:00:00Z',
+    updatedAt: '2026-09-10T12:00:00Z',
+  }
+  await cli.upsertComments(42, [{ kind: 'issue', comment }])
+  expect(await server.readComments(42)).toBeNull()
+  await server.writeComments(42, { ...emptyComments(HEAD_SHA, comment.createdAt), issueComments: [comment] })
+  await Promise.all([
+    server.upsertComments(42, [{ kind: 'issue', comment: { ...comment, id: 6002, body: 'ordinary' } }]),
+    cli.upsertComments(42, [{ kind: 'issue', comment: { ...comment, body: 'updated canvas' } }]),
+  ])
+  expect((await server.readComments(42))?.issueComments).toEqual([
+    { ...comment, body: 'updated canvas' },
+    { ...comment, id: 6002, body: 'ordinary' },
+  ])
+})

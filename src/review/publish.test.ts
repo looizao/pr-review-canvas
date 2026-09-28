@@ -8,6 +8,8 @@ import {
   createFakeGh,
   type FakeGit,
   ghJson,
+  ghHandler,
+  ghPost,
   makeTestContext,
   moveFakeHead,
   type TestContext,
@@ -15,6 +17,7 @@ import {
 import {
   BASE_SHA,
   GH_PULL,
+  GH_ISSUE_COMMENTS,
   ghFor42,
   gitFor42,
   HEAD_SHA,
@@ -24,6 +27,7 @@ import {
 } from '../testing/synthetic.js'
 import { artifactToModelOutput, fingerprint, normalize } from './normalize.js'
 import { prepare } from './prepare.js'
+import { createApp } from '../server/app.js'
 import {
   attemptsSincePrepare,
   ModelInvalidError,
@@ -137,6 +141,7 @@ describe('publish', () => {
 
   it('shares the validated ZIP and preserves a usable fallback when sharing fails', async () => {
     const canvasDir = await prepared()
+    await createApp(t.ctx).request('/api/prs/42', { headers: { host: 'localhost:3010' } })
     await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
     const bodies: string[] = []
     t.ctx.config.host = {
@@ -181,6 +186,36 @@ describe('publish', () => {
       warning: expect.stringContaining('host limit is 10'),
     })
     expect(t.ctx.config.host.shareCanvas).not.toHaveBeenCalled()
+  })
+
+  it('fetches the complete conversation after a CLI publish with no prior comments cache', async () => {
+    const canvasDir = await prepared()
+    await writeModel(canvasDir, artifactToModelOutput(syntheticArtifact()))
+    let shared: Record<string, unknown> | undefined
+    t.ctx.gh = ghFor42({
+      routes: {
+        'repos/acme/widgets/issues/42/comments': ghHandler(() => [
+          ...GH_ISSUE_COMMENTS,
+          ...(shared === undefined ? [] : [shared]),
+        ]),
+      },
+      postRoutes: {
+        'repos/acme/widgets/issues/42/comments': ghPost(body => {
+          shared = { ...GH_ISSUE_COMMENTS[0], id: 6001, ...(body as object) }
+          return shared
+        }),
+      },
+    })
+    expect((await publish(t.ctx, canvasDir, OPTS)).sharing.status).toBe('shared')
+    expect(await t.ctx.prs.readComments(42)).toBeNull()
+    const res = await createApp(t.ctx).request('/api/prs/42/review/body', {
+      headers: { host: 'localhost:3010' },
+    })
+    expect(res.status).toBe(200)
+    expect((await t.ctx.prs.readComments(42))?.issueComments.map(c => c.id)).toEqual([
+      ...GH_ISSUE_COMMENTS.map(c => c.id),
+      6001,
+    ])
   })
 
   it('keeps the canvas local when the config turns the canvas comment off, and the user file wins', async () => {

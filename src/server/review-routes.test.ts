@@ -1145,3 +1145,61 @@ it('recovers submitted links on refresh only from the saved review receipt', asy
     await t.cleanup()
   }
 })
+
+it('recovers delayed review receipts once, in one write, through the submission and refresh routes', async () => {
+  let comments: Array<Record<string, unknown>> = []
+  const forge = ghFor42({
+    routes: {
+      'repos/acme/widgets/pulls/42/reviews/7001/comments': ghHandler(() => {
+        throw new Error('receipt not available yet')
+      }),
+      'repos/acme/widgets/pulls/42/comments': ghHandler(() =>
+        comments.length === 0 ? [] : [{ ...comments[0], id: 8999, pull_request_review_id: 6999 }, ...comments]
+      ),
+    },
+    postRoutes: {
+      'repos/acme/widgets/pulls/42/reviews': ghPost(body => {
+        const input = body as { comments: Array<Record<string, unknown>> }
+        comments = input.comments.map((comment, i) => ({
+          ...POSTED_INLINE,
+          ...comment,
+          id: 9000 + i,
+          pull_request_review_id: 7001,
+          body: `${String(comment['body'])}\r\n`,
+        }))
+        return POSTED_REVIEW
+      }),
+    },
+  })
+  const t = await contextWithCanvas(forge)
+  try {
+    const app = createApp(t.ctx)
+    for (const body of ['Check the input', 'Check the result']) {
+      expect(
+        (
+          await app.request(
+            ...post('/api/prs/42/pending', { path: 'src/app.ts', line: 4, side: 'new', body })
+          )
+        ).status
+      ).toBe(201)
+    }
+    const submitted = await app.request(
+      ...post('/api/prs/42/review', { event: 'COMMENT', body: 'Review notes' })
+    )
+    expect(submitted.status).toBe(201)
+    const before = await t.ctx.state.read(42)
+    expect(before.posted).toEqual([])
+    const writes = vi.spyOn(t.ctx.state, 'addPosted')
+    expect((await app.request('/api/prs/42?refresh=1', { headers: LOCAL })).status).toBe(200)
+    const recovered = await t.ctx.state.read(42)
+    expect(recovered.rev).toBe(before.rev! + 1)
+    expect(recovered.posted.map(p => p.commentId)).toEqual([9000, 9001])
+    expect(writes).toHaveBeenCalledTimes(1)
+    const disk = await readFile(`${t.ctx.prs.prDir(42)}/state.json`, 'utf8')
+    expect((await app.request('/api/prs/42?refresh=1', { headers: LOCAL })).status).toBe(200)
+    expect(writes).toHaveBeenCalledTimes(1)
+    expect(await readFile(`${t.ctx.prs.prDir(42)}/state.json`, 'utf8')).toBe(disk)
+  } finally {
+    await t.cleanup()
+  }
+})

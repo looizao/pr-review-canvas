@@ -256,6 +256,7 @@ export function syntheticArtifact(): ReviewArtifact {
           { behavior: 'run() adds b()', status: 'covered', testPath: 'src/app.test.ts' },
           {
             behavior: 'other() returns x',
+            title: 'other() returns x',
             status: 'missing',
             note: 'y is unused',
             audience: 'author',

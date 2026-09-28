@@ -260,7 +260,9 @@ author: the reason is theirs to give.
 - A `missing` test entry may set `audience` (default `reviewer`) and an `anchor` with `path`,
   `line`, and `side` (`new` or `old`) inside one of its layer's chunks. Without an anchor, publish
   chooses the first changed row of the source matched by `testPath`, or the layer's first changed
-  row. Generated titles fit the point-title cap at a word boundary.
+  row. Optional `title` uses the point-title cap; otherwise the title is shortened at a word
+  boundary. Carried entries retain their published title, audience, and anchor. Follow the
+  printed carried coordinates when the anchor moves, so author resolutions keep their identity.
 - A test of code outside the diff goes at the end of the most relevant real layer.
 - Folds on a collapsed file take effect when the reader opens that file. Folding thresholds count
   diff rows in assigned chunks, including context, using the longer side of each chunk.

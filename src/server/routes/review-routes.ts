@@ -25,7 +25,6 @@ import type { Derived } from '../../store/derived-store.js'
 import { LOCAL_CAPABILITIES, type PrLoader } from '../bundle.js'
 import type { AppContext } from '../context.js'
 import { AppError } from '../errors.js'
-import { oneAtATime } from '../one-at-a-time.js'
 import { parseTargetKey, requirePrNumber } from './api.js'
 
 const ReviewedBodySchema = z.object({
@@ -204,12 +203,12 @@ export async function postOnPr(
     requireInlineTarget(diff, input)
   }
   const posted = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
-  await appendComments(ctx, number, [posted])
+  await ctx.prs.upsertComments(number, [posted])
   const entry =
     input.kind === 'inline' && input.pointFingerprint !== undefined
       ? { commentId: posted.comment.id, pointFingerprint: input.pointFingerprint }
       : { commentId: posted.comment.id }
-  return { ...posted, state: await ctx.state.addPosted(number, entry) }
+  return { ...posted, state: await ctx.state.addPosted(number, [entry]) }
 }
 
 export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
@@ -413,8 +412,7 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
             postedFromPending(pending, submittedComments)
           )
     if (submittedComments.length > 0) {
-      await appendComments(
-        ctx,
+      await ctx.prs.upsertComments(
         number,
         submittedComments.map(comment => ({ kind: 'review', comment }))
       )
@@ -426,44 +424,4 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
   })
 
   return api
-}
-
-/** One append at a time per PR, so two posts that land together do not overwrite each other. */
-const appendInTurn = oneAtATime<number>()
-
-function appendComments(
-  ctx: AppContext,
-  number: number,
-  posted: ReadonlyArray<PostCommentResult>
-): Promise<void> {
-  return appendInTurn(number, () => writeAppendedComments(ctx, number, posted))
-}
-
-/**
- * Keeps the cached comments in step with what was just posted, so a reload shows it once. With
- * nothing cached there is nothing to keep in step: the next read fetches the list from GitHub.
- */
-async function writeAppendedComments(
-  ctx: AppContext,
-  number: number,
-  posted: ReadonlyArray<PostCommentResult>
-): Promise<void> {
-  const comments = await ctx.prs.readComments(number)
-  if (comments === null) {
-    return
-  }
-  const reviewComments = [...comments.reviewComments]
-  const issueComments = [...comments.issueComments]
-  for (const entry of posted) {
-    const list = entry.kind === 'review' ? reviewComments : issueComments
-    if (list.some(c => c.id === entry.comment.id)) continue
-    if (entry.kind === 'review') reviewComments.push(entry.comment)
-    else issueComments.push(entry.comment)
-  }
-  if (
-    reviewComments.length !== comments.reviewComments.length ||
-    issueComments.length !== comments.issueComments.length
-  ) {
-    await ctx.prs.writeComments(number, { ...comments, reviewComments, issueComments })
-  }
 }

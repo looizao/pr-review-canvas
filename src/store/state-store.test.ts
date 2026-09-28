@@ -65,10 +65,11 @@ describe('state store', () => {
   })
 
   it('records a posted comment once, with the point it came from', async () => {
-    await t.ctx.state.addPosted(42, { commentId: 5, pointFingerprint: 'fp-1' })
-    const again = await t.ctx.state.addPosted(42, { commentId: 5 })
+    await t.ctx.state.addPosted(42, [{ commentId: 5, pointFingerprint: 'fp-1' }])
+    const again = await t.ctx.state.addPosted(42, [{ commentId: 5 }])
+    expect(again.rev).toBe(1)
     expect(again.posted).toEqual([{ commentId: 5, pointFingerprint: 'fp-1', at: '2026-09-10T12:00:00.000Z' }])
-    const second = await t.ctx.state.addPosted(42, { commentId: 6 })
+    const second = await t.ctx.state.addPosted(42, [{ commentId: 6 }])
     expect(second.posted.map(p => p.commentId)).toEqual([5, 6])
   })
 
@@ -76,7 +77,7 @@ describe('state store', () => {
     expect((await t.ctx.state.read(42)).rev).toBe(0)
     expect((await t.ctx.state.setReviewed(42, 'layer:layer-1', true)).rev).toBe(1)
     expect((await t.ctx.state.setDismissed(42, 'fp-1', true)).rev).toBe(2)
-    expect((await t.ctx.state.addPosted(42, { commentId: 5 })).rev).toBe(3)
+    expect((await t.ctx.state.addPosted(42, [{ commentId: 5 }])).rev).toBe(3)
   })
 
   it('starts counting from a state file that was written before the counter existed', async () => {

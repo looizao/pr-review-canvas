@@ -113,14 +113,16 @@ export function createPrLoader(ctx: AppContext) {
     const { payload, warnings } = await host.fetchComments(ctx.gh, repo, number, shas.headSha, ctx.now)
     await ctx.prs.writeComments(number, payload)
     const state = await ctx.state.read(number)
-    for (const reviewId of new Set(state.submitted.map(d => d.reviewId))) {
-      if (reviewId === undefined) continue
-      const drafts = state.submitted.filter(d => d.reviewId === reviewId)
-      const receipt = payload.reviewComments.filter(c => c.reviewId === reviewId)
-      for (const posted of postedFromPending(drafts, receipt)) {
-        await ctx.state.addPosted(number, posted)
-      }
-    }
+    const recovered = [...new Set(state.submitted.map(d => d.reviewId))]
+      .flatMap(reviewId => {
+        if (reviewId === undefined) return []
+        return postedFromPending(
+          state.submitted.filter(d => d.reviewId === reviewId),
+          payload.reviewComments.filter(c => c.reviewId === reviewId)
+        )
+      })
+      .filter(p => !state.posted.some(known => known.commentId === p.commentId))
+    if (recovered.length > 0) await ctx.state.addPosted(number, recovered)
     refreshed.add(number)
     return { pr, comments: payload, warnings }
   }

@@ -242,7 +242,9 @@ of each chunk. They are not the manifest's additions plus deletions.
   (`side` is `new` or `old`, inside a chunk assigned to this layer). Without an anchor, publish
   uses the first changed row of the source file matched by `testPath`, or the layer's first
   changed row when no source matches. It never defaults to context. Give `behavior` a short,
-  specific name; generated titles fit the point-title cap at a word boundary. Use `not-needed` for a behavior that needs no test, with
+  specific name; generated titles fit the point-title cap at a word boundary. Optional `title`
+  overrides that generated title and uses the point-title cap. Published entries retain their
+  title, audience, and anchor so incremental copies preserve point identity and resolutions. Use `not-needed` for a behavior that needs no test, with
   the reason in `note`. Omit uninspected behaviors; an empty test map is valid. Reading a test is
   evidence of what it asserts, not evidence that it passed.
 

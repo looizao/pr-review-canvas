@@ -154,6 +154,7 @@ function checkLengths(output: ModelOutput, caps: TextCaps, report: Report): void
     check(`${at}.checkByHand`, 'checkByHand', layer.checkByHand)
     layer.tests.forEach((t, j) => {
       check(`${at}.tests.${j}.behavior`, 'testBehavior', t.behavior)
+      check(`${at}.tests.${j}.title`, 'pointTitle', t.title)
     })
     layer.files.forEach((f, j) => {
       check(`${at}.files.${j}.note`, 'annotation', f.note)

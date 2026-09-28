@@ -5,10 +5,12 @@
 ### Release QA fixes
 
 - Outdated canvases suggest incremental generation; `--force` is suggested only for the same head.
-- Resolving, reopening, and publishing update cached Conversation comments. Completed self-review
+- Resolving, reopening, and publishing update cached Conversation comments through the same
+  cross-process store lock as ordinary comments. Completed self-review
   shows the done note and reviewer count.
 - GitHub review receipts load full inline coordinates, tolerate line-ending normalization, and
-  recover submitted proposal links on refresh within the submitted review.
+  recover submitted proposal links in one state update on refresh within the submitted review.
+  Refreshing known receipts performs no state writes.
 - Missing tests accept audience and anchor, default to reviewer and changed code, and produce
   word-boundary titles. Fold repairs name generated points and drop remnants under three lines.
 - Settings size to their active tab and keep **test agent** in AI Chat. One-layer navigation
@@ -16,7 +18,8 @@
 - Help prints to stdout, Recent labels unpublished entries, pages have a favicon, and refs exports
   omit PR upload hints. The reference explains ZIP replacement on re-export.
 - Incremental prompts use a model-only basis file, list carried coordinates, and explain chunk
-  renumbering and risk tags. Folding rules name their context-inclusive row count. Generation
+  renumbering and risk tags. Carried missing-test entries preserve their published title, audience,
+  anchor, and author resolutions. Folding rules name their context-inclusive row count. Generation
   guidance clarifies diagrams, compatibility fields, tests outside the diff, Other, and folds.
 - Prepare reports the sharing mode; the skill explains scratch-directory sharing, export output,
   generated-point counts, and which file-writing instruction takes precedence.

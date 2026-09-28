@@ -26,6 +26,7 @@ _Avoid_: Proven bug, automatic finding
 **Missing-test point**:
 An attention point generated from a behavior with no test. It belongs to the reviewer unless the
 writer assigns it to the author, and counts alongside explicitly written attention points.
+A carried entry keeps its published title and audience; its anchor follows the carried code.
 
 **Audience**:
 Who an attention point is for. An author point asks something the author can answer alone; a reviewer point needs someone else's judgment.

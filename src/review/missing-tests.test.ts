@@ -145,3 +145,11 @@ it('applies the point-title cap to fold titles too', () => {
     expect.objectContaining({ code: 'TEXT_TOO_LONG', where: 'layers.0.files.0.folds.0.title' })
   )
 })
+
+it('validates an explicit missing-test title against the point-title cap', () => {
+  const output = model()
+  output.layers[0]!.tests[0]!.title = 'x'.repeat(TEXT_CAPS.pointTitle + 1)
+  expect(
+    validateModelOutput(output, { files, patches, caps: TEXT_CAPS, highRisk: [], limits: LIMITS }).errors
+  ).toContainEqual(expect.objectContaining({ code: 'TEXT_TOO_LONG', where: 'layers.0.tests.0.title' }))
+})

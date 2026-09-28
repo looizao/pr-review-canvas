@@ -132,21 +132,22 @@ function testPoints(
   files: readonly FileEntry[],
   titleCap: number,
   patches: Readonly<Record<string, string>>
-): Unassigned[] {
-  const out: Unassigned[] = []
-  for (const t of layer.tests) {
+): { layer: Layer; points: Unassigned[] } {
+  const points: Unassigned[] = []
+  const tests = layer.tests.map(t => {
     if (t.status !== 'missing') {
-      continue
+      return t
     }
     const anchor = missingTestAnchor(t, layer, files, patches)
-    if (anchor === null) continue
+    if (anchor === null) return t
     const title =
-      t.behavior.length <= titleCap
+      t.title ??
+      (t.behavior.length <= titleCap
         ? t.behavior
         : (t.behavior
             .slice(0, titleCap - 1)
             .replace(/\S*$/, '')
-            .trimEnd() || (titleCap >= 13 ? 'Missing test' : titleCap >= 5 ? 'Test' : '')) + '…'
+            .trimEnd() || (titleCap >= 13 ? 'Missing test' : titleCap >= 5 ? 'Test' : '')) + '…')
     const note = t.note === undefined ? '' : ` ${t.note}`
     const point: Unassigned = {
       kind: 'tests',
@@ -159,9 +160,10 @@ function testPoints(
       origin: 'tests',
       layerId: layer.id,
     }
-    out.push(point)
-  }
-  return out
+    points.push(point)
+    return { ...t, title, audience: point.audience, anchor }
+  })
+  return { layer: { ...layer, tests }, points }
 }
 
 const LEVEL_ORDER = new Map(POINT_LEVELS.map((l, i) => [l, i]))
@@ -179,10 +181,18 @@ function sortPoints(points: Unassigned[]): Point[] {
 
 export function normalize(output: ModelOutput, input: NormalizeInput): ReviewArtifact {
   const testPatterns = input.testPatterns ?? DEFAULT_TEST_PATTERNS
-  const layers = output.layers.map(l => toLayer(l, input.highRisk, testPatterns))
+  const generated = output.layers.map(l =>
+    testPoints(
+      toLayer(l, input.highRisk, testPatterns),
+      input.files,
+      input.caps.pointTitle,
+      input.patches ?? {}
+    )
+  )
+  const layers = generated.map(g => g.layer)
   const points = [
     ...output.points.map(p => modelPoint(p, layers, input.files)),
-    ...layers.flatMap(l => testPoints(l, input.files, input.caps.pointTitle, input.patches ?? {})),
+    ...generated.flatMap(g => g.points),
   ]
   const artifact: ReviewArtifact = {
     version: 1,
@@ -214,7 +224,22 @@ export function artifactToModelOutput(artifact: ReviewArtifact): ModelOutput {
       const modelRisk = risk
         .filter(r => r.source === 'model')
         .map(r => ({ label: r.label, reason: r.reason ?? '' }))
-      const out: ModelLayer = { ...rest, files: files.map(({ isTest: _isTest, ...f }) => f) }
+      // Before missing entries stored their point properties, all generated points in a layer
+      // used its first hunk. Stable point sorting therefore kept the missing-entry order.
+      const legacyPoints = artifact.points.filter(p => p.origin === 'tests' && p.layerId === layer.id)
+      let missingIndex = 0
+      const tests = layer.tests.map(test => {
+        if (test.status !== 'missing') return test
+        const point = legacyPoints[missingIndex++]
+        if (test.title !== undefined || point === undefined) return test
+        return {
+          ...test,
+          title: point.title,
+          audience: point.audience,
+          anchor: { path: point.path, line: point.line, side: point.side ?? 'new' },
+        }
+      })
+      const out: ModelLayer = { ...rest, tests, files: files.map(({ isTest: _isTest, ...f }) => f) }
       if (modelRisk.length > 0) {
         out.risk = modelRisk
       }

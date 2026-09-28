@@ -1,6 +1,7 @@
-import { readdir, stat } from 'node:fs/promises'
+import { mkdir, realpath, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { type CommentsPayload, CommentsPayloadSchema } from '../contract/comments.js'
+import { lock } from 'proper-lockfile'
+import { type CommentsPayload, CommentsPayloadSchema, type PostCommentResult } from '../contract/comments.js'
 import { type DiscoveryCache, DiscoveryCacheSchema } from '../contract/discovery.js'
 import { type LocalPrepareTarget, LocalPrepareTargetSchema } from '../contract/generation-context.js'
 import { isLocalKey, keyToString, type LocalKey, type ReviewKey } from '../contract/review-key.js'
@@ -15,6 +16,8 @@ export interface PrStore {
   writePr(key: ReviewKey, pr: Pr): Promise<void>
   readComments(number: number): Promise<CommentsPayload | null>
   writeComments(number: number, comments: CommentsPayload): Promise<void>
+  /** Merge posted comments under the same cross-process lock as cache replacement. */
+  upsertComments(number: number, posted: ReadonlyArray<PostCommentResult>): Promise<void>
   /** The last attachment scan, so an unchanged PR is not scanned again. */
   readDiscovery(number: number): Promise<DiscoveryCache | null>
   writeDiscovery(number: number, discovery: DiscoveryCache): Promise<void>
@@ -32,6 +35,22 @@ export function createPrStore(repoRoot: string): PrStore {
     }
     return path.join(repoRoot, 'prs', keyToString(key))
   }
+  const commentsFile = (number: number) => path.join(prDir(number), 'comments.json')
+  const readComments = (number: number) => readJson(commentsFile(number), CommentsPayloadSchema)
+  // Like the canvas index, this cache has writers in both serve and CLI processes.
+  const withCommentsLock = async (number: number, write: () => Promise<void>): Promise<void> => {
+    await mkdir(prDir(number), { recursive: true })
+    const root = await realpath(prDir(number))
+    const release = await lock(root, {
+      lockfilePath: path.join(root, 'comments.json.lock'),
+      retries: { retries: 100, factor: 1, minTimeout: 100, maxTimeout: 100 },
+    })
+    try {
+      await write()
+    } finally {
+      await release()
+    }
+  }
   return {
     prDir,
     readPr: key => readJson(path.join(prDir(key), 'pr.json'), PrSchema),
@@ -44,8 +63,26 @@ export function createPrStore(repoRoot: string): PrStore {
     readLocalTarget: key =>
       readJsonOrDefault(path.join(prDir(key), 'target.json'), LocalPrepareTargetSchema, () => null),
     writeLocalTarget: (key, target) => writeJsonAtomic(path.join(prDir(key), 'target.json'), target),
-    readComments: number => readJson(path.join(prDir(number), 'comments.json'), CommentsPayloadSchema),
-    writeComments: (number, comments) => writeJsonAtomic(path.join(prDir(number), 'comments.json'), comments),
+    readComments,
+    writeComments: (number, comments) =>
+      withCommentsLock(number, () => writeJsonAtomic(commentsFile(number), comments)),
+    upsertComments: (number, posted) =>
+      withCommentsLock(number, async () => {
+        const comments = await readComments(number)
+        // With no cache, the next page load must fetch the complete forge conversation.
+        if (comments === null) return
+        const reviewComments = new Map(comments.reviewComments.map(c => [c.id, c]))
+        const issueComments = new Map(comments.issueComments.map(c => [c.id, c]))
+        for (const entry of posted) {
+          if (entry.kind === 'review') reviewComments.set(entry.comment.id, entry.comment)
+          else issueComments.set(entry.comment.id, entry.comment)
+        }
+        await writeJsonAtomic(commentsFile(number), {
+          ...comments,
+          reviewComments: [...reviewComments.values()],
+          issueComments: [...issueComments.values()],
+        })
+      }),
     readDiscovery: number =>
       readJsonOrDefault(path.join(prDir(number), 'discovery.json'), DiscoveryCacheSchema, () => null),
     writeDiscovery: (number, discovery) =>

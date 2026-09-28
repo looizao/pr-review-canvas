@@ -16,7 +16,8 @@ code nobody touched costs the reviewer a second reading for nothing.
 Read basis-model.json for the exact model fields and wording to carry. Chunk ids are recomputed
 for each file: adding a chunk shifts later ids. Use the current manifest to reassign them, even
 when carrying a point or annotation from an unchanged part of a changed file. Generated missing-test
-points are recreated from tests entries; carry those entries, not duplicate explicit points.
+points are recreated from tests entries; carry their title, audience, and anchor, not duplicate
+explicit points. When the carried-point list prints moved lines, update the test entry's anchor too.
 
 ### What the head changed
 
