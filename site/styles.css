@@ -452,6 +452,9 @@ dd code {
   color: var(--muted);
   font-size: 14px;
 }
+.setup-step > p + p {
+  margin-top: 10px;
+}
 /* The copy icon floats in the corner, so the commands start on the block's first line. */
 .command-block {
   background: #eeeee7;

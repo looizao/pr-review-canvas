@@ -482,7 +482,8 @@
               <h3>GitHub stays in the loop</h3>
               <p>
                 Fetch PR data and shared canvases, then post comments, replies, approvals, or requests for
-                changes using your GitHub CLI login.
+                changes using your GitHub CLI login. GitLab merge requests work the same way through
+                <code>glab</code>.
               </p>
             </article>
           </div>
@@ -502,8 +503,8 @@
           <p class="eyebrow">FROM INSTALL TO FIRST REVIEW</p>
           <h2 id="start-heading">Bring a PR.<br /><em>Build some context.</em></h2>
           <p>
-            You'll need Node.js 22+, npm, Git, and an authenticated GitHub CLI.<br />Use Claude Code or Codex
-            to generate a canvas.
+            You'll need Node.js 22+, npm, Git, and an authenticated GitHub CLI (or GitLab CLI for GitLab).<br />Use
+            Claude Code or Codex to generate a canvas.
           </p>
         </div>
         <div class="setup-grid">
@@ -578,6 +579,11 @@ pr-review doctor</code></pre>
               The skill automatically shares the canvas in a <strong>GitHub PR or GitLab MR comment</strong>.
               Open the returned local URL to review it. If sharing fails, the skill warns you and gives you a
               ZIP to upload manually into the PR or MR description.
+            </p>
+            <p>
+              Then <strong>self-review</strong>: read the canvas before asking for review. Points marked
+              <strong>yours</strong> are for you to settle. Resolve each with a reason, and reviewers see only
+              what's left.
             </p>
           </article>
           <article class="setup-step">
@@ -677,8 +683,8 @@ pr-review doctor --all-checks</code></pre>
               <div>
                 <dt>Tune generation</dt>
                 <dd>
-                  Choose strict quality review or a surfacing walkthrough. Define test-file patterns, adjust
-                  text caps, and replace prompt templates.
+                  Choose strict quality review or a surfacing walkthrough, and the model each agent generates
+                  with. Define test-file patterns, adjust text caps, and replace prompt templates.
                 </dd>
               </div>
               <div>
@@ -714,6 +720,8 @@ highRisk:
 
 generation:
   mode: surfacing
+  models:
+    claude: opus
 
 tests:
   patterns: ['**/*.test.*', '**/*.spec.*']
