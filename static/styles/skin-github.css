@@ -5,12 +5,14 @@
 
    What changes: Primer colors, rounded corners, hairline borders, real buttons in place of the
    [ bracket ] commands, icons, and denser spacing. Each section of a card gets a plain title over
-   its own Box, and each file is its own card. What does not change: where anything sits on the
-   page. Rules here only repaint and re-space.
+   its own Box, and each file is its own card. What does not change: which block sits where.
+   Rules here repaint and re-space, and may realign commands within their own row, but never move
+   a block.
 
-   Buttons or links: a command that changes state or is the main verb of its block is a button;
-   one whose verb is universal (copy, ask about a file, settings) is an icon button; a light,
-   reversible, or navigating one (ask, dismiss, view comment) stays a link.
+   Buttons or links: a command that changes state or is the main verb of its block is a button
+   (approve, add to review, resolve, ask about a layer). One whose verb is universal is an icon
+   button (copy, ask about a file, settings). A light, reversible, or navigating one (a point's
+   ask, dismiss, reopen, view comment) stays a link.
 
    Dark is GitHub's "dark dimmed": a softer grey-blue ground rather than the near-black one. */
 
@@ -42,6 +44,7 @@
   /* Purple marks where you are and what needs attention; green marks tests and done. Blue stays
      the link color, as on GitHub. */
   --tint-attention: light-dark(#f7f2ff, rgba(152, 110, 226, 0.14));
+  --tint-done: light-dark(#dafbe1, rgba(87, 171, 90, 0.15));
   --ok: light-dark(#1a7f37, #57ab5a);
   --bad: light-dark(#d1242f, #e5534b);
   --warn: light-dark(#9a6700, #c69026);
@@ -130,28 +133,6 @@
 [data-skin='github'] .fold-toggle {
   font-weight: 500;
 }
-/* The header's commands read as GitHub's toolbar buttons. */
-[data-skin='github'] .hdr-actions .cmd {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--btn-bg);
-  color: var(--fg);
-  font-size: 12px;
-  line-height: 20px;
-}
-[data-skin='github'] .hdr-actions .cmd:hover {
-  background: var(--btn-bg-hover);
-  text-decoration: none;
-}
-[data-skin='github'] .hdr-actions .cmd:disabled,
-[data-skin='github'] .hdr-actions .cmd[aria-disabled='true'] {
-  color: var(--fg-dim);
-}
 [data-skin='github'] .cmd.fill,
 [data-skin='github'] .cmd.big {
   border: 1px solid transparent;
@@ -179,67 +160,109 @@
   padding: 2px 10px;
 }
 
-/* Small buttons, GitHub's btn-sm: sign-off, the main verbs of a point, and the "reviewed" toggles. */
-[data-skin='github'] .signoff .cmd,
+/* Buttons, GitHub's btn-sm. This list is the one place that decides which commands are buttons:
+   the header toolbar, sign-off, a point's verbs, the ask of a layer or file, the layer's last
+   step, the author's resolve, and the "reviewed" toggles. */
 [data-skin='github']
-  :is(.findings, .ifind)
-  .tbtns
-  .cmd:is([data-copy], [data-act='point-post'], [data-act='point-queue']),
-[data-skin='github'] :is(.layer-ctl, .file-h) .cmd[data-act='ask'],
-[data-skin='github'] .layer-end .cmd,
-[data-skin='github'] .chk:has(input[data-reviewed-id]) {
+  :is(
+    .hdr-actions .cmd,
+    .signoff .cmd,
+    :is(.findings, .ifind)
+      .cmd:is(
+        [data-copy],
+        [data-act='point-post'],
+        [data-act='point-queue'],
+        [data-act='point-settle'],
+        [data-act='settle-save']
+      ),
+    :is(.layer-ctl, .file-h) .cmd[data-act='ask'],
+    .layer-end .cmd,
+    .chk:has(input[data-reviewed-id])
+  ) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 8px;
+  height: var(--btn-h, 26px);
+  padding: 0 var(--btn-pad, 8px);
   border: 1px solid var(--line);
   border-radius: var(--r);
   background: var(--btn-bg);
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--btn-fs, 12px);
   font-weight: 500;
   line-height: 1;
+
+  &:hover {
+    background: var(--btn-bg-hover);
+    text-decoration: none;
+  }
+  &:is(:disabled, [aria-disabled='true']) {
+    background: var(--btn-bg);
+    color: var(--fg-dim);
+  }
+  /* The primary action of its block: approving the review, saving the author's reason. */
+  &:is(#approve, [data-act='settle-save']):not(:disabled) {
+    border-color: transparent;
+    background: var(--btn-primary);
+    color: var(--btn-primary-fg);
+  }
+  &:is(#approve, [data-act='settle-save']):not(:disabled):hover {
+    background: var(--btn-primary-hover);
+  }
+  /* Once ticked, "reviewed" turns green: done. */
+  &:has(input:checked) {
+    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+    background: var(--tint-done);
+    color: var(--ok);
+  }
+  /* Every command button but sign-off draws the glyph its `--icon` names below. A command left
+     without one draws nothing rather than a solid square. The text stays the accessible name. */
+  &.cmd:not(.signoff .cmd)::before {
+    content: '';
+    flex: 0 0 var(--icon-size, 14px);
+    width: var(--icon-size, 14px);
+    height: var(--icon-size, 14px);
+    background: currentColor;
+    -webkit-mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
+    mask: var(--icon, linear-gradient(transparent, transparent)) center / contain no-repeat;
+    opacity: 0.85;
+  }
+  /* Icon-only buttons, square: the word is hidden from sight and kept for screen readers and the
+     tooltip. */
+  &:is(
+    .findings [data-copy],
+    .ifind [data-copy],
+    .file-h .cmd,
+    #settings,
+    [data-act='help'],
+    #skin-toggle,
+    #theme-toggle
+  ) {
+    justify-content: center;
+    width: var(--btn-h, 26px);
+    padding: 0;
+    gap: 0;
+    font-size: 0;
+  }
 }
-[data-skin='github'] .signoff .cmd:not(:disabled):hover,
-[data-skin='github']
-  :is(.findings, .ifind)
-  .tbtns
-  .cmd:is([data-copy], [data-act='point-post'], [data-act='point-queue']):hover,
-[data-skin='github'] :is(.layer-ctl, .file-h) .cmd[data-act='ask']:hover,
-[data-skin='github'] .layer-end .cmd:hover,
-[data-skin='github'] .chk:has(input[data-reviewed-id]):hover {
-  background: var(--btn-bg-hover);
-  text-decoration: none;
+[data-skin='github'] .hdr-actions {
+  --btn-h: 28px;
+  --btn-pad: 10px;
+  --icon-size: 16px;
 }
 [data-skin='github'] .signoff {
+  --btn-h: 32px;
+  --btn-pad: 14px;
+  --btn-fs: 13px;
   gap: 8px;
 }
-[data-skin='github'] .signoff .cmd {
-  height: 32px;
-  padding: 0 14px;
-  font-size: 13px;
-}
-[data-skin='github'] .signoff .cmd:disabled {
-  opacity: 0.7;
-}
-/* Approve is the page's one primary action. */
-[data-skin='github'] .signoff #approve:not(:disabled) {
-  border-color: transparent;
-  background: var(--btn-primary);
-  color: var(--btn-primary-fg);
-}
-[data-skin='github'] .signoff #approve:not(:disabled):hover {
-  background: var(--btn-primary-hover);
-}
-/* Once ticked, "reviewed" fills in like GitHub's Viewed toggle. */
-[data-skin='github'] .chk:has(input[data-reviewed-id]:checked) {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: var(--accent-bg);
-  color: var(--accent);
+/* A wider gap sets the icon-only toggles apart from the verbs. */
+[data-skin='github'] .hdr-actions #settings {
+  margin-left: 8px;
 }
 
-/* A point's ask and dismiss stay quiet links after its buttons; dismiss sits apart at the end. */
+/* Links: the light, reversible, or navigating commands of a point stay quiet text after its
+   buttons. Dismissing or restoring the point sits apart at the end of the row. */
 [data-skin='github'] :is(.findings, .ifind) .tbtns {
   display: flex;
   flex-wrap: wrap;
@@ -249,41 +272,22 @@
 }
 [data-skin='github']
   :is(.findings, .ifind)
-  .tbtns
-  .cmd:is([data-act='ask'], [data-act='point-dismiss'], [data-act='point-restore']) {
+  .cmd:is(
+    [data-act='ask'],
+    [data-act='point-dismiss'],
+    [data-act='point-restore'],
+    [data-act='point-unsettle'],
+    [data-act='settle-cancel']
+  ) {
   padding: 0 4px;
   color: var(--fg-muted);
   font-size: 12px;
 }
-[data-skin='github']
-  :is(.findings, .ifind)
-  .tbtns
-  .cmd:is([data-act='point-dismiss'], [data-act='point-restore']) {
+[data-skin='github'] :is(.findings, .ifind) .cmd:is([data-act='point-dismiss'], [data-act='point-restore']) {
   margin-left: auto;
 }
 
-/* Icons. `--icon` names the glyph; the button's text stays its accessible name. */
-[data-skin='github'] .hdr-actions .cmd::before,
-[data-skin='github']
-  :is(.findings, .ifind)
-  .tbtns
-  .cmd:is([data-copy], [data-act='point-post'], [data-act='point-queue'])::before,
-[data-skin='github'] :is(.layer-ctl, .file-h) .cmd[data-act='ask']::before,
-[data-skin='github'] .layer-end .cmd::before {
-  content: '';
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
-  opacity: 0.85;
-}
-[data-skin='github'] .hdr-actions .cmd::before {
-  flex-basis: 16px;
-  width: 16px;
-  height: 16px;
-}
+/* Glyphs. */
 [data-skin='github'] .cmd[data-copy] {
   --icon: var(--i-copy);
 }
@@ -296,7 +300,7 @@
 [data-skin='github'] .cmd[data-act='ask'] {
   --icon: var(--i-comment);
 }
-[data-skin='github'] .layer-end .cmd {
+[data-skin='github'] :is(.layer-end .cmd, [data-act='point-settle'], [data-act='settle-save']) {
   --icon: var(--i-check);
 }
 [data-skin='github'] #regenerate {
@@ -326,23 +330,6 @@
 }
 :root[data-skin='github'][data-theme='dark'] #theme-toggle {
   --icon: var(--i-moon);
-}
-/* Icon-only buttons: the word is kept for screen readers and tooltips, and hidden from sight. */
-[data-skin='github'] :is(.findings, .ifind) .tbtns .cmd[data-copy],
-[data-skin='github'] .file-h .cmd[data-act='ask'],
-[data-skin='github'] .hdr-actions :is(#settings, [data-act='help'], #skin-toggle, #theme-toggle) {
-  justify-content: center;
-  width: 26px;
-  padding: 0;
-  gap: 0;
-  font-size: 0;
-}
-[data-skin='github'] .hdr-actions :is(#settings, [data-act='help'], #skin-toggle, #theme-toggle) {
-  width: 32px;
-}
-/* A wider gap sets the icon-only toggles apart from the verbs. */
-[data-skin='github'] .hdr-actions #settings {
-  margin-left: 8px;
 }
 
 /* ---- Pills: GitHub's rounded labels, with the state ones filled ---- */
@@ -386,8 +373,8 @@
   font-weight: 500;
 }
 [data-skin='github'] .pill.test-tag {
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: var(--tint-done);
+  color: var(--ok);
   border-color: transparent;
   text-transform: none;
   letter-spacing: normal;
@@ -512,16 +499,20 @@
   padding: 0 var(--inset);
 }
 [data-skin='github'] .file {
-  margin-bottom: 12px;
   border: 1px solid var(--line);
   border-radius: var(--r);
   overflow: clip;
 }
-[data-skin='github'] pr-file:last-child > .file {
-  margin-bottom: 0;
+[data-skin='github'] pr-file + pr-file > .file {
+  margin-top: 12px;
 }
+/* The Other changes layer holds its cards straight under the summary, with no files list and no
+   closing row, so it insets them itself and keeps a gap under the last one. */
 [data-skin='github'] details > pr-file > .file {
-  margin: 0 var(--inset) 12px;
+  margin-inline: var(--inset);
+}
+[data-skin='github'] details > pr-file:last-child > .file {
+  margin-bottom: var(--inset);
 }
 [data-skin='github'] .file-h {
   gap: 8px;
