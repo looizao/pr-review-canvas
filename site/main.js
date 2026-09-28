@@ -108,13 +108,13 @@ for (const button of document.querySelectorAll('.copy-button')) {
     try {
       await navigator.clipboard.writeText(command)
       setText('copy-status', 'Commands copied to clipboard.')
-      button.textContent = 'Copied!'
+      button.dataset.copied = ''
       setTimeout(() => {
-        button.textContent = 'Copy'
+        delete button.dataset.copied
       }, 2000)
     } catch {
       setText('copy-status', 'Clipboard unavailable. Select and copy the command text.')
-      button.textContent = 'Select text to copy'
+      button.title = 'Clipboard unavailable. Select and copy the command text.'
     }
   })
 }

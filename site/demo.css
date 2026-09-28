@@ -1,19 +1,3 @@
-.section-kicker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 15px;
-}
-.section-kicker h2 {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-.section-kicker > span {
-  color: var(--muted);
-  font-size: 12px;
-}
 /* The demo canvas draws the app in its olive skin: the header bar, the PR title with progress, the
    layer rail, and a layer card holding its attention points, files, and tests. */
 .canvas-demo {
@@ -362,19 +346,27 @@
   padding: 8px 12px;
 }
 /* Code excerpts, shared by the demo canvas and the fold example: one block per line. */
+/* A card's header row, like the app's file header: a small semibold path and a small muted note. */
 .file-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  background: #f1f2ec;
-  padding: 10px 13px;
+  min-height: 38px;
+  background: #f3f4ec;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--line);
   font-family: monospace;
-  font-size: 14px;
+  font-size: 12px;
 }
 .file-heading > span:first-child {
   overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.file-note {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .diff-code span,
 .code-fold pre span {
@@ -400,14 +392,11 @@
 }
 .demo-caption {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 15px;
   padding-block: 14px;
   font-size: 12px;
   color: var(--muted);
-}
-.demo-caption > span:first-child {
-  font-size: 14px;
 }
 .fold-example {
   background: #fffefa;
@@ -471,7 +460,7 @@
 }
 .chat-demo-header .pill {
   background: #e4e3da;
-  font-size: 12px;
+  font-size: 11px;
 }
 .chat-scope {
   display: flex;
@@ -546,16 +535,6 @@
   }
 }
 @media (width <= 720px) {
-  .section-kicker {
-    display: block;
-  }
-  .section-kicker h2 {
-    font-size: 14px;
-    margin-bottom: 5px;
-  }
-  .section-kicker > span {
-    font-size: 12px;
-  }
   /* The rail becomes a row of chips over the card, as in the app at this width. */
   .app-bar,
   .app-title {
@@ -606,10 +585,6 @@
   .file-heading {
     gap: 8px;
     padding-inline: 10px;
-    font-size: 14px;
-  }
-  .fold-example .file-heading .mono {
-    font-size: 14px;
   }
   .fold-example .diff-code {
     font-size: 14px;
@@ -634,7 +609,7 @@
 .excerpt-gap {
   padding: 7px 13px;
   font-family: monospace;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
   border-block: 1px solid var(--line);
 }

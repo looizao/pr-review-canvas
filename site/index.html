@@ -143,16 +143,13 @@
       </section>
 
       <section class="demo-section wrap" aria-labelledby="demo-heading">
-        <div class="section-kicker">
-          <h2 id="demo-heading">See one PR organized by intent.</h2>
-          <span class="mono">REAL PR · INTERACTIVE WALKTHROUGH</span>
-        </div>
+        <h2 id="demo-heading" class="sr-only">A sample canvas for one pull request</h2>
         <div class="canvas-demo">
           <div class="app-bar">
             <span class="app-brand"
               ><img src="./brand.svg" width="22" height="22" alt="" />PR review canvas</span
             ><span class="app-host">localhost:3010</span
-            ><span class="local-badge">EXCERPTS FROM A REAL PR</span>
+            ><span class="local-badge">EXCERPTS FROM A REAL PR · INTERACTIVE WALKTHROUGH</span>
           </div>
           <div class="app-title">
             <p class="app-pr"><span class="app-num">#9612</span> Configurable timers</p>
@@ -294,8 +291,7 @@
           </div>
         </div>
         <div class="demo-caption">
-          <span><span aria-hidden="true">↖</span> Pick a layer. Follow one concern across files.</span
-          ><span><a href="./tanstack-query-LICENSE.txt">TanStack MIT license</a></span>
+          <span><a href="./tanstack-query-LICENSE.txt">TanStack MIT license</a></span>
         </div>
         <p class="source-note">
           Based on
@@ -338,7 +334,7 @@
           </div>
           <div class="intent-map">
             <div class="map-heading">
-              <span class="mono">LAYER 2 OF 3</span><span class="pill">Query lifecycle</span>
+              <span class="map-label">Layer 2 of 3</span><span class="pill">Query lifecycle</span>
             </div>
             <p class="map-summary">One layer brings related changes across files into a single review.</p>
             <ul aria-label="Files in the query lifecycle layer">
@@ -360,7 +356,7 @@
         <div class="feature-columns">
           <div class="fold-example">
             <div class="file-heading">
-              <span>query-core/src/queryObserver.ts</span><span class="mono">REAL DIFF EXCERPTS</span>
+              <span>query-core/src/queryObserver.ts</span><span class="file-note">real diff excerpts</span>
             </div>
             <details class="code-fold">
               <summary>
@@ -524,11 +520,29 @@ cd /path/to/your-project
 gh auth login
 pr-review install-skill
 pr-review doctor</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy installation commands">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy installation commands"
+                title="Copy installation commands"
+              >
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"
+                  /></svg
+                ><svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
             </div>
-            <p class="fine-print">
-              The skill is installed for both Claude Code and Codex. Restart your agent if it doesn't appear.
-            </p>
           </article>
           <article class="setup-step">
             <div class="step-heading">
@@ -538,7 +552,28 @@ pr-review doctor</code></pre>
             <p>In your coding agent, run the skill with your PR number:</p>
             <div class="command-block">
               <pre><code>/pr-review-canvas 123</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy generation command">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy generation command"
+                title="Copy generation command"
+              >
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"
+                  /></svg
+                ><svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
             </div>
             <p>
               The skill automatically shares the canvas in a <strong>GitHub PR or GitLab MR comment</strong>.
@@ -554,7 +589,28 @@ pr-review doctor</code></pre>
             <p>From your own clone of the project, start the local server:</p>
             <div class="command-block">
               <pre><code>pr-review serve</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy review command">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy review command"
+                title="Copy review command"
+              >
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"
+                  /></svg
+                ><svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
             </div>
             <p>
               Open <code>http://localhost:3010</code>, enter the PR number, and leave the terminal running.
@@ -570,7 +626,28 @@ pr-review doctor</code></pre>
             <div class="command-block">
               <pre><code>npm install -g acpx
 pr-review doctor --all-checks</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy chat setup commands">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy chat setup commands"
+                title="Copy chat setup commands"
+              >
+                <svg class="icon-copy" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"
+                  /></svg
+                ><svg class="icon-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
+                  />
+                </svg>
+              </button>
             </div>
             <p>
               Restart the server. In <strong>settings</strong>, under <strong>AI Chat</strong> choose the chat
@@ -578,14 +655,6 @@ pr-review doctor --all-checks</code></pre>
               canvas doesn't require chat.
             </p>
           </article>
-        </div>
-        <div class="workflow-note">
-          <strong>After new commits</strong>
-          <p>
-            Authors rerun the skill to update their canvas comment; reviewers click <strong>refresh</strong>.
-            An outdated canvas remains readable, but posting is disabled until you're reviewing the current
-            head.
-          </p>
         </div>
       </section>
 
@@ -629,7 +698,7 @@ pr-review doctor --all-checks</code></pre>
           </div>
           <div class="config-example">
             <div class="file-heading">
-              <span>pr-review.config.yml</span><span class="pill">SHARED WITH YOUR TEAM</span>
+              <span>pr-review.config.yml</span><span class="file-note">shared with your team</span>
             </div>
             <pre tabindex="0"><code><span class="code-comment"># A starting point for your project</span>
 version: 1
