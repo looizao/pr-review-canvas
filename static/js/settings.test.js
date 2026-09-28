@@ -150,7 +150,7 @@ describe('settingsDialogHtml', () => {
     expect(html).toContain('They do not change which model generates canvases')
     expect(html).toContain('<h4>Canvas generation</h4>')
     expect(html).toContain(
-      'canvas generation models: <span class="mono">claude → opus</span>, any other agent keeps the session\'s model'
+      'canvas generation models: <span class="mono">claude → opus</span>. Any other agent keeps the session\'s model'
     )
   })
 
@@ -158,8 +158,8 @@ describe('settingsDialogHtml', () => {
     const project = { ...SETTINGS.project, generationModels: { claude: 'opus', codex: '<gpt>' } }
     const html = settingsDialogHtml({ ...SETTINGS, project }, AGENTS)
     expect(html).toContain(
-      'canvas generation models: <span class="mono">claude → opus</span>, <span class="mono">codex → &lt;gpt&gt;</span>, ' +
-        "any other agent keeps the session's model"
+      'canvas generation models: <span class="mono">claude → opus</span>, <span class="mono">codex → &lt;gpt&gt;</span>. ' +
+        "Any other agent keeps the session's model"
     )
   })
 
@@ -559,10 +559,10 @@ describe('the settings tabs', () => {
     expect(visiblePanels(dialog)).toEqual(['settings-panel-reading'])
   })
 
-  it('says so when the checkouts cannot be listed', async () => {
+  it.each([new Error('gone'), 'gone'])('says so when the checkouts cannot be listed: %s', async failure => {
     const dialog = await open({
       fetchCheckouts: async () => {
-        throw new Error('gone')
+        throw failure
       },
     })
     el(dialog, '#settings-tab-checkouts').click()
@@ -653,4 +653,13 @@ describe('checkoutListHtml', () => {
     expect(html).toContain('Branch review')
     expect(formatBytes(3 * 1024 * 1024 * 1024)).toBe('3 GB')
   })
+})
+
+it('describes an empty generation model map without an orphan separator', () => {
+  const html = settingsDialogHtml(
+    { ...SETTINGS, project: { ...SETTINGS.project, generationModels: {} } },
+    AGENTS,
+    'project'
+  )
+  expect(html).toContain("canvas generation models: Any other agent keeps the session's model.")
 })

@@ -13,6 +13,7 @@ export const ReviewCommentSchema = z.object({
   startLine: z.number().int().optional(),
   outdated: z.boolean(),
   commitId: z.string(),
+  reviewId: z.number().int().optional(),
   inReplyToId: z.number().int().optional(),
   createdAt: z.string(),
   /** When the comment was last edited, which is its creation time until someone edits it. */

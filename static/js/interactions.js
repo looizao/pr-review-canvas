@@ -28,6 +28,7 @@ import {
   refreshComposerCommands,
 } from './composer.js'
 import { commentHtml, setThreadCollapsed, threadRowHtml } from './diff-decorations.js'
+import { conversationHtml } from './overview.js'
 import { flash, scrollIntoViewSafe } from './dom.js'
 import { isFoldLevel, nextFoldLevel } from './fold-levels.js'
 import { refreshProgress } from './header.js'
@@ -314,9 +315,27 @@ export function wireReview(root, session, opts = {}) {
 
   let drawnPending = session.pending
   let drawnComments = session.submittedComments
+  let drawnIssues = session.issueComments
   /** Draws everything the local state decides, after it changed. */
   const onState = (/** @type {PrState} */ state) => {
     updateRenderState(state)
+    if (session.issueComments !== null && session.issueComments !== drawnIssues) {
+      const conversation = root.querySelector('.conversation')
+      if (conversation !== null) {
+        const replacement = doc.createElement('template')
+        replacement.innerHTML = conversationHtml(session.issueComments, new Date())
+        const composer = conversation.querySelector('.pr-composer-host')
+        const focused = doc.activeElement
+        if (composer !== null) {
+          const slot = /** @type {Element} */ (replacement.content.querySelector('.pr-composer-host'))
+          slot.replaceWith(composer)
+        }
+        conversation.previousElementSibling?.remove()
+        conversation.replaceWith(replacement.content)
+        if (focused instanceof HTMLElement && composer?.contains(focused)) focused.focus()
+      }
+      drawnIssues = session.issueComments
+    }
     const ctx = getRenderContext()
     if (ctx !== null) {
       const changedPaths = new Set()
@@ -1221,6 +1240,7 @@ export function wireReview(root, session, opts = {}) {
         const [kind, direction] = STEPS[decided.action]
         const item = step(order, itemAround(order, here(order)), kind, direction, isCardShown)
         if (item !== null) {
+          if (kind === 'layer') window.history.pushState(null, '', `#${item.id}`)
           focusItem(byId(item.id))
         }
         break

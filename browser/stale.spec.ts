@@ -28,6 +28,7 @@ test('warns above an outdated canvas and clears the warning after refresh', asyn
     const bundle = await response.json()
     if (outdated) {
       bundle.status = 'stale'
+      bundle.skillCommand = '/pr-review-canvas 42'
       bundle.stale = {
         canvasHeadSha: bundle.pr.headSha,
         currentHeadSha: 'b'.repeat(40),
@@ -39,6 +40,7 @@ test('warns above an outdated canvas and clears the warning after refresh', asyn
   })
   await page.goto(reviewUrl)
   await expect(page.locator('#es-h')).toHaveText('Canvas is outdated')
+  await expect(page.locator('.cmdbox code')).toHaveText('/pr-review-canvas 42')
   await page.locator('#view-stale').click()
   const warning = page.locator('#main > .outdated-bar')
   await expect(warning).toBeVisible()
@@ -46,6 +48,12 @@ test('warns above an outdated canvas and clears the warning after refresh', asyn
   await expect(warning).toContainText('1 commit behind')
   await expect(page.locator('#main > :first-child')).toHaveClass('stale-bar outdated-bar')
   await expect(warning).toHaveCSS('position', 'sticky')
+  await warning.locator('#stale-generate').click()
+  await expect(page.locator('#regenerate-dialog code')).toHaveText('/pr-review-canvas 42')
+  await page.locator('#regenerate-dialog button[value="close"]').click()
+  await page.locator('#regenerate').click()
+  await expect(page.locator('#regenerate-dialog code')).toHaveText('/pr-review-canvas 42')
+  await page.locator('#regenerate-dialog button[value="close"]').click()
   outdated = false
   await page.locator('#refresh').click()
   await expect(page.locator('section.layer').first()).toBeVisible()

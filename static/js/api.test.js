@@ -463,3 +463,32 @@ it('streams chat using the browser fetch when no override is supplied', async ()
     vi.unstubAllGlobals()
   }
 })
+
+it('sends a pending-review lifecycle and resolution through the default fetch with encoded ids', async () => {
+  const api = await import('./api.js')
+  const f = fakeFetch(200, { state: {}, settled: {}, issueComments: [] })
+  vi.stubGlobal('fetch', f.impl)
+  try {
+    await api.addPending(42, { path: 'src/app.ts', line: 4, side: 'new', body: 'a draft' })
+    await api.editPending(42, 'id/with spaces', 'edited')
+    await api.deletePending(42, 'id/with spaces')
+    await api.discardPending(42)
+    const answer = await api.putSettled(42, 'point/one', { settled: true, reason: 'covered', comment: false })
+    expect(answer.issueComments).toEqual([])
+    await api.fetchCheckouts()
+    await api.putReviewed(42, 'layer:run', true, { canvasSha: 'basis' })
+    expect(f.calls.map(c => [c.url, c.init?.method])).toEqual([
+      ['/api/prs/42/pending', 'POST'],
+      ['/api/prs/42/pending/id%2Fwith%20spaces', 'PATCH'],
+      ['/api/prs/42/pending/id%2Fwith%20spaces', 'DELETE'],
+      ['/api/prs/42/pending', 'DELETE'],
+      ['/api/prs/42/points/point%2Fone/settled', 'PUT'],
+      ['/api/checkouts', 'GET'],
+      ['/api/prs/42/reviewed/layer:run', 'PUT'],
+    ])
+    expect(JSON.parse(String(f.calls[1]?.init?.body))).toEqual({ body: 'edited' })
+    expect(JSON.parse(String(f.calls.at(-1)?.init?.body))).toEqual({ reviewed: true, canvasSha: 'basis' })
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})

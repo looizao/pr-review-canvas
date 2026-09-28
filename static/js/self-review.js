@@ -140,7 +140,8 @@ export function selfReviewNoteHtml(open) {
     ? 'the canvas comment updates, so reviewers see only what is left'
     : 'it is written into this canvas'
   return (
-    `<p class="self-review-note"><strong>${lead}</strong> Resolve what you can answer now, with a reason; ${where}. ` +
+    `<p class="self-review-note"><strong>${lead}</strong> ` +
+    (yours === 0 ? '' : `Resolve what you can answer now, with a reason; ${where}. `) +
     `${theirs} ${theirs === 1 ? 'point goes' : 'points go'} to the reviewer.</p>`
   )
 }

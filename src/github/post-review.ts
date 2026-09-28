@@ -73,7 +73,19 @@ export async function postReview(
         gh,
         `repos/${repo.owner}/${repo.name}/pulls/${number}/reviews/${r.id}/comments`
       )
-      posted.comments = rawComments.map(c => mapReviewComment(c, new Set()))
+      // The review-specific endpoint can return only legacy `position` coordinates.
+      // Fetch those comments by id to get their line, side, and complete range.
+      posted.comments = await Promise.all(
+        rawComments.map(async rawComment => {
+          const comment = mapReviewComment(rawComment, new Set())
+          return comment.line === null
+            ? mapReviewComment(
+                await gh.api(`repos/${repo.owner}/${repo.name}/pulls/comments/${comment.id}`),
+                new Set()
+              )
+            : comment
+        })
+      )
     } catch (err) {
       // The write succeeded. A failed read must not invite submitting the same review again.
       posted.warnings.push(

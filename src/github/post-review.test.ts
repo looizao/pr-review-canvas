@@ -106,3 +106,44 @@ function draft(over: Partial<PendingComment> = {}): PendingComment {
     ...over,
   }
 }
+
+it('hydrates GitHub’s legacy review receipt before matching a draft', async () => {
+  const { ghJson } = await import('../testing/fakes.js')
+  const { postedFromPending } = await import('../server/routes/review-routes.js')
+  const raw = {
+    id: 4117419920,
+    user: { login: 'me' },
+    path: 'src/app.ts',
+    body: 'needs a guard\r\n',
+    commit_id: HEAD_SHA,
+    created_at: '2026-09-27T23:17:47Z',
+    html_url: 'https://github.com/acme/widgets/pull/42#discussion_r4117419920',
+    pull_request_review_id: 5332624845,
+    position: 17,
+    original_position: 17,
+  }
+  const gh = createFakeGh({
+    postRoutes: {
+      [PATH]: ghPost(() => ({ id: 5332624845, state: 'COMMENTED', html_url: 'https://github.com/x' })),
+    },
+    routes: {
+      [`${PATH}/5332624845/comments`]: ghJson([raw]),
+      'repos/acme/widgets/pulls/comments/4117419920': ghJson({
+        ...raw,
+        line: 4,
+        original_line: 4,
+        side: 'LEFT',
+        start_line: null,
+      }),
+    },
+  })
+  const drafts = [draft({ side: 'old', startLine: 4 })]
+  const result = await postReview(gh, TEST_REPO, 42, HEAD_SHA, {
+    event: 'COMMENT',
+    body: '',
+    comments: drafts,
+  })
+  expect(result.warnings).toEqual([])
+  expect(result.comments[0]).toMatchObject({ line: 4, side: 'old', reviewId: 5332624845 })
+  expect(postedFromPending(drafts, result.comments)).toEqual([{ commentId: raw.id }])
+})

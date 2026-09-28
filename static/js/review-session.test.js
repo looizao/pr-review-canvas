@@ -413,3 +413,25 @@ describe('changes that overlap', () => {
     expect(s.state.updatedAt).toBe('from the server')
   })
 })
+
+it('accepts legacy state without a revision or pending list and sends the viewed canvas SHA', async () => {
+  const { rev: _rev, pending: _pending, ...legacy } = BASE
+  const s = createReviewSession({
+    prNumber: 42,
+    artifact,
+    files: artifact.files,
+    state: /** @type {import('./contract-types.js').PrState} */ (legacy),
+    capabilities: { canComment: true, tokenKind: 'classic', login: 'octocat' },
+    headSha: artifact.pr.headSha,
+    canvasSha: 'older-canvas',
+    api: {
+      putReviewed: async (_pr, id, reviewed, input) => {
+        expect(input).toEqual({ headSha: artifact.pr.headSha, canvasSha: 'older-canvas' })
+        return answers({ ...legacy, pending: [], reviewed: reviewed ? { [id]: true } : {} })
+      },
+    },
+  })
+  expect(s.pending).toEqual([])
+  await s.setReviewed('layer:run-path', true)
+  expect(s.isReviewed('layer:run-path')).toBe(true)
+})

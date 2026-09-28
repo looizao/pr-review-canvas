@@ -103,10 +103,15 @@ export function selfReviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
       }
       const revised = withSettlement(artifact, fingerprint, settlement, ctx.now().toISOString())
       await ctx.canvases.revise(canvasSha, revised)
+      const sharing = isLocalKey(key)
+        ? { status: 'local' as const }
+        : await shareCanvasOnPr(ctx, canvasSha, key)
+      const comments = isLocalKey(key) ? null : await ctx.prs.readComments(key)
       return {
         settled: revised.settled,
+        ...(comments === null ? {} : { issueComments: comments.issueComments }),
         state,
-        sharing: isLocalKey(key) ? { status: 'local' } : await shareCanvasOnPr(ctx, canvasSha, key),
+        sharing,
       }
     })
     return c.json(answer)

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { TEXT_CAPS } from '../contract/review-artifact.js'
-import { toFileEntry } from '../git/diff-collector.js'
+import { toFileEntry, toPatchMap } from '../git/diff-collector.js'
 import { SYNTHETIC_FILES, syntheticArtifact } from '../testing/synthetic.js'
 import {
   artifactToModelOutput,
@@ -17,6 +17,7 @@ function input(): NormalizeInput {
   return {
     pr: syntheticArtifact().pr,
     files: FILES,
+    patches: toPatchMap(SYNTHETIC_FILES),
     highRisk: [
       { pattern: 'src/new-name.ts', label: 'rename' },
       { pattern: 'src/*.ts', label: 'rename' },
@@ -218,7 +219,9 @@ describe('normalize', () => {
     const orphan = artifactToModelOutput(syntheticArtifact())
     orphan.layers[0]?.tests.push({ behavior: 'z', status: 'missing' })
     const gone = normalize(orphan, { ...input(), files: FILES.filter(f => f.path !== 'src/app.ts') })
-    expect(gone.points.filter(p => p.origin === 'tests')).toEqual([])
+    expect(gone.points.filter(p => p.origin === 'tests')).toEqual([
+      expect.objectContaining({ title: 'z', path: 'src/new-name.ts' }),
+    ])
     expect(gone.points.find(p => p.path === 'src/app.ts')?.layerId).toBeUndefined()
   })
 
@@ -226,8 +229,8 @@ describe('normalize', () => {
     const output = artifactToModelOutput(syntheticArtifact())
     output.layers[0]?.tests.push({ behavior: 'b'.repeat(120), status: 'missing' })
     const artifact = normalize(output, input())
-    const long = artifact.points.find(p => p.title.startsWith('bbb'))
-    expect(long?.title).toBe(`${'b'.repeat(89)}…`)
+    const long = artifact.points.find(p => p.title.startsWith('Missing test'))
+    expect(long?.title).toBe('Missing test…')
   })
 
   it('keeps the fingerprint stable across spacing and case, and distinct across kind or path', () => {

@@ -128,6 +128,8 @@ describe('createApp', () => {
       const html = await (await app.request('/', { headers: LOCAL })).text()
       expect(html).toContain('href="/review/42"')
       expect(html).toContain('feat: add b')
+      expect(html).toContain('no canvas yet')
+      expect(html).toContain('rel="icon" type="image/svg+xml" href="/static/brand.svg"')
       expect(html).toContain('acme/widgets')
     })
 

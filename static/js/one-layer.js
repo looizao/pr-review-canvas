@@ -8,6 +8,7 @@
 import { cssEscape } from './anchors.js'
 import { decodeHash, plainClick } from './deep-link.js'
 import { scrollIntoViewSafe } from './dom.js'
+import { setCardCollapsed } from './layers.js'
 
 /** @typedef {import('./layer-views.js').LayerView} LayerView */
 
@@ -78,8 +79,7 @@ export function elementForHash(root, hash) {
  * Keeps one section on screen at a time while the view is `one`, and gets out of the way while
  * it is `all`. Made once for the app element; `redraw` runs after every render, before the deep
  * links follow the URL, so a link into a layer lands on a layer that is showing. The URL names
- * the section only on the first draw: the keys and the scrollspy never write it, so after that
- * the section last shown is the reader's place.
+ * the section on the first draw; after that the section last shown is the reader's place.
  * @param {HTMLElement} root
  * @param {{ view: LayerView, win?: Window }} opts
  * @returns {{ stop: () => void, setView: (view: LayerView) => void, redraw: () => void }}
@@ -97,6 +97,9 @@ export function initOneLayer(root, opts) {
   /** @param {HTMLElement} section */
   const showSection = section => {
     showOnly(root, section)
+    if (section.matches('section.layer')) setCardCollapsed(section, false)
+    const details = section.querySelector(':scope > details')
+    if (details instanceof HTMLDetailsElement) details.open = true
     shownHash = `#${section.id}`
   }
 

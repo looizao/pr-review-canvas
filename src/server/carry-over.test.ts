@@ -172,7 +172,7 @@ describe('a canvas whose head moved on with the identical diff', () => {
     expect(b.artifact?.pr.headSha).toBe(OLD_SHA)
     expect(b.pr.headSha).toBe(HEAD_SHA)
     expect(b.carriedOver).toEqual({ canvasHeadSha: OLD_SHA, currentHeadSha: HEAD_SHA, commitsBehind: 3 })
-    expect(b.skillCommand).toBe('/pr-review-canvas 42 --force')
+    expect(b.skillCommand).toBe('/pr-review-canvas 42')
   })
 
   it('is outdated when the diff differs, even by hunks the base merge moved down', async () => {
@@ -186,6 +186,7 @@ describe('a canvas whose head moved on with the identical diff', () => {
     })
     const b = await bundle()
     expect(b.status).toBe('stale')
+    expect(b.skillCommand).toBe('/pr-review-canvas 42')
     expect(b.carriedOver).toBeUndefined()
     expect(b.stale).toEqual({
       canvasHeadSha: OLD_SHA,
@@ -213,6 +214,7 @@ describe('a canvas whose head moved on with the identical diff', () => {
     })
     const b = await bundle()
     expect(b.status).toBe('stale')
+    expect(b.skillCommand).toBe('/pr-review-canvas 42')
     expect(b.carriedOver).toBeUndefined()
   })
 
@@ -312,6 +314,7 @@ describe('a canvas whose head moved on with the identical diff', () => {
     baseAdvancedTo('9'.repeat(40), SYNTHETIC_DIFF_MOVED_BY_BASE)
     const b = await bundle(true)
     expect(b.status).toBe('stale')
+    expect(b.skillCommand).toBe('/pr-review-canvas 42')
     expect(b.carriedOver).toBeUndefined()
     expect(b.pr.headSha).toBe(HEAD_SHA)
     expect(b.stale).toEqual({

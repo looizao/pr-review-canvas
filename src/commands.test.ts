@@ -502,6 +502,7 @@ describe('export and import through the CLI layer', () => {
     const io = fakeIo()
     expect(await runExport(t.ctx, ['--head', 'feat/b'], io)).toBe(EXIT.ok)
     expect(lastJson(io)).toMatchObject({ name: 'ref-20260910T110000Z-aaaaaaaa-acme-widgets-canvas.zip' })
+    expect(io.err).toEqual([])
   })
 
   it('exports the named commit and stamps the number when both flags are given', async () => {

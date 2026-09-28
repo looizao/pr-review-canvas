@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { IssueComment } from '../contract/comments.js'
 import { CANVAS_COMMENT_MARKER } from '../canvas/comment.js'
 import type { Repo } from '../contract/review-artifact.js'
 import { fetchAllPages, type HostClient } from '../host/client.js'
@@ -9,7 +10,7 @@ export async function shareGithubCanvas(
   repo: Repo,
   number: number,
   body: string
-): Promise<string> {
+): Promise<IssueComment> {
   const user = z.object({ login: z.string() }).parse(await client.api('user'))
   const base = `repos/${repo.owner}/${repo.name}`
   const comments = (await fetchAllPages(client, `${base}/issues/${number}/comments`)).map(mapIssueComment)
@@ -18,5 +19,5 @@ export async function shareGithubCanvas(
     existing === undefined
       ? await client.post(`${base}/issues/${number}/comments`, { body })
       : await client.post(`${base}/issues/comments/${existing.id}`, { body }, 'PATCH')
-  return mapIssueComment(response).url
+  return mapIssueComment(response)
 }

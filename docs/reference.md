@@ -49,7 +49,8 @@ they work in the one prepare made. For `publish`, a `--data-dir` or
 `PR_REVIEW_DATA_DIR` that names another data directory fails with `CANVAS_ELSEWHERE` instead of
 writing to it.
 
-`prepare` returns `canvasDir`, `headSha`, `mergeBaseSha`, `promptPath`, `contextPath`, `models` (the project's `generation.models`), and `status`.
+`prepare` returns `canvasDir`, `headSha`, `mergeBaseSha`, `promptPath`, `contextPath`, `models` (the project's `generation.models`), `sharing` (`"shared"` or `"off"`), and `status`.
+`sharing` describes whether publish will attempt to share the canvas.
 A status of `exists` means that head already has a canvas. With `--force`, preparation clears the
 previous generation's working files while keeping the published canvas available until a new
 publish succeeds. `--force` also skips the [incremental update](#incremental-canvases), so omit it
@@ -172,6 +173,9 @@ Set them for everyone in `pr-review.config.yml`, or for yourself as `canvasComme
 `mentionCanvas` in `.pr-review/settings.yml`. A personal value of `true` or `false` wins over the
 project's; `null` follows it.
 
+A scratch `--data-dir` or `PR_REVIEW_DATA_DIR` changes storage, not sharing. Disable
+`sharing.canvasComment` or personal `canvasComment` to keep a PR test run local.
+
 The entire comment must fit the host limit: 65,536 characters on GitHub and 1,000,000 on GitLab.
 Base64 uses roughly four characters per three compressed bytes, leaving slightly under 48 KiB
 for a GitHub ZIP after the envelope and visible text. Oversize canvases are never split or truncated.
@@ -196,7 +200,8 @@ pr-review import <zip> [--pr <n>] [--force]
 - Generated names follow `pr-<number>-<YYYYMMDDTHHmmssZ>-<sha8>-<owner>-<repo>-canvas.zip`,
   for example `pr-42-20260910T110000Z-aaaaaaaa-acme-widgets-canvas.zip`. The timestamp is the
   canvas generation time in UTC, to seconds, so exports sort chronologically within each PR.
-  Before a PR exists, `ref-` replaces `pr-<number>-`. Re-exporting the same canvas keeps its name.
+  Before a PR exists, `ref-` replaces `pr-<number>-`. Re-exporting the same canvas keeps its name and replaces the ZIP at that path. Use `--out`
+  with a different filename to keep an earlier export. Refs-only exports omit the PR upload hint.
 - Export returns `status`, `path`, `name`, `headSha`, and `prNumber` when supplied or stored.
 - `import --pr` compares the imported canvas with that PR's current head, and refuses a canvas
   exported for a different pull request with `CANVAS_PR_MISMATCH`. `--force` does not lift that
@@ -277,6 +282,7 @@ changes, stderr says to commit and push it.
 
 ### Output and exit codes
 
+Help prints to stdout, so `pr-review --help | less` works.
 One-shot commands normally print a JSON result on stdout. Preparation progress goes to stderr.
 `validate --human` prints text, and a failed `publish` prints validation diagnostics before its
 JSON error. `serve` stays running and writes its startup message to stderr.
@@ -417,9 +423,23 @@ link targets do not count. `diagram` counts raw Mermaid source characters.
 | `diagram`      | 1500    |
 
 The canvas has a separate limit of 12 attention points, including entries generated from missing
-tests. Increasing text caps does not increase that limit.
+tests. Increasing text caps does not increase that limit. `decisions` and `checkByHand` remain
+accepted for compatibility; new canvases use attention points. Use the `diagram` field for node
+links, or a Mermaid fence in the rationale, with only one of these per layer.
 
 ### Test conventions
+
+A `missing` test entry creates an attention point. Optional `audience` defaults to `reviewer`;
+optional `anchor: { "path": "src/file.ts", "line": 42, "side": "new" }` places it in a chunk
+assigned to its layer (`side` may also be `old`). Without an anchor, publish uses the first
+changed row of the source matched by `testPath`, then falls back to the layer's first changed row.
+It never defaults to context. Optional `title` uses the point-title cap; otherwise the title is
+shortened at a word boundary. Published entries retain their title, audience, and anchor when
+carried, including older generated author points and their resolutions. Author and
+reviewer counts include these generated points, including counts reported for refs runs.
+
+For a small change set, one real layer is the default; optional Other is extra. A test whose
+subject is outside the diff goes in the most relevant real layer.
 
 Custom patterns replace the JavaScript/TypeScript defaults. For example, a Python project can use:
 
@@ -560,13 +580,16 @@ These always stay visible:
 - Test files at `light`, except snapshots and fixtures. From `moderate`, each test body folds under
   its own title, or the file collapses whole.
 
-Validation fails with `FOLD_MISSING` when the generator hides too little:
+Validation fails with `FOLD_MISSING` when the generator hides too little.
+These thresholds count diff rows in assigned chunks, including context, using the longer side
+of each chunk. They do not use additions plus deletions. Folds on a collapsed file apply when
+you open that file. A mechanical `--fix` repair drops a fold left with fewer than three lines.
 
-- A file with more than 20 changed lines outside its annotations and no attention point hides
+- A file with more than 20 diff rows in its chunks outside its annotations and no attention point hides
   nothing at any level.
-- An open file over 60 lines folds less than half of its lines outside attention points by
+- An open file over 60 diff rows folds less than half of its lines outside attention points by
   `aggressive`. Annotated lines count, since an aggressive fold may hide them.
-- A layer over 100 changed lines leaves more than 20 lines open at `moderate` (outside attention
+- A layer over 100 diff rows in its chunks leaves more than 20 lines open at `moderate` (outside attention
   points) and hides nothing more at `aggressive`. Smaller layers only need to pass the file rules.
 
 A `light` fold may cover at most 40 lines of generated content.
@@ -580,10 +603,14 @@ By default the canvas is one page: the overview, then every layer in order. Set 
 to **one at a time** in the settings dialog to see the overview or a single layer at once. The rail
 moves between them and marks the one that shows, `j` and `k` step through the layers, and any
 link into a layer, from the overview, a diagram, another layer, or the AI Chat, shows that layer
-first. Marking the last open file of a layer reviewed keeps you on that layer. The choice is saved as `layerView` in `settings.yml`, applies to the open page at once, and
+first. Navigation writes the layer hash so a reload keeps your place. `k` on the first layer
+returns to Overview. Landing on Other or a reviewed layer opens its body.
+Marking the last open file of a layer reviewed keeps you on that layer. The choice is saved as `layerView` in `settings.yml`, applies to the open page at once, and
 holds for every review until changed.
 
 ### Finding shared canvases
+
+Recent entries with no published canvas say **no canvas yet**.
 
 Discovery reads compressed canvas comments and checks the PR description and comments for legacy
 canvas ZIP links. Both use the same ZIP validation and import path. It prefers a filename
@@ -623,7 +650,8 @@ A resolution is written into the canvas itself:
 - The point leaves every reader's list. The overview lists it under **N resolved by the author**
   with its reason and, when posted, a link to the comment.
 - The canvas comment is shared again at once, with the new counts. Reviewers click **refresh** to
-  load it. When sharing fails, the resolution stays in your local canvas and the message says why.
+  load it. The author's Conversation card updates immediately and stays current after reload.
+  When sharing fails, the resolution stays in your local canvas and the message says why.
   With [`canvasComment` off](#turning-sharing-off), nothing is shared and reviewers do not see it.
 - **reopen** in that list takes a resolution back and shares the canvas again. A posted comment
   stays on the forge.
@@ -662,7 +690,9 @@ A pending review holds comments on your machine until you submit them together.
 - A comment the AI Chat proposes works the same way: it offers **post to github** and **add to
   review**, and shows **in your review** once it is queued. After submission it shows **view
   comment** when the comment link is known, or **submitted** when the receipt could not be loaded.
-  Neither state offers to submit that proposal again.
+  Neither state offers to submit that proposal again. **refresh** recovers the link when GitHub
+  supplies the submitted review's comments. Older submitted records without a saved review ID
+  stay **submitted**, since they cannot be matched safely to a specific review.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.
@@ -730,6 +760,10 @@ When a canvas is regenerated for a new head, `pr-review prepare` starts from the
 the newest canvas of a commit the head was built on. A canvas of a commit the head no longer
 contains is never a basis. `--force` starts from a blank page, and `canvas.incremental: false`
 turns this off for the project.
+
+`prepare` writes `basis-model.json` with only model fields for copying carried content. The prompt
+lists current point coordinates; chunk IDs are recomputed, so a new chunk shifts later IDs.
+Carried layers keep their prose, but model risk tags may be added or removed for the new change set.
 
 `prepare` compares the basis diff with the head diff file by file. A file whose patch is
 byte-identical is untouched. The prompt tells the generator to copy, word for word:
@@ -880,15 +914,15 @@ sandbox for the agent. Its access also depends on the agent's own permissions. D
 
 Validation reports name the field, file, hunk, or line to fix. Common groups are:
 
-| Codes                                                           | What to check                                                                                                                |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA`, `TEXT_TOO_LONG`                                       | Required fields, types, and text limits                                                                                      |
-| `HUNK_UNASSIGNED`, `HUNK_DUPLICATE`, `HUNK_UNKNOWN`             | Each known hunk belongs to exactly one layer                                                                                 |
-| `PATH_UNKNOWN`, `TEST_PATH_UNKNOWN`                             | Referenced files exist in the relevant diff or PR head                                                                       |
-| `LAYER_EMPTY`, `LAYER_KEY_DUPLICATE`                            | Layers contain hunks and have unique keys                                                                                    |
-| `OTHER_DUPLICATE`, `OTHER_NOT_LAST`, `RISK_IN_OTHER`            | At most one Other layer, last, without risk-tagged changes                                                                   |
-| `TEST_NOT_LAST`, `TEST_IN_OTHER`                                | Tests follow the code they cover and use the appropriate layer                                                               |
-| `ANNOTATION_OUTSIDE_HUNK`, `POINT_OUTSIDE_DIFF`, `FOLD_INVALID` | Locations and fold ranges fit the assigned diff                                                                              |
-| `FOLD_MISSING`                                                  | A file over 20 unannotated lines hides something; an open file over 60 folds half; a layer over 100 hides more at aggressive |
-| `TOO_MANY_POINTS`                                               | Count explicit points and missing-test entries together                                                                      |
-| `LINK_UNRESOLVED`, `DIAGRAM_NODE_UNKNOWN`, `DIAGRAM_LIMIT`      | Link targets, diagram node IDs, and diagram counts                                                                           |
+| Codes                                                           | What to check                                                                                                                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SCHEMA`, `TEXT_TOO_LONG`                                       | Required fields, types, and text limits                                                                                                                |
+| `HUNK_UNASSIGNED`, `HUNK_DUPLICATE`, `HUNK_UNKNOWN`             | Each known hunk belongs to exactly one layer                                                                                                           |
+| `PATH_UNKNOWN`, `TEST_PATH_UNKNOWN`                             | Referenced files exist in the relevant diff or PR head                                                                                                 |
+| `LAYER_EMPTY`, `LAYER_KEY_DUPLICATE`                            | Layers contain hunks and have unique keys                                                                                                              |
+| `OTHER_DUPLICATE`, `OTHER_NOT_LAST`, `RISK_IN_OTHER`            | At most one Other layer, last, without risk-tagged changes                                                                                             |
+| `TEST_NOT_LAST`, `TEST_IN_OTHER`                                | Tests follow the code they cover and use the appropriate layer                                                                                         |
+| `ANNOTATION_OUTSIDE_HUNK`, `POINT_OUTSIDE_DIFF`, `FOLD_INVALID` | Locations and fold ranges fit the assigned diff                                                                                                        |
+| `FOLD_MISSING`                                                  | Using diff rows in chunks: a file over 20 unannotated rows hides something; an open file over 60 folds half; a layer over 100 hides more at aggressive |
+| `TOO_MANY_POINTS`                                               | Count explicit points and missing-test entries together                                                                                                |
+| `LINK_UNRESOLVED`, `DIAGRAM_NODE_UNKNOWN`, `DIAGRAM_LIMIT`      | Link targets, diagram node IDs, and diagram counts                                                                                                     |

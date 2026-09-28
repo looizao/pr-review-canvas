@@ -37,7 +37,7 @@ describe.each([GITHUB_HOST, gitlabHost('gitlab.example.com')])('$label canvas co
         return { stdout: JSON.stringify(response), stderr: '', code: 0, missingBinary: false }
       }
       const url = await host.shareCanvas(createHostClient(host.cli, exec), repo, 42, 'new body')
-      expect(url).toContain(github ? '#issuecomment-3' : '#note_3')
+      expect(url.url).toContain(github ? '#issuecomment-3' : '#note_3')
       const write = calls.find(c => c.input !== undefined)!
       expect(write.args.slice(0, 4)).toEqual([
         'api',

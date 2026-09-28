@@ -2671,3 +2671,45 @@ describe('the pending review', () => {
     expect(root.querySelector('.pending-bar')?.textContent).toContain('1 pending comment')
   })
 })
+
+it('updates the existing Conversation card from a resolution without reloading the canvas', async () => {
+  const updated = [
+    {
+      ...issueComments[0],
+      id: 9999,
+      author: 'octocat',
+      body: 'Not yet resolved by the author: 2',
+      url: 'https://github.com/acme/widgets/pull/42#issuecomment-9999',
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    },
+  ]
+  const { root, session } = setup({
+    selfReview: true,
+    api: {
+      putSettled: async () => ({
+        state: BASE,
+        settled: {},
+        sharing: { status: 'off' },
+        issueComments: updated,
+      }),
+    },
+  })
+  click(root, '[data-act="pr-comment"]')
+  const draft = /** @type {HTMLTextAreaElement} */ (root.querySelector('.pr-composer-host textarea'))
+  draft.value = 'Keep this unfinished comment'
+  draft.focus()
+  await session.settle('fp-1', { settled: true, reason: 'verified' })
+  expect(root.querySelector('.pr-composer-host textarea')).toBe(draft)
+  expect(draft.value).toBe('Keep this unfinished comment')
+  expect(document.activeElement).toBe(draft)
+  expect(root.querySelector('.conversation')?.textContent).toContain('Not yet resolved by the author: 2')
+  expect(root.querySelectorAll('.conversation')).toHaveLength(1)
+  expect(root.querySelector('.conversation')?.previousElementSibling?.textContent).toBe('Conversation · 1')
+  root.querySelector('.pr-composer-host')?.remove()
+  await session.settle('fp-1', { settled: false })
+  expect(root.querySelector('.conversation')?.textContent).toContain('Not yet resolved by the author: 2')
+  root.querySelector('.conversation')?.remove()
+  await session.settle('fp-1', { settled: false })
+  expect(root.querySelector('.conversation')).toBeNull()
+})

@@ -83,9 +83,15 @@ Progress goes to stderr. The last stdout line is JSON:
     "promptPath": "...",
     "contextPath": "...",
     "models": { "claude": "opus" },
+    "sharing": "shared",
     "status": "prepared"
 }
 ```
+
+`sharing` is `"shared"` when publish will attempt a PR/MR canvas comment, or `"off"` otherwise
+(including refs and local runs). Tell the user before publishing when sharing is enabled.
+`--data-dir` and `PR_REVIEW_DATA_DIR` change storage only: test runs still post to the live PR
+unless project `sharing.canvasComment: false` or personal `canvasComment: false` turns sharing off.
 
 - `status: "exists"` means a canvas already exists for this head. Stop and tell the user:
   "canvas already exists for <headSha>; run with --force to regenerate".
@@ -97,7 +103,7 @@ Progress goes to stderr. The last stdout line is JSON:
 
 Read `promptPath` in full: it holds the pull request, the manifest with every hunk id, the diffs
 (inline or by file path), the layering and length rules, the rulebook, and the JSON schema. On an
-incremental run it also names the basis canvas and its `review.json`: read that file for the exact
+incremental run it also names the basis canvas and a `basis-model.json` containing only model fields: read that file for the exact
 wording of everything it tells you to carry. Read
 `contextPath` when you need the paths of the head files, the base files, or the patches. Read any
 untouched file with `git show <headSha>:<path>` from the repository root, using the SHA returned
@@ -108,8 +114,9 @@ by prepare. The working tree may be on another branch. Do not check anything out
 Write `<canvasDir>/model.json` matching the schema in the prompt. Write JSON only; no prose in the
 file, no comments, no markdown fence.
 
-Prefer the host's file-writing tool (such as Write) for the canvas directory reported by prepare.
-Shell heredocs may be blocked by write guards when that directory is under the user's home.
+Use the host's file-writing tool (such as Write) for `model.json` in the canvas directory. This
+instruction takes precedence over auto-mode harness advice to write through Bash: shell heredocs
+into a data directory may be refused by write guards.
 
 If your file-writing tool cannot write to `canvasDir`, for example because you are isolated to a
 worktree, do not copy the file in with the shell. Run prepare again with
@@ -141,7 +148,8 @@ over-cap rationale, note, or body reports where the cap falls in your own words
   starts in no chunk assigned to that file in that layer is dropped, never moved;
 - a fold that repeats an earlier fold's exact range is dropped;
 - a fold over an attention point is shrunk so the point stays outside it, or dropped when no single
-  range around the point is left.
+  range of at least three lines around the point is left. The report names generated missing-test
+  points by their behavior.
 
 Read these lines: a dropped fold may have been hiding a range you still want hidden, and the
 coverage errors (`FOLD_MISSING`) that follow are yours to answer. Folds that partly overlap, a
@@ -162,8 +170,8 @@ pr-review publish <canvasDir> --agent <your agent id> --model <model id if you k
 - `--harness`: `claude-code` when you run inside Claude Code, `codex` inside Codex, `other`
   anywhere else.
 
-On success the last line is `{ "status": "published", "headSha", "reviewJsonPath", "attempts",
-"reviewUrl", "sharing" }` (`reviewUrl` is absent only for a `--base/--head` run; a local run
+On success the last line is `{ "status": "published", "sharing", "headSha", "reviewJsonPath",
+"attempts", "reviewUrl" }` (`reviewUrl` is absent only for a `--base/--head` run; a local run
 points at `/review/branch` or `/review/uncommitted`).
 For PR/MR runs, publish creates or updates your canvas comment using the host CLI login, unless
 `sharing.canvasComment` is off in `pr-review.config.yml` or `canvasComment: false` is set in
@@ -172,9 +180,7 @@ the canvas any other way. Always inspect `sharing.status`: local validation succ
 remote sharing succeeded.
 
 For a local run there is nothing to share: `sharing.status` is `"local"`. Report `reviewUrl` and
-tell the user to start `pr-review serve` to read the canvas. If publish prints `CANVAS_STALE`, the
-branch or the working tree changed while you worked; offer to prepare again rather than passing
-`--allow-stale`, because the canvas would then describe code the user has already changed.
+tell the user to start `pr-review serve` to read the canvas.
 
 On failure the command prints one line per problem, then an error line, and exits 5:
 
@@ -188,7 +194,7 @@ Fix exactly the named problems in `model.json` and run publish again. Give up af
 failed rounds the prompt states (`maxRepairRounds`, 3 by default) and report the last output
 verbatim. Do not weaken the content to pass: shorten text, move hunks, fix links.
 
-If publish prints `CANVAS_STALE`, the branch moved while you worked. Tell the user and offer to run
+If publish prints `CANVAS_STALE`, the PR head, branch, or working tree moved while you worked. Tell the user and offer to run
 prepare again; pass `--allow-stale` only when the user asks for the canvas of the old commit.
 
 ### 6. Report the sharing result
@@ -216,7 +222,9 @@ own. Report the stored commit and export it:
 pr-review export --head <headSha>
 ```
 
-Give the returned absolute ZIP path. Once a PR exists, `pr-review export --head <headSha> --pr <n>`
+Export prints `{ "status": "exported", "path", "name", "headSha", "prNumber" }`; `prNumber`
+is absent for a refs-only export. Give the returned absolute `path`. Re-exporting the same canvas
+uses the same name and replaces an existing ZIP at that path. Once a PR exists, `pr-review export --head <headSha> --pr <n>`
 stamps its number for manual upload, or rerun this skill for the PR number with `--force` to share
 automatically. A canvas of a working-tree snapshot cannot be carried to a pull request this way:
 its commit is on no branch, so generate a fresh one for the PR.
@@ -227,9 +235,11 @@ The canvas is ready for its author before it is ready for reviewers. End your re
 local run by asking the user to self-review before requesting review: start `pr-review serve`,
 open `reviewUrl`, and resolve each attention point marked **yours** with a one-line reason.
 Resolving updates the canvas comment for a PR/MR run, so reviewers see only what is left; when
-`sharing.status` was `"off"`, the resolutions stay in the local canvas. Say how many points you
-marked for the author and how many for the reviewer. Leave resolution to the author: the reason
-is theirs to give.
+`sharing.status` was `"off"`, the resolutions stay in the local canvas. Say how many points
+are for the author and how many for the reviewer, counting generated missing-test points too.
+Read the published `review.json` for these counts. For refs runs, report the same counts with the
+ZIP path; self-review in the page follows once the canvas belongs to a PR. Leave resolution to the
+author: the reason is theirs to give.
 
 ## Rules the validator enforces (and models tend to break)
 
@@ -238,7 +248,7 @@ is theirs to give.
 - At most one layer with `kind: "other"`, last when present, and omitted when there are no
   mechanical hunks. It carries no risk tag. A test file may sit in Other only when the code it covers
   is in Other too.
-- A small change set (the prompt states the hunk limit) gets one layer unless concerns truly differ.
+- A small change set (the prompt states the hunk limit) gets one real layer unless concerns truly differ; optional Other does not count.
 - Test files come after the files they cover, inside the same layer, never in a layer of their own.
   The prompt's layering rules name the path patterns this project counts as tests; they are the
   ones the validator uses.
@@ -247,6 +257,15 @@ is theirs to give.
 - At most 12 attention points, counting one per `missing` test entry.
 - Every attention point names its `audience`: `author` when the author can answer it alone,
   `reviewer` when it needs someone else's judgment. When in doubt, `reviewer`.
+- A `missing` test entry may set `audience` (default `reviewer`) and an `anchor` with `path`,
+  `line`, and `side` (`new` or `old`) inside one of its layer's chunks. Without an anchor, publish
+  chooses the first changed row of the source matched by `testPath`, or the layer's first changed
+  row. Optional `title` uses the point-title cap; otherwise the title is shortened at a word
+  boundary. Carried entries retain their published title, audience, and anchor. Follow the
+  printed carried coordinates when the anchor moves, so author resolutions keep their identity.
+- A test of code outside the diff goes at the end of the most relevant real layer.
+- Folds on a collapsed file take effect when the reader opens that file. Folding thresholds count
+  diff rows in assigned chunks, including context, using the longer side of each chunk.
 - `covered` test entries name a `testPath` that exists at the PR head (changed or not).
 - Annotations and attention points sit on lines inside a hunk, on the side you name.
 - Links use only the four forms `#layer:`, `#file:`, `#hunk:`, `#line:` and must resolve.

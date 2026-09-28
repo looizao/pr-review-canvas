@@ -365,7 +365,7 @@ describe('transfer routes', () => {
         commitsBehind: 1,
       })
       expect(bundle.artifact).toEqual(artifactFor(OLD_SHA))
-      expect(bundle.skillCommand).toBe('/pr-review-canvas 42 --force')
+      expect(bundle.skillCommand).toBe('/pr-review-canvas 42')
       // The files and the diffs describe the canvas's own commit, not today's head.
       expect(bundle.files.map(f => f.path)).toEqual(['src/old-only.ts'])
       expect(bundle.derivable).toBe(true)

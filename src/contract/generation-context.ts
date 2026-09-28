@@ -87,8 +87,7 @@ export const BasisSplitPointSchema = z.object({
   title: z.string(),
   status: z.enum(['carried', 're-judged']),
   /**
-   * Set on a point carried from a changed file: its own lines are unchanged in text and in the
-   * diff, and sit here in the head. A point of an untouched file keeps its lines and has none.
+   * Current coordinates for every carried point. Older contexts omit these for untouched files.
    */
   headLines: BasisPointLinesSchema.optional(),
 })
@@ -103,6 +102,7 @@ export const BasisSplitSchema = z.object({
   canvasSha: z.string().regex(/^[0-9a-f]{40}$/),
   /** Absolute path of the basis canvas's `review.json`, in the canvas store. */
   reviewJsonPath: z.string().min(1),
+  modelJsonPath: z.string().min(1).optional(),
   files: FileDeltaSchema,
   layers: z.array(BasisSplitLayerSchema),
   points: z.array(BasisSplitPointSchema),

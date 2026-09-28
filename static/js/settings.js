@@ -71,7 +71,8 @@ function chatFieldsHtml(settings, agents) {
     `<input id="set-timeout" type="number" min="30" max="3600" value="${esc(settings.chatTimeoutSec)}"></div>` +
     '<div class="field"><label for="set-turns">Max turns</label>' +
     `<input id="set-turns" type="number" min="1" max="100" value="${esc(settings.maxTurns ?? '')}" placeholder="the agent's default"></div>` +
-    '<p class="muted small">Changing the chat agent starts a new chat thread; the old ones stay in the list.</p>'
+    '<p class="muted small">Changing the chat agent starts a new chat thread; the old ones stay in the list.</p>' +
+    '<button class="cmd" type="button" data-act="settings-probe">test agent</button>'
   )
 }
 
@@ -85,7 +86,9 @@ function generationModelsHtml(models) {
   const entries = Object.entries(models).map(
     ([agent, model]) => `<span class="mono">${esc(agent)} → ${esc(model)}</span>`
   )
-  return [...entries, "any other agent keeps the session's model"].join(', ')
+  return (
+    (entries.length === 0 ? '' : `${entries.join(', ')}. `) + "Any other agent keeps the session's model."
+  )
 }
 
 /** The dialog's tabs, in order. AI Chat and Checkouts exist only when the project turns chat on. */
@@ -229,9 +232,6 @@ export function settingsDialogHtml(data, agents, tab = 'reading') {
     `<p class="muted small mono">${esc(data.file)}</p>` +
     '<p class="probe-result" role="status"></p>' +
     '<div class="dialog-actions">' +
-    (agents === null
-      ? ''
-      : '<button class="cmd" type="button" data-act="settings-probe">test agent</button>') +
     '<button class="cmd fill" type="button" data-act="settings-save">save</button>' +
     '<button class="cmd" type="button" data-act="settings-close">close</button>' +
     '</div></dialog>'
