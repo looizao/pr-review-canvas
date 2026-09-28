@@ -2,5 +2,5 @@
 export function statusLabel(state) {
   if (state === 'paid') return 'Paid'
   if (state === 'pending') return 'Pending'
-  return 'Unknown'
+  return 'Unrecognized'
 }
