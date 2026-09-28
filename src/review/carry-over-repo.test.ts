@@ -271,8 +271,8 @@ describe('carrying attention points by their lines against a real repository', (
 
   it('carries both points by the file rule when the head leaves their file alone', async () => {
     expect(await split(heads.elsewhere)).toEqual([
-      ['The rewritten line', 'carried', undefined],
-      ['The deleted line', 'carried', undefined],
+      ['The rewritten line', 'carried', { side: 'new', line: 5, endLine: 5 }],
+      ['The deleted line', 'carried', { side: 'old', line: 3, endLine: 3 }],
     ])
   })
 

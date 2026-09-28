@@ -56,6 +56,7 @@ describe('prepare', () => {
       promptPath: path.join(canvasDir, 'prompt.md'),
       contextPath: path.join(canvasDir, 'context.json'),
       models: { claude: 'opus' },
+      sharing: 'shared',
       status: 'prepared',
     })
     expect(o.phases).toEqual(['fetch-pr', 'fetch-refs', 'collect-diffs', 'prompt'])
@@ -175,7 +176,10 @@ describe('prepare', () => {
     })
     const prompt = await readFile(result.promptPath, 'utf8')
     expect(prompt).toContain('# Review canvas for a change set')
-    expect(prompt).toContain('- Change set: no pull request yet — feat/b')
+    expect(prompt).toContain('- Ref comparison')
+    expect(prompt).not.toContain('Author:')
+    expect(prompt).not.toContain('state: pre-pr')
+    expect(result.sharing).toBe('off')
     expect(prompt).toContain('_No description._')
     expect(await t.ctx.prs.readPr(42)).toBeNull()
   })
@@ -291,6 +295,11 @@ describe('prepare with a basis canvas', () => {
     const result = await prepare(t.ctx, { kind: 'pr', number: 42 }, opts())
     const context = GenerationContextSchema.parse(JSON.parse(await readFile(result.contextPath, 'utf8')))
     expect(context.basis?.canvasSha).toBe(OLD)
+    const basisModel = JSON.parse(await readFile(context.basis!.modelJsonPath!, 'utf8'))
+    expect(basisModel.layers[0].files[0]).not.toHaveProperty('isTest')
+    expect(basisModel.layers[0]).not.toHaveProperty('id')
+    expect(basisModel.points.every((p: object) => !('fingerprint' in p) && !('origin' in p))).toBe(true)
+    expect(context.basis?.points[0]?.headLines).toEqual({ side: 'new', line: 4, endLine: 4 })
     // The head's diff is the one the canvas was generated from, so everything carries.
     expect(context.basis?.files.changed).toEqual([])
     expect(context.basis?.layers.map(l => l.status)).toEqual(['carried', 'carried'])
@@ -300,6 +309,25 @@ describe('prepare with a basis canvas', () => {
     expect(prompt).toContain('Carry these as they stand')
     expect(prompt).not.toContain('{{')
   })
+
+  it.each(['artifact', 'manifest', 'diff'] as const)(
+    'starts fresh when the basis %s is unavailable',
+    async missing => {
+      await withOldCanvas()
+      if (missing === 'artifact') vi.spyOn(t.ctx.canvases, 'readArtifact').mockResolvedValue(null)
+      if (missing === 'manifest') vi.spyOn(t.ctx.canvases, 'readManifest').mockResolvedValue(null)
+      if (missing === 'diff') {
+        const read = t.ctx.derived.readOrBuild.bind(t.ctx.derived)
+        vi.spyOn(t.ctx.derived, 'readOrBuild').mockImplementation((sha, base) =>
+          sha === OLD ? Promise.resolve(null) : read(sha, base)
+        )
+      }
+      const result = await prepare(t.ctx, { kind: 'pr', number: 42 }, opts())
+      const context = GenerationContextSchema.parse(JSON.parse(await readFile(result.contextPath, 'utf8')))
+      expect(context.basis).toBeUndefined()
+      expect(await readFile(result.promptPath, 'utf8')).not.toContain('Update the review canvas')
+    }
+  )
 
   it('starts from a blank page for --force and when the setting is off', async () => {
     await withOldCanvas()

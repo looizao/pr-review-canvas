@@ -283,8 +283,8 @@ describe('renderPrompt', () => {
       sources
     )
     expect(prompt).toContain('# Review canvas for a change set')
-    expect(prompt).toContain('- Change set: no pull request yet — feat: add b')
-    expect(prompt).toContain('state: pre-pr (draft)')
+    expect(prompt).toContain('- Ref comparison')
+    expect(prompt).not.toContain('state: pre-pr')
     expect(prompt).toContain('_No description._')
     expect(prompt).toContain(
       '_No layers are configured; divide the change into semantic sections based on its behavior and concerns._'
@@ -298,7 +298,7 @@ describe('renderPrompt', () => {
   it('states the small-change guidance with the hunk count and limit, or that the rules apply in full', () => {
     const small = renderPrompt(context(), PATCHES, sources)
     expect(small).toContain('**Small change set.** This pull request has 6 hunks, at most 10, so:')
-    expect(small).toContain('- Use one layer unless the concerns truly differ')
+    expect(small).toContain('- Use one real layer unless the concerns truly differ')
     expect(small).toContain('zero annotations is a fine answer')
     expect(small).toContain('Keep the summary self-contained')
     const big = renderPrompt(
@@ -335,11 +335,24 @@ describe('renderPrompt', () => {
     const carry = prompt.slice(prompt.indexOf('### Carry these'), prompt.indexOf('### Decide these'))
 
     expect(carry).toContain(
-      '- decision on `src/app.ts` — "Sum instead of product"; the file changed around it, and its ' +
-        'lines moved to new-side lines 7-9'
+      '- decision on `src/app.ts` — "Sum instead of product"; current anchor: new-side lines 7-9'
     )
     expect(carry).not.toContain('Edited under it')
     expect(prompt.slice(prompt.indexOf('### Decide these'))).toContain('"Edited under it"')
+    basis.points = [{ kind: 'risk', path: 'src/app.ts', title: 'Legacy anchor', status: 'carried' }]
+    expect(renderPrompt(context({ basis }), PATCHES, sources)).toContain(
+      '- risk on `src/app.ts` — "Legacy anchor"'
+    )
+    basis.points = []
+    expect(renderPrompt(context({ basis }), PATCHES, sources)).toContain(
+      'current anchor; its code is unchanged, so the level and body still hold:\n\n_none_'
+    )
+    expect(() =>
+      renderPrompt(context({ basis }), PATCHES, {
+        ...sources,
+        incremental: { ...sources.incremental, strict: '{{NOPE}}' },
+      })
+    ).toThrow('generation-strict-incremental.md uses an unknown token {{NOPE}}')
   })
 
   it('throws on a template token it does not know', () => {

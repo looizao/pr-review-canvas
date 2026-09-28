@@ -13,8 +13,10 @@ code nobody touched costs the reviewer a second reading for nothing.
 
 {{BASIS}}
 
-Read the basis canvas file for the exact wording of anything you carry. Its hunk ids belong to its
-own diff and mean nothing here: use the hunk ids of the manifest below.
+Read basis-model.json for the exact model fields and wording to carry. Chunk ids are recomputed
+for each file: adding a chunk shifts later ids. Use the current manifest to reassign them, even
+when carrying a point or annotation from an unchanged part of a changed file. Generated missing-test
+points are recreated from tests entries; carry those entries, not duplicate explicit points.
 
 ### What the head changed
 
@@ -38,7 +40,9 @@ own diff and mean nothing here: use the hunk ids of the manifest below.
   to a layer is a change to that layer: its rationale must still describe what it now holds.
 - A re-judged concern may come back with the same kind, path, and title, but only if you read the
   new code and it still holds. A concern the change fixed is gone, not softened.
-- Write the summary and the risk tags again, from the whole change set as it is now.
+- Write the summary and model risk tags again, from the whole change set as it is now.
+  A carried layer may gain or lose a model risk tag; its copied prose stays the same. Config risk
+  tags are added by publish.
 - Everything below applies as it would to a canvas written from nothing: the layering rules, the
   caps, the hunk coverage, and the validator.
 

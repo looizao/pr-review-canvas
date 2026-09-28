@@ -68,6 +68,9 @@ Project-configured layers (optional guidance):
   changed or not. Explain a non-obvious relationship, decision, or consequence at that location.
   Let straightforward code speak for itself.
 
+A test whose subject is outside this diff belongs at the end of the most relevant real layer;
+use an existing real layer even if the subject itself has no chunks here.
+
 ## Size
 
 {{SMALL_PR}}
@@ -105,7 +108,7 @@ much more than the one below it:
   annotation's text in place of the fold title.
 
 Aggressive is a strong instruction, not a slight increase over moderate. On a typical layer it
-leaves a small fraction of the changed lines on screen. Check your output before you finish: a
+leaves a small fraction of the diff rows in its chunks on screen. Check your output before you finish: a
 layer where `moderate` and `aggressive` hide about the same amount has not applied `aggressive`.
 
 Decide first what the layer's **core** is, because the core never collapses at any level. The
@@ -135,15 +138,15 @@ Then the two mechanisms split the work:
 - `collapsed` is for everything that is not the core. It hides a file's whole body behind its
   header. At `moderate` and `aggressive` that is most files of a layer.
 
-A file that carries more than about twenty changed lines and no attention point should hide
+A file that carries more than about twenty diff rows in its chunks and no attention point should hide
 something at `aggressive`: the whole file when it is not the core, its routine ranges when it is.
 
 The validator enforces the shape of this: `collapsed` must name a level (`true` is refused); no
 fold or collapse in a test file may be `light`; a `light` fold covers at most forty lines; a file
-with more than twenty changed lines outside its annotations, no attention point, and neither
-`collapsed` nor a fold fails with `FOLD_MISSING`; a file of more than sixty changed lines that
+with more than twenty diff rows in its chunks outside its annotations, no attention point, and neither
+`collapsed` nor a fold fails with `FOLD_MISSING`; a file of more than sixty diff rows in its chunks that
 stays open must fold at least half of the lines outside its attention points, annotated lines
-included, or fails the same way; and a layer of more than a hundred changed lines that leaves more
+included, or fails the same way; and a layer of more than a hundred diff rows in its chunks that leaves more
 than twenty lines open at `moderate` outside its attention points and hides nothing more at
 `aggressive` fails the same way. A smaller layer reads whole, and only the file rules apply to it.
 An annotation is not a way past these: it marks the lines to read, and the rows around it still
@@ -218,19 +221,28 @@ plain words, no flourishes, no throat-clearing. Markdown is fine; headings are n
 self-contained: explain the behavior change and the main relationship or decision that helps the
 reviewer understand it. Links are welcome there too.
 
+Folds on a file with `collapsed` are allowed: they take effect when the reader opens the file.
+Folding thresholds count diff rows in assigned chunks, including context, using the longer side
+of each chunk. They are not the manifest's additions plus deletions.
+
 ## What each layer carries
 
 - `rationale`: why these hunks belong together, how this layer fits into the change, and what to read first.
 - File `note` and annotations: explain a non-obvious flow or rule and link it to the implementation.
   Short pseudocode is useful when it makes a long algorithm easier to follow.
 - Put every decision, trade-off, and manual check in `points`, using the rules below.
-  Omit the optional layer fields `decisions` and `checkByHand`; the reviewer tracks these items
+  The schema accepts optional `decisions` and `checkByHand` for compatibility. Omit them in new canvases; the reviewer tracks these items
   through attention points. Keep the layer rationale and file notes focused on the reading path
   and how the code works.
 - `tests`: relevant behaviors with evidence for `covered`, `missing`, or `not-needed`.
   `covered` needs assertions you read and a real `testPath` at the PR head, changed or unchanged.
   Use `missing` for an important gap established by inspecting the relevant tests; every such entry
-  becomes an attention point on publish. Use `not-needed` for a behavior that needs no test, with
+  becomes an attention point on publish. A `missing` entry may set `audience: "author" | "reviewer"`
+  (default `reviewer`) and `anchor: { "path": "src/file.ts", "line": 42, "side": "new" }`
+  (`side` is `new` or `old`, inside a chunk assigned to this layer). Without an anchor, publish
+  uses the first changed row of the source file matched by `testPath`, or the layer's first
+  changed row when no source matches. It never defaults to context. Give `behavior` a short,
+  specific name; generated titles fit the point-title cap at a word boundary. Use `not-needed` for a behavior that needs no test, with
   the reason in `note`. Omit uninspected behaviors; an empty test map is valid. Reading a test is
   evidence of what it asserts, not evidence that it passed.
 
@@ -244,20 +256,20 @@ hunk of the diff, on the head side unless you set `side: "old"`; any line inside
 changed or not. Do not nitpick.
 
 Each point also names its `audience`, the person who can close it. The author reads the canvas
-first, in a self-review before asking for review, and settles each point they can answer with a
+first, in a self-review before asking for review, and resolves each point they can answer with a
 reason every reviewer then reads. Sort the points so the reviewer's list holds only what needs a
 second pair of eyes:
 
 - `author`: the author can answer it from what they already know, without anyone else's judgment.
   A question about intent or context ("does anything call this yet?"), a compatibility or
   migration concern that depends on who uses the code today, known debt, drift from a convention,
-  and a test gap the author can fill or explain. Write the body so the author can settle it in a
-  sentence: name the fact that would settle it.
+  and a test gap the author can fill or explain. Write the body so the author can resolve it in a
+  sentence: name the fact that would resolve it.
 - `reviewer`: it needs an independent judgment, so the author's answer alone should not close it.
   A design trade-off the team should agree with, a risk to verify by reading or running the code,
   a security or data-handling concern, and a manual check whose result someone else should see.
 
-When in doubt, choose `reviewer`: a point the author settles leaves every reviewer's list.
+When in doubt, choose `reviewer`: a point the author resolves leaves every reviewer's list.
 
 - Every decision or trade-off you surface gets a `kind: "decision"` point. Use `level: "fyi"`
   to explain a chosen approach, its benefit and cost; use `level: "decide"` when human agreement
@@ -300,6 +312,8 @@ You may add a tag to a layer with `risk: [{ "label", "reason" }]` when the chang
 Other may carry no risk tag.
 
 ## Diagrams
+
+Use the `diagram` field when you want `links`; never use both that field and a rationale Mermaid fence in the same layer.
 
 A layer may carry one diagram in its `diagram` field: `{ "mermaid": "<source>", "links": {} }`,
 where `links` sends a node of the drawing to a place in this canvas (see Node links below). A
