@@ -19,6 +19,7 @@ import { noPostingTitle, postToLabel } from './host.js'
  *   startLine?: number,
  *   inReplyToId?: number,
  *   pointFingerprint?: string,
+ *   proposalFingerprint?: string,
  *   body?: string,
  *   pendingActive?: boolean,
  *   pendingId?: string,
@@ -35,6 +36,7 @@ function dataAttributes(opts) {
     ['data-start-line', opts.startLine],
     ['data-in-reply-to', opts.inReplyToId],
     ['data-fingerprint', opts.pointFingerprint],
+    ['data-proposal-fingerprint', opts.proposalFingerprint],
     ['data-pending-id', opts.pendingId],
     ['data-pending-active', opts.pendingActive === true ? '1' : '0'],
   ]
@@ -185,6 +187,10 @@ export function composerInput(box) {
   const fingerprint = box.getAttribute('data-fingerprint')
   if (fingerprint !== null && fingerprint !== '') {
     input.pointFingerprint = fingerprint
+  }
+  const proposalFingerprint = box.getAttribute('data-proposal-fingerprint')
+  if (proposalFingerprint !== null && proposalFingerprint !== '') {
+    input.proposalFingerprint = proposalFingerprint
   }
   return input
 }

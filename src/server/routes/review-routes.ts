@@ -206,10 +206,15 @@ export async function postOnPr(
     const result = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
     return { result, comments: [result] }
   })
-  const entry =
-    input.kind === 'inline' && input.pointFingerprint !== undefined
-      ? { commentId: posted.comment.id, pointFingerprint: input.pointFingerprint }
-      : { commentId: posted.comment.id }
+  const entry = {
+    commentId: posted.comment.id,
+    ...(input.kind === 'inline' && input.pointFingerprint !== undefined
+      ? { pointFingerprint: input.pointFingerprint }
+      : {}),
+    ...(input.kind === 'inline' && input.proposalFingerprint !== undefined
+      ? { proposalFingerprint: input.proposalFingerprint }
+      : {}),
+  }
   return { ...posted, state: await ctx.state.addPosted(number, [entry]) }
 }
 

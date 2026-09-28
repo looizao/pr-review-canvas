@@ -693,6 +693,10 @@ A pending review holds comments on your machine until you submit them together.
   Neither state offers to submit that proposal again. **refresh** recovers the link when GitHub
   supplies the submitted review's comments. Older submitted records without a saved review ID
   stay **submitted**, since they cannot be matched safely to a specific review.
+  Each proposal gets a fingerprint from its original text and anchor, so identical proposals in
+  other turns share the same status. The fingerprint follows its draft and identifies the posted
+  comment, so its link survives draft edits, GitHub edits, and later commits moving the lines.
+  Delayed receipts and older records use GitHub's complete original range to find the comment.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.
@@ -794,6 +798,9 @@ regenerations in between. When a mark follows, the page names the canvas you mad
 machine lacks that canvas or cannot rebuild either diff, no marks follow.
 
 ## AI Chat
+
+The review app runs locally. Forge operations contact GitHub or GitLab, and AI Chat sends requests
+through your configured agent to its service.
 
 Install `acpx` globally to enable chat inside the canvas:
 

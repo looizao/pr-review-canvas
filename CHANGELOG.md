@@ -12,6 +12,12 @@
 - GitHub review receipts load full inline coordinates, tolerate line-ending normalization, and
   recover submitted proposal links in one state update on refresh within the submitted review.
   Refreshing known receipts performs no state writes.
+- Submitted chat proposals keep their comment links when later commits move or remove the
+  commented lines. Proposal fingerprints follow drafts and identify their posted GitHub comments,
+  including after edits. Identical proposals in other turns share the same status. Delayed receipts
+  and older records match the complete original GitHub range.
+- Fold-repair messages explain when no single contiguous range can be kept. The page footer
+  makes clear that forge operations and AI requests contact their services.
 - Missing tests accept audience and anchor, default to reviewer and changed code, and produce
   word-boundary titles. Fold repairs name generated points and drop remnants under three lines.
 - Settings size to their active tab and keep **test agent** in AI Chat. One-layer navigation
