@@ -25,7 +25,7 @@ If the ref cannot be resolved or the scope is ambiguous, stop and ask.
 
 **Model**: an Opus-like model, meaning the highest or second-highest model on the default plan for that agent (Claude: Opus; Codex: the top or second reasoning model). Name the tier, never a specific model id.
 
-**Reasoning effort**: use `high` or lower throughout the loop. Explicitly configure the reviewer at `high` or lower when spawning a subagent or starting a cross-host session, including when the host uses a higher effort setting.
+**Reasoning effort**: a Claude reviewer runs at its highest effort. A Codex reviewer runs at `high` or lower throughout the loop; configure that explicitly when spawning a subagent or starting a cross-host session, including when the host uses a higher effort setting.
 
 **Host**: when the reviewer runs on the same agent as the host, spawn a subagent with a stable name (`tnr-reviewer`) and keep it for the whole loop so later passes reuse its context. When the reviewer runs on a different agent, use `acpx` with a named persistent session (see Host notes). The user chooses; default to the same host.
 
