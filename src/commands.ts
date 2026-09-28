@@ -44,15 +44,28 @@ import { readText, writeTextAtomic } from './store/atomic-json.js'
 export interface CliIo {
   stdout(line: string): void
   stderr(line: string): void
-  /**
-   * Print results and errors as one JSON line. cli.ts sets it for `--json`, for a stdout that is
-   * not a terminal, and for the commands only an agent runs; a person at a terminal reads text.
-   */
+  /** Print results and errors as one JSON line instead of text. `outputMode` decides it. */
   json: boolean
 }
 
-/** The flag every command with text output takes. */
-const JSON_FLAG = { json: { type: 'boolean' } } as const
+/** The steps of review generation: the skill reads their JSON, so they print nothing else. */
+const AGENT_COMMANDS: ReadonlySet<string> = new Set(['prepare', 'validate', 'publish'])
+
+/**
+ * Takes `--json` out of a command's arguments and decides whether the command prints JSON: with
+ * the flag, on a stdout that is not a terminal (a script or an agent is reading), or for a command
+ * only an agent runs. doctor prints its checklist on a pipe too, so only the flag switches it.
+ */
+export function outputMode(
+  command: string,
+  args: string[],
+  stdoutIsTTY: boolean
+): { json: boolean; rest: string[] } {
+  const rest = args.filter(arg => arg !== '--json')
+  const flag = rest.length !== args.length
+  const json = command === 'doctor' ? flag : flag || !stdoutIsTTY || AGENT_COMMANDS.has(command)
+  return { json, rest }
+}
 
 /** Exit codes: 0 ok, 1 error, 2 usage, 4 gh/glab auth or missing, 5 invalid model output. */
 export const EXIT = { ok: 0, error: 1, usage: 2, gh: 4, invalid: 5 } as const
@@ -423,8 +436,8 @@ export async function runPublish(ctx: AppContext, argv: string[], io: CliIo): Pr
 
 /**
  * `doctor [--all-checks] [--json]`: every check the tool needs, as a checklist on `output` that a
- * person or an agent can read. `--json` prints one JSON line on `io` instead. Exit 1 when a check
- * fails, so a script can read the code instead of the report.
+ * person or an agent can read. With `io.json` it prints one JSON line on `io` instead. Exit 1 when
+ * a check fails, so a script can read the code instead of the report.
  */
 export async function runDoctor(
   deps: DoctorDeps,
@@ -434,11 +447,11 @@ export async function runDoctor(
 ): Promise<number> {
   const { values } = parseArgs({
     args: argv,
-    options: { 'all-checks': { type: 'boolean' }, json: { type: 'boolean' } },
+    options: { 'all-checks': { type: 'boolean' } },
     strict: true,
   })
   const report = await runDoctorChecks(deps, { allChecks: values['all-checks'] === true })
-  if (values.json === true) {
+  if (io.json) {
     printJson(io, report)
   } else {
     printDoctorReport(report, output)
@@ -459,7 +472,6 @@ export async function runInstallSkill(env: InstallSkillEnv, argv: string[], io: 
       'claude-dir': { type: 'string' },
       'codex-dir': { type: 'string' },
       force: { type: 'boolean' },
-      ...JSON_FLAG,
     },
     strict: true,
   })
@@ -506,7 +518,7 @@ async function resolveHead(
 export async function runExport(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args: argv,
-    options: { pr: { type: 'string' }, head: { type: 'string' }, out: { type: 'string' }, ...JSON_FLAG },
+    options: { pr: { type: 'string' }, head: { type: 'string' }, out: { type: 'string' } },
     strict: true,
   })
   const target = await resolveHead(ctx, values)
@@ -567,7 +579,7 @@ async function readZipFile(zipPath: string, shown: string): Promise<Uint8Array> 
 export async function runImport(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values, positionals } = parseArgs({
     args: argv,
-    options: { pr: { type: 'string' }, force: { type: 'boolean' }, ...JSON_FLAG },
+    options: { pr: { type: 'string' }, force: { type: 'boolean' } },
     allowPositionals: true,
     strict: true,
   })
@@ -624,7 +636,6 @@ export async function runClean(ctx: AppContext, argv: string[], io: CliIo): Prom
       all: { type: 'boolean' },
       'older-than': { type: 'string' },
       'dry-run': { type: 'boolean' },
-      ...JSON_FLAG,
     },
     strict: true,
   })

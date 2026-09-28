@@ -6,6 +6,7 @@ import {
   describeImport,
   EXIT,
   namedCanvasDir,
+  outputMode,
   parsePrepareTarget,
   reportFailure,
   runClean,
@@ -378,6 +379,19 @@ describe('failures at a terminal', () => {
   })
 })
 
+describe('outputMode', () => {
+  it('prints JSON for --json, a pipe, or an agent command, and doctor only for --json', () => {
+    expect(outputMode('clean', ['--dry-run'], true)).toEqual({ json: false, rest: ['--dry-run'] })
+    expect(outputMode('clean', ['--json', '--dry-run'], true)).toEqual({ json: true, rest: ['--dry-run'] })
+    expect(outputMode('clean', ['--dry-run'], false).json).toBe(true)
+    for (const command of ['prepare', 'validate', 'publish']) {
+      expect(outputMode(command, [], true).json, command).toBe(true)
+    }
+    expect(outputMode('doctor', [], false)).toEqual({ json: false, rest: [] })
+    expect(outputMode('doctor', ['--json'], true)).toEqual({ json: true, rest: [] })
+  })
+})
+
 describe('namedCanvasDir', () => {
   it("reads publish's <canvasDir> and validate's --canvas wherever they sit, and never throws", () => {
     expect(namedCanvasDir('publish', ['dir', '--agent', 'a', '--harness', 'other'])).toBe('dir')
@@ -539,8 +553,6 @@ describe('export and import through the CLI layer', () => {
     expect(back.out).toEqual([
       `A canvas for ${HEAD_SHA.slice(0, 7)} is already stored and is at least as new; kept it.`,
     ])
-    // cli.ts turns --json into io.json; the command only has to accept the flag.
-    expect(await runImport(t.ctx, [zip, '--json'], fakeIo())).toBe(EXIT.ok)
   })
 
   it('describes each import outcome in one line', () => {

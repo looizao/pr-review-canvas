@@ -2,7 +2,7 @@
 import { appendFile, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type CliIo, splitCommonFlags } from './commands.js'
+import { type CliIo, outputMode, splitCommonFlags } from './commands.js'
 import { findSkillCopies } from './review/doctor.js'
 import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, installSkill } from './review/install-skill.js'
 import { makeTempDir } from './testing/fakes.js'
@@ -86,11 +86,12 @@ function fake(opts: {
     runInstalled: async args => {
       calls.push(`pr-review ${installed[NAME]} ${args.join(' ')}`)
       if (opts.garbledInstalled) return { ok: false, stdout: 'Segmentation fault', stderr: 'boom' }
-      // What cli.ts does with the arguments: the command name, then the common flags.
-      const [command, ...flags] = args
+      // What cli.ts does with the arguments: the command name, the output mode on the pipe
+      // execFile gives the child, then the common flags.
+      const [command = '', ...commandArgs] = args
+      const { json, rest: flags } = outputMode(command, commandArgs, false)
       const { repo: childRepo, rest } = splitCommonFlags(flags)
-      // cli.ts reads --json from the command line; execFile gives the child a pipe as well.
-      const child = capture(rest.includes('--json'))
+      const child = capture(json)
       const code =
         command === 'upgrade' && (childRepo ?? null) === (opts.repoRoot === undefined ? repo : opts.repoRoot)
           ? await runUpgrade(depsFor(installed[NAME] ?? ''), rest, child.io)

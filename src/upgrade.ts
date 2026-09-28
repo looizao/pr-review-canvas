@@ -286,7 +286,7 @@ function parseOnly(raw: string | undefined): ReadonlySet<StepKind> | null {
 export async function runUpgrade(deps: UpgradeDeps, argv: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args: argv,
-    options: { yes: { type: 'boolean', short: 'y' }, only: { type: 'string' }, json: { type: 'boolean' } },
+    options: { yes: { type: 'boolean', short: 'y' }, only: { type: 'string' } },
     strict: true,
   })
   const only = parseOnly(values.only)

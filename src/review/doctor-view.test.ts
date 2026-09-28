@@ -103,7 +103,7 @@ describe('pr-review doctor presentation', () => {
   it('prints a checklist by default, one line per detail and hint on a pipe', async () => {
     const dataDir = await makeTempDir()
     const lines: string[] = []
-    const io: CliIo = { stdout: line => lines.push(line), stderr: () => undefined, json: true }
+    const io: CliIo = { stdout: line => lines.push(line), stderr: () => undefined, json: false }
     const terminal = createFakeTerminal()
     const code = await runDoctor({ ...deps(), dataDirOverride: dataDir }, [], io, terminal.output)
     const page = terminal.text().split('\n')
@@ -119,12 +119,12 @@ describe('pr-review doctor presentation', () => {
     expect(page.join('\n')).not.toContain('{"ok"')
   })
 
-  it('keeps the JSON line when --json is set', async () => {
+  it('keeps the JSON line when io.json is set', async () => {
     const dataDir = await makeTempDir()
     const lines: string[] = []
     const io: CliIo = { stdout: line => lines.push(line), stderr: () => undefined, json: true }
     const terminal = createFakeTerminal()
-    const code = await runDoctor({ ...deps(), dataDirOverride: dataDir }, ['--json'], io, terminal.output)
+    const code = await runDoctor({ ...deps(), dataDirOverride: dataDir }, [], io, terminal.output)
     expect(code).toBe(1)
     expect(terminal.text()).toBe('')
     expect(lines).toHaveLength(1)
