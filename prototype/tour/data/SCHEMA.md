@@ -73,7 +73,7 @@ export default {
     {
       id: 'q1',
       beat: 'b2',                       // the beat a wrong answer reopens
-      question: 'What prints when `pr-review clean` runs inside a cron job?',   // puzzle-shaped: what prints / what breaks if
+      question: 'What prints when `pr-review clean` runs inside a cron job?',   // checks the reader read the beat
       options: ['…', '…', '…'],         // 3 options
       answer: 1,                        // index of the right one
       why: '…',                         // one sentence shown after answering
@@ -101,4 +101,7 @@ Rules for the content:
 - The micro-world lets the reader change inputs and see the outcome; keep it to a few controls.
 - Scenes and micro-worlds must read at 360px wide and in dark theme (use the tokens; never
   hard-code white or black).
-- Quiz questions are puzzles about consequences, not recall of names.
+- Quiz questions check that the reader read the beats. Ask about behavior an end user or a
+  caller would notice, and about the decisions the change made and why. Never a gotcha, an edge
+  case the beats did not cover, a detail only the code shows, or a UI value nobody needs to
+  remember (a pixel size, a color hex, a class name). Each question is answerable from its beat.

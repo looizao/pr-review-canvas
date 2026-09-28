@@ -109,7 +109,7 @@ A beat the reader plays with: inputs of the changed behavior go in, outcomes com
 _Avoid_: Demo, Sandbox, Playground
 
 **Mood**:
-The visual identity of one tour, picked from a catalog: an accent, a display font, and a motif. It themes the beats, scenes, and quiz, not the app around them.
+The visual identity of one tour, picked from a catalog: an accent and a display font. It themes the beats, scenes, and quiz, not the app around them.
 _Avoid_: Skin, Theme, Style
 
 **Decision**:
@@ -141,7 +141,7 @@ The approved restatements of a tour, restated once as a whole at the end and con
 _Avoid_: Fix list, Prompt, Task list
 
 **Quiz**:
-Puzzle-shaped questions after the decisions that check the reader holds the theory of the change. A wrong answer reopens the beat, and the result stays with the reader.
+A few plain questions after the decisions that check the reader read the beats: what users would notice, and which decisions were made and why. A wrong answer reopens the beat, and the result stays with the reader.
 _Avoid_: Test, Score, Assessment
 
 **Try-it**:

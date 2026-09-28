@@ -1019,42 +1019,39 @@ export default {
   quiz: [
     {
       id: 'q1',
-      beat: 'b2',
-      question:
-        'A later change puts the hairline rule back on `.file + .file`. What do readers see between two files?',
+      beat: 'b1',
+      question: 'What problem did readers report that this change set out to fix?',
       options: [
-        'Nothing changes: the github skin repaints files anyway.',
-        'The terminal skin loses the line between files; the github skin still shows separate cards, since its gap rule matches the wrappers.',
-        'Both skins lose all separation, and the cards run together.',
+        'Inside a layer, sections and files ran together, so it was hard to tell where one ended and the next began.',
+        'The current layer was hard to find in the rail.',
+        'Diffs were unreadable in the dark theme.',
       ],
-      answer: 1,
-      why: 'Cards are siblings only through their `<pr-file>` wrappers, so `.file + .file` matches nothing; the github skin’s own `pr-file + pr-file > .file` gap and per-card border still hold.',
+      answer: 0,
+      why: 'Tests, attention points, and files had no clear boundaries, and a new file had no top border or space above it. Boxes per section and a card per file are the answer.',
     },
     {
       id: 'q2',
       beat: 'b3',
-      question:
-        'You tick `reviewed` on a file card in the github skin and it turns green. Under the skin’s color rule, what else shares that green?',
+      question: 'After this change, what does a color tell you in the github skin?',
       options: [
-        'The current rail item and the `Layer n of m` label.',
-        'The Tests square, the test pill, and Approve once it is enabled.',
-        'Every link, as on GitHub.',
+        'Its severity: red, yellow, and grey for blocker, major, and minor.',
+        'One job each: purple is where you are, green is done or the primary action, blue is a link.',
+        'Which file type the block belongs to.',
       ],
       answer: 1,
-      why: 'Green marks tests, done, and the primary action; purple marks where you are; blue stays the link color.',
+      why: 'The change gives each of the three colors one meaning, so a reader tells the current place, progress, and links apart without reading.',
     },
     {
       id: 'q3',
-      beat: 'b5',
-      question:
-        'You add a command to the button list in `skin-github.css` but give it no `--icon`. What does the github skin draw before its label?',
+      beat: 'b2',
+      question: 'Why did the hairline between files never show before, in either skin?',
       options: [
-        'A solid square in the text color, the mask’s default.',
-        'Nothing: the mask falls back to a transparent gradient, and the label stands alone.',
-        'The comment bubble, the default glyph.',
+        'Its color was too close to the background.',
+        'The rule matched `.file + .file`, but each file card sits inside its own `<pr-file>` wrapper, so the selector never matched anything.',
+        'The terminal skin removed it on purpose, and the github skin copied that.',
       ],
       answer: 1,
-      why: 'The `::before` mask reads `var(--icon, linear-gradient(transparent, transparent))`, so a missing icon masks everything out instead of filling the box.',
+      why: 'The fix targets the wrappers, `pr-file + pr-file > .file`, which is why the terminal skin got its line back as a side effect.',
     },
   ],
 

@@ -114,14 +114,16 @@ says once where the browser sends audio; a project can turn audio off.
 
 ## Quiz
 
-A few puzzle-shaped questions after the decisions ("what breaks if"). A wrong answer reopens the
-beat. The result stays with the reader and never reaches the shared tour or the pull request. A
+A few plain questions after the decisions that check the reader read the beats: what an end user
+or a caller would notice, and which decisions the change made and why. Not gotchas, not edge cases
+the beats did not cover, not details only the code shows, and not UI values nobody needs to
+remember. A wrong answer reopens the beat. The result stays with the reader and never reaches the shared tour or the pull request. A
 project can turn the quiz off or require it before the prompt is written.
 
 ## Look
 
-Each tour gets a **mood** from a validated catalog: an accent, a display font from a bundled set,
-and a motif. The mood themes the beats, scenes, and quiz. Controls, chat, and the diff keep the
+Each tour gets a **mood** from a validated catalog: an accent and a display font from a bundled
+set. The mood themes the beats, scenes, and quiz. Controls, chat, and the diff keep the
 app's skin and theme. Scenes and micro-worlds run in the sandboxed frame from PR 44 (no origin,
 inline code only, no network). No badges, streaks, or scores.
 
