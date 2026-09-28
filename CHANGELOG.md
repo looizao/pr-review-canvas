@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
+
+Changes since 0.5.0. Details are in the [reference](docs/reference.md).
 
 ### Release QA fixes
 
@@ -135,6 +137,16 @@
 - 0.5.0 readers open 0.6 canvases but ignore resolutions: they see every point, with dismiss
   instead of resolve and no reasons. Teams should upgrade together.
 - `pr-review doctor` prints a checklist instead of a JSON line. Pass `--json` for the JSON line.
+
+### Upgrade from 0.5.0
+
+1. Run `npm install -g @vintasoftware/pr-review-canvas@0.6.0` and restart `pr-review serve`.
+2. Run `pr-review upgrade` in each project to refresh the skill copies, then commit them.
+3. Upgrade the whole team together so reviewers see the author's resolutions.
+4. Update scripts that parse `pr-review doctor` to pass `--json`. Replace `serve --agent` and
+   `--model` with `--chat-agent` and `--chat-model`. Existing settings migrate on their next save.
+5. If you override generation prompts, update them for attention-point audiences and the
+   incremental model-only basis file. Review the bundled templates before regenerating canvases.
 
 ## 0.5.0
 
