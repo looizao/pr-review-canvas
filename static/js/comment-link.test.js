@@ -41,6 +41,31 @@ it('finds a posted proposal by its body and complete diff location', () => {
   expect(postedCommentUrl(proposed, [posted])).toBe(posted.url)
 })
 
+it.each([6, null])('keeps the link when GitHub moves or removes the current line: %s', line => {
+  const moved = { ...posted, line, startLine: 5, originalLine: 4, originalStartLine: 3 }
+  expect(postedCommentUrl(proposed, [moved])).toBe(posted.url)
+})
+
+it('matches an explicitly single-line original anchor', () => {
+  const moved = { ...posted, line: 6, originalLine: 4, originalStartLine: null }
+  const { startLine: _startLine, ...singleLine } = proposed
+  expect(postedCommentUrl(singleLine, [moved])).toBe(posted.url)
+})
+
+it.each([
+  { originalLine: null },
+  { originalStartLine: undefined },
+  { originalStartLine: null },
+  { originalStartLine: 2 },
+  { path: 'other.ts' },
+  { side: /** @type {const} */ ('old') },
+  { body: 'A different comment.' },
+  { inReplyToId: 1001 },
+])('does not guess a moved proposal link from an incomplete or different anchor: %j', changes => {
+  const moved = { ...posted, line: 6, startLine: 5, originalLine: 4, originalStartLine: 3 }
+  expect(postedCommentUrl(proposed, [{ ...moved, ...changes }])).toBeUndefined()
+})
+
 it.each([
   { path: 'different.ts' },
   { line: 5 },

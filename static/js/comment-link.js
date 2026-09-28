@@ -37,11 +37,29 @@ export function sameAnchoredComment(a, b) {
 }
 
 /**
+ * GitHub moves current coordinates as a PR changes. The complete original range still names
+ * the submitted text. Callers must scope comments to known posts or one review receipt.
+ * @param {{ path: string, line: number | null, side: string, startLine?: number | undefined, body: string, originalLine?: number | null | undefined, originalStartLine?: number | null | undefined }} posted
+ * @param {{ path: string, line: number, side: string, startLine?: number | undefined, body: string }} draft
+ */
+export function samePostedComment(posted, draft) {
+  return (
+    sameAnchoredComment(posted, draft) ||
+    (typeof posted.originalLine === 'number' &&
+      posted.originalStartLine !== undefined &&
+      sameAnchoredComment(
+        { ...posted, line: posted.originalLine, startLine: posted.originalStartLine ?? undefined },
+        draft
+      ))
+  )
+}
+
+/**
  * @param {import('./proposed-comment.js').ProposedComment} proposed
  * @param {ReadonlyArray<import('./contract-types.js').ReviewComment>} posted
  */
 export function postedCommentUrl(proposed, posted) {
-  return posted.find(c => c.inReplyToId === undefined && sameAnchoredComment(c, proposed))?.url
+  return posted.find(c => c.inReplyToId === undefined && samePostedComment(c, proposed))?.url
 }
 
 /**

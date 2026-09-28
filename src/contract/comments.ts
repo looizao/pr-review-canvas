@@ -9,6 +9,8 @@ export const ReviewCommentSchema = z.object({
   path: z.string(),
   line: z.number().int().nullable(),
   originalLine: z.number().int().nullable(),
+  /** Original range start; null means a single line, absent means the host did not supply it. */
+  originalStartLine: z.number().int().nullable().optional(),
   side: SideSchema,
   startLine: z.number().int().optional(),
   outdated: z.boolean(),

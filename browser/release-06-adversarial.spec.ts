@@ -21,14 +21,22 @@ for (const receipt of ['available', 'unavailable']) {
       startLine: 4,
       body: 'Cover both lines with a regression test.',
     }
+    let moved = false
     const { url } = await chatServer({
       setup: async ({ ctx }) => {
-        if (receipt === 'unavailable') {
-          const api = ctx.gh.api.bind(ctx.gh)
-          ctx.gh.api = async (path, params) => {
-            if (path.endsWith('/reviews/7001/comments')) throw new Error('receipt temporarily unavailable')
-            return api(path, params)
+        const api = ctx.gh.api.bind(ctx.gh)
+        ctx.gh.api = async (path, params) => {
+          if (receipt === 'unavailable' && path.endsWith('/reviews/7001/comments')) {
+            throw new Error('receipt temporarily unavailable')
           }
+          const result = await api(path, params)
+          if (!moved || !path.endsWith('/pulls/42/comments')) return result
+          // GitHub keeps the original range after new commits move the commented code.
+          return (result as Array<Record<string, unknown>>).map(comment =>
+            comment['id'] === 8001
+              ? { ...comment, line: 7, start_line: 6, original_line: 5, original_start_line: 4 }
+              : comment
+          )
         }
       },
       runner: {
@@ -71,14 +79,14 @@ for (const receipt of ['available', 'unavailable']) {
     await expect(card.locator('[data-act="proposed-post"]')).toHaveCount(0)
     await page.reload()
     await openChat()
-    if (receipt === 'available') {
-      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-    } else {
-      await closeChat()
-      await page.locator('#refresh').click()
-      await openChat()
-      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
-    }
+    moved = true
+    await closeChat()
+    await page.locator('#refresh').click()
+    await openChat()
+    await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
+    await page.reload()
+    await openChat()
+    await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
     await expect(card.locator('[data-act="proposed-queue"], [data-act="proposed-post"]')).toHaveCount(0)
   })
 }

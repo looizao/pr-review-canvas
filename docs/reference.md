@@ -693,6 +693,8 @@ A pending review holds comments on your machine until you submit them together.
   Neither state offers to submit that proposal again. **refresh** recovers the link when GitHub
   supplies the submitted review's comments. Older submitted records without a saved review ID
   stay **submitted**, since they cannot be matched safely to a specific review.
+  Known GitHub comment links also survive later commits moving or removing the commented lines:
+  matching checks the complete original range as well as the current range.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line
   with a **pending** badge and edit and delete commands. Drafts are saved in the local review state
   and survive a reload. **discard** drops the whole review; nothing was sent to the forge.

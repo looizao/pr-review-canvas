@@ -1066,6 +1066,12 @@ describe('postedFromPending', () => {
     expect(postedFromPending(drafts, [])).toEqual([])
   })
 
+  it('recovers a delayed receipt after GitHub moves its complete original range', () => {
+    const moved = comment({ line: 6, startLine: 5, originalLine: 4, originalStartLine: 3 })
+    expect(postedFromPending([draft({ startLine: 3 })], [moved])).toEqual([{ commentId: 5001 }])
+    expect(postedFromPending([draft({ startLine: 2 })], [moved])).toEqual([])
+  })
+
   it('never gives one comment to two drafts that read the same', () => {
     const drafts = [
       draft({ id: 'p1', pointFingerprint: 'fp-1' }),
