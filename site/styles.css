@@ -78,15 +78,17 @@ h3 {
   line-height: 1.35;
   letter-spacing: -0.025em;
 }
+/* The second line of a two-part heading: upright, in muted purple. */
 em {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: 400;
+  font-style: normal;
+  color: var(--purple);
+}
+.local-section em {
+  color: #b9a6d4;
 }
 pre,
 code,
-.mono,
 .eyebrow,
-.panel-label,
 .pill {
   font-family: SFMono-Regular, Consolas, 'Liberation Mono', monospace;
 }
@@ -230,10 +232,6 @@ dd code {
 .credit strong {
   font-weight: 450;
 }
-.mono {
-  font-size: 14px;
-  letter-spacing: 0.7px;
-}
 .pill {
   font-size: 12px;
   letter-spacing: 0.3px;
@@ -311,8 +309,14 @@ dd code {
   padding-bottom: 22px;
   border-bottom: 1px solid #d4d7c9;
 }
+.map-label {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
 .map-heading .pill {
   background: var(--lime);
+  font-size: 11px;
 }
 .intent-map ul {
   list-style: none;
@@ -448,53 +452,54 @@ dd code {
   color: var(--muted);
   font-size: 14px;
 }
+.setup-step > p + p {
+  margin-top: 10px;
+}
+/* The copy icon floats in the corner, so the commands start on the block's first line. */
 .command-block {
   background: #eeeee7;
   border: 1px solid var(--line);
-  padding: 22px 16px;
+  padding: 14px 52px 14px 16px;
   border-radius: 5px;
   margin-block: 18px;
   position: relative;
 }
-.command-block pre {
-  padding-top: 14px;
-}
 .command-block code {
   font-size: 14px;
 }
+/* The copy and check glyphs are Octicons drawn as masks, so they take the button's color. */
 .copy-button {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z'/%3E%3Cpath d='M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z'/%3E%3C/svg%3E");
+
   position: absolute;
-  top: 4px;
-  right: 6px;
-  border: 0;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   color: var(--muted);
   background: transparent;
-  font-size: 14px;
-  padding: 3px 8px;
-  border-radius: 3px;
 }
 .copy-button:hover {
-  background: var(--line);
+  border-color: var(--line);
+  background: #fffefa;
   color: var(--ink);
 }
-.setup-step p.fine-print {
-  font-size: 12px;
+.copy-button::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: currentcolor;
+  mask: var(--icon) center / contain no-repeat;
 }
-.workflow-note {
-  margin-top: 42px;
-  background: #eaece1;
-  display: flex;
-  gap: 30px;
-  padding: 24px;
-  border-radius: 5px;
-}
-.workflow-note > strong {
-  white-space: nowrap;
-  font-size: 14px;
-}
-.workflow-note p {
-  font-size: 14px;
-  color: var(--muted);
+/* After a copy, the check shows for a moment in place of the copy icon. */
+.copy-button[data-copied] {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
+
+  color: var(--accent);
 }
 .config-list {
   margin-block: 28px;
@@ -519,8 +524,10 @@ dd code {
   background: #fffefa;
 }
 .config-example pre {
-  padding: 24px;
+  padding: 20px 24px;
   color: #4c435e;
+  font-size: 13px;
+  line-height: 1.65;
 }
 .code-comment {
   color: #707363;
@@ -770,13 +777,6 @@ dd code {
   }
   .local-boundary {
     gap: 14px;
-  }
-  .workflow-note {
-    display: block;
-    padding: 20px;
-  }
-  .workflow-note p {
-    margin-top: 8px;
   }
   .faq-section {
     padding-block: 55px;

@@ -11,7 +11,7 @@ export const SETTINGS_TEMPLATE = `# Personal pr-review settings. Gitignored: thi
 # pr-review.config.yml at the repo root.
 version: 1
 
-# The look of the page: terminal or github.
+# The look of the page: terminal, github, or olive.
 skin: ${DEFAULT_SETTINGS.skin}
 
 # Light or dark: auto follows the operating system, light and dark pin one.

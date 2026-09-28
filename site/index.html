@@ -143,21 +143,32 @@
       </section>
 
       <section class="demo-section wrap" aria-labelledby="demo-heading">
-        <div class="section-kicker">
-          <h2 id="demo-heading">See one PR organized by intent.</h2>
-          <span class="mono">REAL PR · INTERACTIVE WALKTHROUGH</span>
-        </div>
+        <h2 id="demo-heading" class="sr-only">A sample canvas for one pull request</h2>
         <div class="canvas-demo">
-          <div class="canvas-toolbar">
-            <span
-              ><span class="pr-icon" aria-hidden="true">⑂</span> <strong>TanStack Query</strong>
+          <div class="app-bar">
+            <span class="app-brand"
+              ><img src="./brand.svg" width="22" height="22" alt="" />PR review canvas</span
+            ><span class="app-host">localhost:3010</span
+            ><span class="local-badge">EXCERPTS FROM A REAL PR · INTERACTIVE WALKTHROUGH</span>
+          </div>
+          <div class="app-title">
+            <p class="app-pr"><span class="app-num">#9612</span> Configurable timers</p>
+            <p class="app-meta">
+              <strong>TanStack Query</strong>
               <a href="https://github.com/TanStack/query/pull/9612">#9612</a>
-              <span class="pr-stats">+471 −51 · 18 files</span></span
-            ><span class="local-badge">EXCERPTS FROM A REAL PR</span>
+              <span class="app-diffstat"
+                ><span class="app-add">+471</span> <span class="app-del">−51</span></span
+              >
+              <span class="app-chip">18 files</span>
+            </p>
+            <div class="app-progress">
+              <div class="progress-track"><span id="progress-fill"></span></div>
+              <span id="sample-progress" role="status">0 of 3 sample layers reviewed</span>
+            </div>
           </div>
           <div class="canvas-grid">
             <aside class="layer-nav" aria-label="Sample semantic layers">
-              <p class="panel-label">REVIEW BY INTENT</p>
+              <p class="app-rail-label">Layers</p>
               <div class="layer-buttons" role="group" aria-label="Choose a sample layer">
                 <button
                   type="button"
@@ -166,9 +177,8 @@
                   aria-pressed="true"
                   aria-controls="sample-layer"
                 >
-                  <span class="layer-number">01</span
-                  ><span><strong>Timer provider</strong><small>API + tests + exports</small></span
-                  ><span class="layer-check" aria-hidden="true"></span>
+                  <span class="layer-check" aria-hidden="true"></span><span class="layer-number">1</span
+                  ><span><strong>Timer provider</strong><small>API + tests + exports</small></span>
                 </button>
                 <button
                   type="button"
@@ -177,9 +187,8 @@
                   aria-pressed="false"
                   aria-controls="sample-layer"
                 >
-                  <span class="layer-number">02</span
-                  ><span><strong>Query lifecycle</strong><small>Create + clear timers</small></span
-                  ><span class="layer-check" aria-hidden="true"></span>
+                  <span class="layer-check" aria-hidden="true"></span><span class="layer-number">2</span
+                  ><span><strong>Query lifecycle</strong><small>Create + clear timers</small></span>
                 </button>
                 <button
                   type="button"
@@ -188,65 +197,75 @@
                   aria-pressed="false"
                   aria-controls="sample-layer"
                 >
-                  <span class="layer-number">03</span
-                  ><span><strong>Next-tick scheduling</strong><small>Notifications + persister</small></span
-                  ><span class="layer-check" aria-hidden="true"></span>
+                  <span class="layer-check" aria-hidden="true"></span><span class="layer-number">3</span
+                  ><span><strong>Next-tick scheduling</strong><small>Notifications + persister</small></span>
                 </button>
-              </div>
-              <div class="demo-progress">
-                <span id="sample-progress" role="status">0 of 3 sample layers reviewed</span>
-                <div class="progress-track"><span id="progress-fill"></span></div>
               </div>
             </aside>
             <article class="sample-layer" id="sample-layer" aria-labelledby="sample-title">
-              <div class="layer-heading">
-                <span class="pill" id="sample-category">PROVIDER API</span
-                ><button class="small-button" id="review-layer" type="button" aria-pressed="false">
-                  Mark reviewed
-                </button>
-              </div>
-              <h3 id="sample-title">Make the timer provider replaceable.</h3>
-              <p id="sample-summary">
-                A manager delegates timer creation and cancellation to a configurable provider. Its new tests
-                check that calls reach the provider.
-              </p>
-              <div class="sample-file">
-                <div class="file-heading">
-                  <span id="sample-path">query-core/src/timeoutManager.ts</span
-                  ><span class="add-count">DIFF EXCERPT</span>
+              <div class="app-card">
+                <div class="layer-heading">
+                  <div>
+                    <p class="app-layer-label">
+                      <span id="sample-index">Layer 1 of 3</span>
+                      <span class="pill" id="sample-category">PROVIDER API</span>
+                    </p>
+                    <h3 id="sample-title">Make the timer provider replaceable.</h3>
+                  </div>
+                  <button class="small-button" id="review-layer" type="button" aria-pressed="false">
+                    Mark reviewed
+                  </button>
                 </div>
-                <pre
-                  class="diff-code"
-                  tabindex="0"
-                  aria-label="Sample code diff"
-                ><code id="sample-code"><span class="addition">+  setTimeout(callback: TimeoutCallback, delay: number): ManagedTimerId {</span><span class="addition">+    if (process.env.NODE_ENV !== 'production') {</span><span class="addition">+      this.#providerCalled = true</span><span class="addition">+    }</span><span class="addition">+    return this.#provider.setTimeout(callback, delay)</span><span class="addition">+  }</span><span class="addition">+</span><span class="addition">+  clearTimeout(timeoutId: ManagedTimerId | undefined): void {</span><span class="addition">+    this.#provider.clearTimeout(timeoutId)</span></code></pre>
+                <div class="app-card-body">
+                  <p id="sample-summary">
+                    A manager delegates timer creation and cancellation to a configurable provider. Its new
+                    tests check that calls reach the provider.
+                  </p>
+                  <p class="app-section app-section-attention">Attention points · 1</p>
+                  <div class="app-box attention">
+                    <span class="app-level" aria-hidden="true"></span>
+                    <div>
+                      <h4 id="sample-point">When can a provider change?</h4>
+                      <p id="sample-point-body">
+                        Check what happens to existing timer IDs if a different provider is installed after
+                        timers have started.
+                      </p>
+                    </div>
+                  </div>
+                  <p class="app-section">Files · 2</p>
+                  <div class="app-file">
+                    <div class="app-file-h">
+                      <span class="app-chev" aria-hidden="true"></span
+                      ><span class="app-path" id="sample-path">query-core/src/timeoutManager.ts</span
+                      ><span class="app-file-note">diff excerpt</span>
+                    </div>
+                    <pre
+                      class="diff-code"
+                      tabindex="0"
+                      aria-label="Sample code diff"
+                    ><code id="sample-code"><span class="addition">+  setTimeout(callback: TimeoutCallback, delay: number): ManagedTimerId {</span><span class="addition">+    if (process.env.NODE_ENV !== 'production') {</span><span class="addition">+      this.#providerCalled = true</span><span class="addition">+    }</span><span class="addition">+    return this.#provider.setTimeout(callback, delay)</span><span class="addition">+  }</span><span class="addition">+</span><span class="addition">+  clearTimeout(timeoutId: ManagedTimerId | undefined): void {</span><span class="addition">+    this.#provider.clearTimeout(timeoutId)</span></code></pre>
+                  </div>
+                  <div class="app-file app-file-closed">
+                    <div class="app-file-h">
+                      <span class="app-chev" aria-hidden="true"></span
+                      ><span class="app-path" id="sample-related"
+                        >query-core/src/__tests__/timeoutManager.test.tsx</span
+                      ><span class="pill">SAME LAYER</span>
+                    </div>
+                  </div>
+                  <p class="app-section app-section-tests">Tests</p>
+                  <div class="app-box test-row">
+                    <span id="sample-test">Added test: proxies calls to the configured timeout provider</span>
+                    <a
+                      id="sample-source"
+                      class="sample-source"
+                      href="https://github.com/TanStack/query/blob/7922966810988298e6c40761b8888597d6e0e0d7/packages/query-core/src/timeoutManager.ts#L101-L109"
+                      >Read this excerpt in the source ↗</a
+                    >
+                  </div>
+                </div>
               </div>
-              <div class="related-file">
-                <span class="file-symbol" aria-hidden="true">↳</span
-                ><span id="sample-related">query-core/src/__tests__/timeoutManager.test.tsx</span
-                ><span class="pill">SAME LAYER</span>
-              </div>
-              <div class="test-row">
-                <span aria-hidden="true">↳</span
-                ><span id="sample-test">Added test: proxies calls to the configured timeout provider</span>
-              </div>
-              <a
-                id="sample-source"
-                class="sample-source"
-                href="https://github.com/TanStack/query/blob/7922966810988298e6c40761b8888597d6e0e0d7/packages/query-core/src/timeoutManager.ts#L101-L109"
-                >Read this excerpt in the source ↗</a
-              >
             </article>
-            <aside class="sample-context" aria-label="Sample review context">
-              <div class="attention">
-                <span class="attention-label">CHECK</span>
-                <h4 id="sample-point">When can a provider change?</h4>
-                <p id="sample-point-body">
-                  Check what happens to existing timer IDs if a different provider is installed after timers
-                  have started.
-                </p>
-              </div>
-            </aside>
           </div>
           <div class="canvas-chat-dock" hidden>
             <button
@@ -272,14 +291,12 @@
           </div>
         </div>
         <div class="demo-caption">
-          <span><span aria-hidden="true">↖</span> Pick a layer. Follow one concern across files.</span
+          <span
+            >Based on
+            <a href="https://github.com/TanStack/query/pull/9612">TanStack/query #9612: configurable timers</a
+            >.</span
           ><span><a href="./tanstack-query-LICENSE.txt">TanStack MIT license</a></span>
         </div>
-        <p class="source-note">
-          Based on
-          <a href="https://github.com/TanStack/query/pull/9612">TanStack/query #9612: configurable timers</a>.
-          This is a hand-curated walkthrough of a real generated canvas.
-        </p>
         <noscript
           ><p class="notice">
             JavaScript enables the layer switcher and scripted chat. The default example and all documentation
@@ -316,7 +333,7 @@
           </div>
           <div class="intent-map">
             <div class="map-heading">
-              <span class="mono">LAYER 2 OF 3</span><span class="pill">Query lifecycle</span>
+              <span class="map-label">Layer 2 of 3</span><span class="pill">Query lifecycle</span>
             </div>
             <p class="map-summary">One layer brings related changes across files into a single review.</p>
             <ul aria-label="Files in the query lifecycle layer">
@@ -338,7 +355,7 @@
         <div class="feature-columns">
           <div class="fold-example">
             <div class="file-heading">
-              <span>query-core/src/queryObserver.ts</span><span class="mono">REAL DIFF EXCERPTS</span>
+              <span>query-core/src/queryObserver.ts</span><span class="file-note">real diff excerpts</span>
             </div>
             <details class="code-fold">
               <summary>
@@ -465,7 +482,7 @@
               <h3>GitHub stays in the loop</h3>
               <p>
                 Fetch PR data and shared canvases, then post comments, replies, approvals, or requests for
-                changes using your GitHub CLI login.
+                changes using your GitHub CLI login. GitLab merge requests work through <code>glab</code>.
               </p>
             </article>
           </div>
@@ -485,8 +502,8 @@
           <p class="eyebrow">FROM INSTALL TO FIRST REVIEW</p>
           <h2 id="start-heading">Bring a PR.<br /><em>Build some context.</em></h2>
           <p>
-            You'll need Node.js 22+, npm, Git, and an authenticated GitHub CLI.<br />Use Claude Code or Codex
-            to generate a canvas.
+            You'll need Node.js 22+, npm, Git, and an authenticated GitHub CLI (or GitLab CLI for GitLab).<br />Use
+            Claude Code or Codex to generate a canvas.
           </p>
         </div>
         <div class="setup-grid">
@@ -502,11 +519,13 @@ cd /path/to/your-project
 gh auth login
 pr-review install-skill
 pr-review doctor</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy installation commands">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy installation commands"
+                title="Copy installation commands"
+              ></button>
             </div>
-            <p class="fine-print">
-              The skill is installed for both Claude Code and Codex. Restart your agent if it doesn't appear.
-            </p>
           </article>
           <article class="setup-step">
             <div class="step-heading">
@@ -516,12 +535,22 @@ pr-review doctor</code></pre>
             <p>In your coding agent, run the skill with your PR number:</p>
             <div class="command-block">
               <pre><code>/pr-review-canvas 123</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy generation command">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy generation command"
+                title="Copy generation command"
+              ></button>
             </div>
             <p>
               The skill automatically shares the canvas in a <strong>GitHub PR or GitLab MR comment</strong>.
               Open the returned local URL to review it. If sharing fails, the skill warns you and gives you a
               ZIP to upload manually into the PR or MR description.
+            </p>
+            <p>
+              Then <strong>self-review</strong>: read the canvas before asking for review. Points marked
+              <strong>yours</strong> are for you to settle. Resolve each with a reason, and reviewers see only
+              what's left.
             </p>
           </article>
           <article class="setup-step">
@@ -532,7 +561,12 @@ pr-review doctor</code></pre>
             <p>From your own clone of the project, start the local server:</p>
             <div class="command-block">
               <pre><code>pr-review serve</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy review command">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy review command"
+                title="Copy review command"
+              ></button>
             </div>
             <p>
               Open <code>http://localhost:3010</code>, enter the PR number, and leave the terminal running.
@@ -548,7 +582,12 @@ pr-review doctor</code></pre>
             <div class="command-block">
               <pre><code>npm install -g acpx
 pr-review doctor --all-checks</code></pre>
-              <button type="button" class="copy-button" aria-label="Copy chat setup commands">Copy</button>
+              <button
+                type="button"
+                class="copy-button"
+                aria-label="Copy chat setup commands"
+                title="Copy chat setup commands"
+              ></button>
             </div>
             <p>
               Restart the server. In <strong>settings</strong>, under <strong>AI Chat</strong> choose the chat
@@ -556,14 +595,6 @@ pr-review doctor --all-checks</code></pre>
               canvas doesn't require chat.
             </p>
           </article>
-        </div>
-        <div class="workflow-note">
-          <strong>After new commits</strong>
-          <p>
-            Authors rerun the skill to update their canvas comment; reviewers click <strong>refresh</strong>.
-            An outdated canvas remains readable, but posting is disabled until you're reviewing the current
-            head.
-          </p>
         </div>
       </section>
 
@@ -587,8 +618,8 @@ pr-review doctor --all-checks</code></pre>
               <div>
                 <dt>Tune generation</dt>
                 <dd>
-                  Choose strict quality review or a surfacing walkthrough. Define test-file patterns, adjust
-                  text caps, and replace prompt templates.
+                  Choose strict quality review or a surfacing walkthrough, and the model each agent generates
+                  with. Define test-file patterns, adjust text caps, and replace prompt templates.
                 </dd>
               </div>
               <div>
@@ -607,7 +638,7 @@ pr-review doctor --all-checks</code></pre>
           </div>
           <div class="config-example">
             <div class="file-heading">
-              <span>pr-review.config.yml</span><span class="pill">SHARED WITH YOUR TEAM</span>
+              <span>pr-review.config.yml</span><span class="file-note">shared with your team</span>
             </div>
             <pre tabindex="0"><code><span class="code-comment"># A starting point for your project</span>
 version: 1
@@ -624,6 +655,8 @@ highRisk:
 
 generation:
   mode: surfacing
+  models:
+    claude: opus
 
 tests:
   patterns: ['**/*.test.*', '**/*.spec.*']

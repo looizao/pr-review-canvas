@@ -29,6 +29,7 @@ for (const button of layerButtons) {
     currentLayer = button.dataset.layer
     const layer = layers[currentLayer]
     for (const other of layerButtons) other.setAttribute('aria-pressed', String(other === button))
+    setText('sample-index', `Layer ${layerButtons.indexOf(button) + 1} of ${layerButtons.length}`)
     for (const [field, value] of Object.entries(layer)) {
       if (field !== 'code' && field !== 'source') setText(`sample-${field}`, value)
     }
@@ -107,13 +108,14 @@ for (const button of document.querySelectorAll('.copy-button')) {
     try {
       await navigator.clipboard.writeText(command)
       setText('copy-status', 'Commands copied to clipboard.')
-      button.textContent = 'Copied!'
+      button.dataset.copied = ''
       setTimeout(() => {
-        button.textContent = 'Copy'
+        delete button.dataset.copied
       }, 2000)
     } catch {
-      setText('copy-status', 'Clipboard unavailable. Select and copy the command text.')
-      button.textContent = 'Select text to copy'
+      // Without a clipboard, select the commands so they can be copied by hand.
+      setText('copy-status', 'Clipboard unavailable. The commands are selected; copy them by hand.')
+      getSelection()?.selectAllChildren(button.parentElement.querySelector('code'))
     }
   })
 }

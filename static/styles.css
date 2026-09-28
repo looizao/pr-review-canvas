@@ -1,5 +1,5 @@
 /* Keep this order: shared styles, components, responsive rules, interaction controls, and the
-   github skin last, because it repaints the rules above it. */
+   skins last, because they repaint the rules above them. */
 @import url('./styles/base.css');
 @import url('./styles/commands.css');
 @import url('./styles/header.css');
@@ -13,4 +13,5 @@
 @import url('./styles/pending.css');
 @import url('./styles/chat-tools.css');
 @import url('./styles/skin-github.css');
+@import url('./styles/skin-olive.css');
 @import url('./styles/chat-panel.css');

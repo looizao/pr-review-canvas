@@ -46,11 +46,6 @@ body {
   margin-top: 17px;
   white-space: nowrap;
 }
-.promo-heading em {
-  font-family: Georgia, serif;
-  font-weight: 400;
-  color: #50643f;
-}
 .promo-subtitle {
   font-size: 18px;
   color: #666b5e;
@@ -64,132 +59,68 @@ body {
   border-radius: 9px;
   box-shadow: 0 12px 24px #20281910;
   position: relative;
-}
-.canvas-toolbar {
-  height: 40px;
-  padding: 8px 16px;
   font-size: 12px;
-  background: #fffefa;
 }
-.pr-icon {
-  font-size: 18px;
+.app-bar {
+  padding: 7px 16px;
 }
-.local-badge {
-  font-size: 9px;
+.app-title {
+  padding: 9px 16px 8px;
+}
+.app-pr {
+  font-size: 16px;
+}
+/* The image has room for the layer's point and diff, not the PR's meta, progress, or summary. */
+.app-meta,
+.app-progress,
+.app-card-body > p:first-child {
+  display: none;
 }
 .canvas-grid {
-  grid-template-columns: 218px minmax(0, 1fr) 223px;
+  grid-template-columns: 200px minmax(0, 1fr);
   min-height: 0;
-  height: 345px;
+  height: 310px;
 }
 .canvas-grid > * {
   min-height: 0;
 }
 .layer-nav {
-  padding: 18px 10px;
-}
-.panel-label {
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 1px;
-}
-.layer-buttons {
-  margin-top: 18px;
-  gap: 8px;
-}
-.layer-button {
-  padding: 13px 9px;
-  gap: 9px;
-}
-.layer-button strong {
-  font-size: 13px;
-}
-.layer-button small {
-  font-size: 10px;
-}
-.layer-button[aria-pressed='true'] {
-  border-left: 4px solid #607c3f;
-  padding-left: 6px;
-  background: #e4ecd7;
-  box-shadow: 0 2px 5px #20341408;
-}
-.demo-progress {
-  padding: 12px 10px 0;
-  font-size: 10px;
+  padding: 10px 0;
 }
 .sample-layer {
-  padding: 16px 19px;
-}
-.layer-heading .pill {
-  font-size: 9px;
-  padding: 3px 7px;
-}
-.small-button {
-  font-size: 10px;
+  padding: 10px 14px;
+  overflow: hidden;
 }
 .sample-layer h3 {
-  font-size: 21px;
-  margin-top: 9px;
+  font-size: 15px;
 }
-.sample-layer > p {
+.app-card-body {
+  padding: 8px 10px;
+}
+
+.app-section {
+  margin: 4px 2px;
   font-size: 11px;
-  line-height: 1.45;
-  min-height: 0;
-  margin-top: 7px;
 }
-.sample-file {
-  margin-top: 13px;
+.attention {
+  padding: 6px 10px;
 }
-.file-heading {
+.attention h4 {
+  font-size: 12px;
+}
+.attention p {
   font-size: 11px;
-  padding: 7px 10px;
 }
-.add-count {
-  font-size: 8px;
+.app-file-h {
+  min-height: 30px;
 }
-.diff-code {
+.app-file .diff-code {
   font-size: 11px;
   line-height: 1.7;
   margin: 0;
 }
-.diff-code span {
-  min-height: 16px;
-  height: 16px;
-  padding-inline: 10px;
-}
 .diff-code .context {
   color: #64695f;
-}
-.related-file {
-  font-size: 10px;
-  padding-block: 8px;
-  border-bottom: 0;
-}
-.related-file .pill {
-  font-size: 7px;
-}
-.sample-source,
-.test-row {
-  display: none;
-}
-.sample-context {
-  padding: 18px 15px;
-}
-.attention {
-  margin-top: 0;
-  padding-left: 10px;
-}
-.attention-label {
-  font-size: 9px;
-}
-.attention h4 {
-  font-size: 14px;
-  line-height: 1.35;
-  margin: 8px 0;
-}
-.attention p {
-  font-size: 12px;
-  line-height: 1.5;
 }
 .promo-footer {
   height: 44px;
