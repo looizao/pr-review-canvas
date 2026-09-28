@@ -138,6 +138,64 @@ describe('createChatManager().send', () => {
     expect(runner.runs[2]?.prompt).toContain('SEED for')
   })
 
+  it.each([
+    ['missing space', 'library.', '`src/store.ts` adds a lock.', 'library. `src/store.ts` adds a lock.'],
+    ['trailing space', 'library. ', 'Confirmed.', 'library. Confirmed.'],
+    ['leading space', 'library.', ' Confirmed.', 'library. Confirmed.'],
+    ['paragraph break', 'library.', '\n\nConfirmed.', 'library.\n\nConfirmed.'],
+    ['trailing newline', 'library.\n', 'Confirmed.', 'library.\nConfirmed.'],
+    ['tool before text', '', 'Confirmed.', 'Confirmed.'],
+    ['tool after text', 'Checking.', '', 'Checking.'],
+  ])('preserves spacing around tools: %s', async (_name, before, after, expected) => {
+    build({
+      runner: createFakeRunner({
+        script: [
+          { type: 'chunk', text: before },
+          { type: 'tool', id: 'read', title: 'Read file', status: 'pending' },
+          { type: 'tool', id: 'read', title: 'Read file', status: 'completed' },
+          { type: 'chunk', text: '' },
+          { type: 'thought', text: 'Checking the result' },
+          ...Array.from(after, text => ({ type: 'chunk' as const, text })),
+          { type: 'done', stopReason: 'end_turn' },
+        ],
+      }),
+    })
+    const events = await collect(manager.send(target(), { message: 'check', context: { kind: 'pr' } }))
+    expect(
+      events
+        .filter(event => event.event === 'chunk')
+        .map(event => event.text)
+        .join('')
+    ).toBe(expected)
+    expect((await transcripts.read(42, T1)).at(-1)?.text).toBe(expected)
+  })
+
+  it('separates text across each tool round while keeping ordinary chunks together', async () => {
+    build({
+      runner: createFakeRunner({
+        script: [
+          { type: 'chunk', text: 'Check' },
+          { type: 'chunk', text: 'ing.' },
+          { type: 'tool', id: 'one', title: 'Read file', status: 'completed' },
+          { type: 'chunk', text: 'Found it.' },
+          { type: 'tool', id: 'two', title: 'Read manifest', status: 'completed' },
+          { type: 'chunk', text: 'Con' },
+          { type: 'chunk', text: 'firmed.' },
+          { type: 'done', stopReason: 'end_turn' },
+        ],
+      }),
+    })
+    const events = await collect(manager.send(target(), { message: 'check', context: { kind: 'pr' } }))
+    const expected = 'Checking. Found it. Confirmed.'
+    expect(
+      events
+        .filter(event => event.event === 'chunk')
+        .map(event => event.text)
+        .join('')
+    ).toBe(expected)
+    expect((await transcripts.read(42, T1)).at(-1)?.text).toBe(expected)
+  })
+
   it('writes both turns to the transcript and titles the thread from the first message', async () => {
     await collect(
       manager.send(target(), { message: 'is this covered?', context: { kind: 'file', path: 'src/app.ts' } })

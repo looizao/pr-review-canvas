@@ -213,8 +213,13 @@ function textOrEmpty(caps: Caps, key: keyof TextCaps): z.ZodString {
 export function testEntrySchema(caps: Caps) {
   return z.object({
     behavior: text(caps, 'testBehavior'),
+    title: text(caps, 'pointTitle').optional(),
     status: z.enum(TEST_STATUSES),
     testPath: z.string().min(1).optional(),
+    audience: z.enum(['author', 'reviewer']).optional(),
+    anchor: z
+      .object({ path: z.string().min(1), line: z.number().int().positive(), side: SideSchema })
+      .optional(),
     note: z.string().optional(),
   })
 }

@@ -1,5 +1,7 @@
 // `pr-review prepare`: fetch the target, build derived/, and write prompt.md + context.json into
 // the canvas directory. The agent reads those two files; publish reads context.json back.
+import { artifactToModelOutput } from './normalize.js'
+import { resolveSharing } from '../contract/settings.js'
 import { appendFile, readdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import {
@@ -40,6 +42,7 @@ export interface PrepareResult {
   promptPath: string
   contextPath: string
   status: 'prepared' | 'exists'
+  sharing: 'shared' | 'off'
   /** The project's `generation.models`: which model each agent generates this canvas with. */
   models: GenerationModels
   /** Local targets only: which review it is, the base resolved for it, and what its head holds. */
@@ -179,7 +182,10 @@ async function resolveBasis(
     { sha, derived: basis },
     { sha: pr.headSha, derived: head }
   )
+  const modelJsonPath = path.join(ctx.canvases.canvasDir(pr.headSha), 'basis-model.json')
+  await writeJsonAtomic(modelJsonPath, artifactToModelOutput(artifact))
   return {
+    modelJsonPath,
     canvasSha: sha,
     reviewJsonPath: path.join(ctx.canvases.canvasDir(sha), 'review.json'),
     files,
@@ -260,6 +266,11 @@ export async function prepare(
     promptPath,
     contextPath,
     models: ctx.projectConfig.config.generation.models,
+    sharing:
+      target.kind === 'pr' &&
+      resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read()).canvasComment
+        ? 'shared'
+        : 'off',
   }
   if (target.kind === 'local') {
     result.local = {
@@ -316,6 +327,7 @@ export async function prepare(
     largePr: isLargePr({ files: derived.files.length, additions, deletions }),
     preparedAt: ctx.now().toISOString(),
   }
+  await clearCanvasDir(canvasDir)
   // `--force` means start over, so it never reads a basis, whatever the project config says.
   const basis = opts.force || !config.canvas.incremental ? null : await resolveBasis(ctx, target, pr, derived)
   if (basis !== null) {
@@ -333,7 +345,6 @@ export async function prepare(
       repoRoot: ctx.config.repoRoot,
       overrides: ctx.projectConfig.config.prompts,
     }))
-  await clearCanvasDir(canvasDir)
   await writeTextAtomic(promptPath, renderPrompt(context, derived.patches, sources))
   await writeJsonAtomic(contextPath, context)
   // The log keeps the whole history; publish counts attempts from this line on.

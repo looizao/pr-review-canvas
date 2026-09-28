@@ -119,8 +119,8 @@ function capsMarkdown(ctx: GenerationContext): string {
     `- summary: ${c.summary} characters`,
     `- layer title: ${c.layerTitle}`,
     `- layer rationale: ${c.rationale}`,
-    `- layer decisions: ${c.decisions}`,
-    `- layer checkByHand: ${c.checkByHand}`,
+    `- layer decisions (accepted for compatibility; use points in new canvases): ${c.decisions}`,
+    `- layer checkByHand (accepted for compatibility; use points in new canvases): ${c.checkByHand}`,
     `- file note and annotation text: ${c.annotation}`,
     `- attention point title: ${c.pointTitle}`,
     `- fold title: ${c.pointTitle}, plain text counted in full`,
@@ -142,9 +142,13 @@ function metaMarkdown(ctx: GenerationContext): string {
   const number = pr.number === null ? 'no pull request yet' : `#${pr.number}`
   return [
     `- Repository: ${ctx.repo.owner}/${ctx.repo.name}`,
-    `- ${ctx.target.kind === 'pr' ? 'Pull request' : 'Change set'}: ${number} — ${pr.title}`,
-    `- Author: ${pr.author} · state: ${pr.state}${pr.draft ? ' (draft)' : ''}`,
-    `- Branches: \`${pr.headRef}\` → \`${pr.baseRef}\``,
+    ...(ctx.target.kind === 'refs'
+      ? ['- Ref comparison']
+      : [
+          `- ${ctx.target.kind === 'pr' ? 'Pull request' : 'Change set'}: ${number} — ${pr.title}`,
+          `- Author: ${pr.author} · state: ${pr.state}${pr.draft ? ' (draft)' : ''}`,
+        ]),
+    `- Base: \`${pr.baseRef}\` → head: \`${pr.headRef}\``,
     `- Head: \`${ctx.headSha}\` · merge base: \`${ctx.mergeBaseSha}\``,
     `- Size: ${pr.changedFiles} files, +${pr.additions} −${pr.deletions}`,
   ].join('\n')
@@ -200,7 +204,7 @@ function smallPrMarkdown(ctx: GenerationContext): string {
   }
   return (
     `**Small change set.** This ${ctx.target.kind === 'pr' ? 'pull request' : 'change set'} has ${hunks} hunks, at most ${limit}, so:\n\n` +
-    '- Use one layer unless the concerns truly differ; do not split merely to fill suggested groups.\n' +
+    '- Use one real layer unless the concerns truly differ; Other is optional and does not count toward this rule.\n' +
     '- Annotate only where the diff does not speak for itself; zero annotations is a fine answer.\n' +
     '- Keep the summary self-contained: state the behavior change and the one relationship or decision worth understanding.'
   )
@@ -241,7 +245,10 @@ function basisMarkdown(basis: BasisSplit | undefined): string {
   }
   return [
     `- Basis canvas: \`${basis.canvasSha}\``,
-    `- Its canvas file: \`${basis.reviewJsonPath}\` — read it for the wording you carry`,
+    `- Its canvas file: \`${basis.reviewJsonPath}\``,
+    basis.modelJsonPath === undefined
+      ? 'When copying review.json, omit file isTest, layer id, point id/fingerprint/origin/layerId, and config risk tags; remove source from model risk tags and omit generated tests points.'
+      : `- Copy wording from \`${basis.modelJsonPath}\` — a model-only copy with server fields and generated points removed.`,
   ].join('\n')
 }
 
@@ -273,7 +280,7 @@ function carriedMarkdown(basis: BasisSplit | undefined): string {
   return [
     `**Whole layers** — copy the layer with its title, rationale, decisions, checkByHand, tests, files, notes, folds, and annotations:\n\n${layers.length === 0 ? '_none_' : layers.join('\n')}`,
     `**Single files of a re-judged layer** — the file is untouched, so its note, folds, and annotations still fit wherever you put the file:\n\n${files.length === 0 ? '_none_' : files.join('\n')}`,
-    `**Attention points** — repeat the kind, path, title, and audience exactly, so the point keeps its identity, any dismissal the reviewer made, and any settlement the author made. Where a line says the point's lines moved, anchor it on those lines; its code is unchanged, so the level and body still hold:\n\n${points.length === 0 ? '_none_' : points.join('\n')}`,
+    `**Attention points** — repeat the kind, path, title, and audience exactly, so the point keeps its identity, any dismissal the reviewer made, and any resolution the author made. Use each point's printed current anchor; its code is unchanged, so the level and body still hold:\n\n${points.length === 0 ? '_none_' : points.join('\n')}`,
   ].join('\n\n')
 }
 
@@ -284,7 +291,7 @@ function carriedPointLine(point: BasisSplitPoint): string {
     return line
   }
   const lines = at.line === at.endLine ? `line ${at.line}` : `lines ${at.line}-${at.endLine}`
-  return `${line}; the file changed around it, and its lines moved to ${at.side}-side ${lines}`
+  return `${line}; current anchor: ${at.side}-side ${lines}`
 }
 
 function reJudgedMarkdown(basis: BasisSplit | undefined): string {

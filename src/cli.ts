@@ -212,7 +212,7 @@ export async function main(argv: string[]): Promise<number> {
   // `pnpm review -- --port 3011` forwards the `--` itself; drop it so parseArgs sees the flags.
   const [command, ...rest] = argv.filter(a => a !== '--')
   if (command === undefined || command === '--help' || command === '-h') {
-    printUsage(process.stderr, readPackageVersion())
+    printUsage(process.stdout, readPackageVersion())
     return command === undefined ? EXIT.usage : EXIT.ok
   }
   if (!(SUBCOMMANDS as readonly string[]).includes(command)) {
@@ -220,7 +220,7 @@ export async function main(argv: string[]): Promise<number> {
     return EXIT.usage
   }
   if (rest.includes('--help') || rest.includes('-h')) {
-    printUsage(process.stderr, readPackageVersion(), command)
+    printUsage(process.stdout, readPackageVersion(), command)
     return EXIT.ok
   }
   try {

@@ -1,5 +1,7 @@
 // The routes that write: local review state, and the three things the tool posts to GitHub.
 import { Hono } from 'hono'
+import { postedFromPending } from '../../review/posted-comments.js'
+export { postedFromPending } from '../../review/posted-comments.js'
 import { z } from 'zod'
 import type { ReviewBodyResponse, StateResponse } from '../../contract/api.js'
 import {
@@ -7,7 +9,7 @@ import {
   PostCommentInputSchema,
   type PostCommentResult,
 } from '../../contract/comments.js'
-import { AddPendingInputSchema, EditPendingInputSchema, type PendingComment } from '../../contract/pending.js'
+import { AddPendingInputSchema, EditPendingInputSchema } from '../../contract/pending.js'
 import type { Pr, ReviewArtifact } from '../../contract/review-artifact.js'
 import { resolveSharing } from '../../contract/settings.js'
 import type { PrState } from '../../contract/state.js'
@@ -23,7 +25,6 @@ import type { Derived } from '../../store/derived-store.js'
 import { LOCAL_CAPABILITIES, type PrLoader } from '../bundle.js'
 import type { AppContext } from '../context.js'
 import { AppError } from '../errors.js'
-import { oneAtATime } from '../one-at-a-time.js'
 import { parseTargetKey, requirePrNumber } from './api.js'
 
 const ReviewedBodySchema = z.object({
@@ -165,45 +166,6 @@ function requireInlineTarget(diff: Derived, target: Parameters<typeof checkInlin
   }
 }
 
-/**
- * The `posted` entries for submitted drafts, found in the comment list the
- * forge created in this submission. Match the full range and body inside that receipt,
- * never against historical comments. A failed comment read is reported by the host adapter.
- */
-export function postedFromPending(
-  pending: ReadonlyArray<PendingComment>,
-  comments: ReadonlyArray<{
-    id: number
-    path: string
-    line: number | null
-    startLine?: number | undefined
-    side: string
-    body: string
-  }>
-): Array<{ commentId: number; pointFingerprint?: string }> {
-  const entries: Array<{ commentId: number; pointFingerprint?: string }> = []
-  const used = new Set<number>()
-  for (const draft of pending) {
-    const match = comments.find(
-      c =>
-        !used.has(c.id) &&
-        c.path === draft.path &&
-        c.line === draft.line &&
-        (c.startLine ?? c.line) === (draft.startLine ?? draft.line) &&
-        c.side === draft.side &&
-        c.body === draft.body
-    )
-    if (match !== undefined) {
-      used.add(match.id)
-      entries.push({
-        commentId: match.id,
-        ...(draft.pointFingerprint === undefined ? {} : { pointFingerprint: draft.pointFingerprint }),
-      })
-    }
-  }
-  return entries
-}
-
 /** Whether text posted from the page may name the canvas (`sharing.mentionCanvas`). */
 export async function mentionsCanvas(ctx: AppContext): Promise<boolean> {
   return resolveSharing(ctx.projectConfig.config.sharing, await ctx.settings.read()).mentionCanvas
@@ -240,13 +202,15 @@ export async function postOnPr(
     diff = await requireDerived(ctx, pr.headSha)
     requireInlineTarget(diff, input)
   }
-  const posted = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
-  await appendComments(ctx, number, [posted])
+  const posted = await ctx.prs.postComments(number, async () => {
+    const result = await ctx.config.host.postComment(ctx.gh, ctx.config.repo, number, pr.headSha, input, diff)
+    return { result, comments: [result] }
+  })
   const entry =
     input.kind === 'inline' && input.pointFingerprint !== undefined
       ? { commentId: posted.comment.id, pointFingerprint: input.pointFingerprint }
       : { commentId: posted.comment.id }
-  return { ...posted, state: await ctx.state.addPosted(number, entry) }
+  return { ...posted, state: await ctx.state.addPosted(number, [entry]) }
 }
 
 export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
@@ -429,74 +393,34 @@ export function reviewRoutes(ctx: AppContext, loader: PrLoader): Hono {
         )
       }
     }
-    const {
-      comments: submittedComments,
-      warnings,
-      ...review
-    } = await ctx.config.host.postReview(
-      ctx.gh,
-      ctx.config.repo,
-      number,
-      pr.headSha,
-      { event: input.event, body, comments: pending },
-      diff
-    )
-    const next =
-      pending.length === 0
-        ? await ctx.state.read(number)
-        : await ctx.state.completePending(number, pending, postedFromPending(pending, submittedComments))
-    if (submittedComments.length > 0) {
-      await appendComments(
-        ctx,
+    const posted = await ctx.prs.postComments(number, async () => {
+      const {
+        comments: submittedComments,
+        warnings,
+        ...review
+      } = await ctx.config.host.postReview(
+        ctx.gh,
+        ctx.config.repo,
         number,
-        submittedComments.map(comment => ({ kind: 'review', comment }))
+        pr.headSha,
+        { event: input.event, body, comments: pending },
+        diff
       )
-    }
-    return c.json(
-      { review, submitted: pending.length, state: next, comments: submittedComments, warnings },
-      201
-    )
+      const next =
+        pending.length === 0
+          ? await ctx.state.read(number)
+          : await ctx.state.completePending(
+              number,
+              pending.map(p => ({ ...p, reviewId: review.id })),
+              postedFromPending(pending, submittedComments)
+            )
+      return {
+        result: { review, submitted: pending.length, state: next, comments: submittedComments, warnings },
+        comments: submittedComments.map(comment => ({ kind: 'review', comment })),
+      }
+    })
+    return c.json(posted, 201)
   })
 
   return api
-}
-
-/** One append at a time per PR, so two posts that land together do not overwrite each other. */
-const appendInTurn = oneAtATime<number>()
-
-function appendComments(
-  ctx: AppContext,
-  number: number,
-  posted: ReadonlyArray<PostCommentResult>
-): Promise<void> {
-  return appendInTurn(number, () => writeAppendedComments(ctx, number, posted))
-}
-
-/**
- * Keeps the cached comments in step with what was just posted, so a reload shows it once. With
- * nothing cached there is nothing to keep in step: the next read fetches the list from GitHub.
- */
-async function writeAppendedComments(
-  ctx: AppContext,
-  number: number,
-  posted: ReadonlyArray<PostCommentResult>
-): Promise<void> {
-  const comments = await ctx.prs.readComments(number)
-  if (comments === null) {
-    return
-  }
-  const reviewComments = [...comments.reviewComments]
-  const issueComments = [...comments.issueComments]
-  for (const entry of posted) {
-    const list = entry.kind === 'review' ? reviewComments : issueComments
-    if (list.some(c => c.id === entry.comment.id)) continue
-    if (entry.kind === 'review') reviewComments.push(entry.comment)
-    else issueComments.push(entry.comment)
-  }
-  if (
-    reviewComments.length !== comments.reviewComments.length ||
-    issueComments.length !== comments.issueComments.length
-  ) {
-    await ctx.prs.writeComments(number, { ...comments, reviewComments, issueComments })
-  }
 }

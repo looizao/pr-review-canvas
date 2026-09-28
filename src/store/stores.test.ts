@@ -242,7 +242,10 @@ describe('pr-store and state-store', () => {
     const pr = syntheticArtifact().pr
     await prs.writePr(42, pr)
     await prs.writePr(7, { ...pr, number: 7, title: 'older' })
-    await prs.writeComments(42, emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'))
+    await prs.refreshComments(42, async () => ({
+      payload: emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'),
+      warnings: [],
+    }))
     expect(await prs.readPr(42)).toEqual(pr)
     expect(await prs.readComments(42)).toEqual(emptyComments(HEAD_SHA, '2026-09-10T12:00:00.000Z'))
     await mkdir(path.join(dir, 'prs', 'not-a-number'))
@@ -295,4 +298,37 @@ describe('pr-store and state-store', () => {
     await mkdir(file)
     await expect(state.read(42)).rejects.toThrow()
   })
+})
+
+it('merges comments from independent store instances and leaves an absent cache for a full fetch', async () => {
+  const server = createPrStore(dir)
+  const cli = createPrStore(dir)
+  const comment = {
+    id: 6001,
+    author: 'octocat',
+    body: 'original',
+    url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001',
+    createdAt: '2026-09-10T12:00:00Z',
+    updatedAt: '2026-09-10T12:00:00Z',
+  }
+  await cli.postComments(42, async () => ({ result: comment, comments: [{ kind: 'issue', comment }] }))
+  expect(await server.readComments(42)).toBeNull()
+  await server.refreshComments(42, async () => ({
+    payload: { ...emptyComments(HEAD_SHA, comment.createdAt), issueComments: [comment] },
+    warnings: [],
+  }))
+  await Promise.all([
+    server.postComments(42, async () => ({
+      result: undefined,
+      comments: [{ kind: 'issue', comment: { ...comment, id: 6002, body: 'ordinary' } }],
+    })),
+    cli.postComments(42, async () => ({
+      result: undefined,
+      comments: [{ kind: 'issue', comment: { ...comment, body: 'updated canvas' } }],
+    })),
+  ])
+  expect((await server.readComments(42))?.issueComments).toEqual([
+    { ...comment, body: 'updated canvas' },
+    { ...comment, id: 6002, body: 'ordinary' },
+  ])
 })

@@ -175,9 +175,8 @@ dialog.settings .settings-tab:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
-/* Every panel keeps one height, so switching tabs does not make the dialog jump. */
+/* The active panel determines the dialog height. */
 dialog.settings .settings-panel {
-  min-height: 220px;
   padding-top: 6px;
 }
 dialog.settings .field-check input {

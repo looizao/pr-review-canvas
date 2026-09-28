@@ -74,8 +74,10 @@ for (const receipt of ['available', 'unavailable']) {
     if (receipt === 'available') {
       await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
     } else {
-      await expect(card.locator('.tbtns')).toContainText('submitted')
-      await expect(card.locator('a')).toHaveCount(0)
+      await closeChat()
+      await page.locator('#refresh').click()
+      await openChat()
+      await expect(card.locator('a[href$="discussion_r8001"]')).toHaveCount(1)
     }
     await expect(card.locator('[data-act="proposed-queue"], [data-act="proposed-post"]')).toHaveCount(0)
   })
@@ -262,6 +264,25 @@ test('settings tabs are usable at a phone width', async ({ page, chatServer }) =
   for (const name of ['AI Chat', 'Checkouts', 'Project', 'Reading']) {
     await dialog.getByRole('tab', { name, exact: true }).click()
     await expect(dialog.getByRole('tabpanel', { name, exact: true })).toBeVisible()
+    if (name === 'AI Chat') await expect(dialog.getByRole('button', { name: 'test agent' })).toBeVisible()
+    else await expect(dialog.getByRole('button', { name: 'test agent' })).toBeHidden()
+    if (name === 'Project')
+      await expect(dialog.locator('#settings-panel-project')).not.toContainText(', any other')
+    if (name === 'Reading')
+      await expect(dialog.locator('#settings-panel-reading')).toHaveCSS('min-height', '0px')
   }
   expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+})
+
+test('Recent labels prepared PRs without a canvas and pages serve the SVG favicon', async ({
+  page,
+  chatServer,
+}) => {
+  const { url, ctx } = await chatServer()
+  await ctx.prs.writePr(42, syntheticArtifact().pr)
+  await page.goto(new URL('/', url).href)
+  await expect(page.locator('main')).toContainText('no canvas yet')
+  const href = await page.locator('link[rel="icon"]').getAttribute('href')
+  expect(href).toBe('/static/brand.svg')
+  expect((await page.request.get(new URL(href!, url).href)).status()).toBe(200)
 })

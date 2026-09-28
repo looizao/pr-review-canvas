@@ -32,7 +32,7 @@ export function sameAnchoredComment(a, b) {
     a.line === b.line &&
     a.side === b.side &&
     (a.startLine ?? a.line) === (b.startLine ?? b.line) &&
-    a.body === b.body
+    a.body.replace(/\r\n/g, '\n').trimEnd() === b.body.replace(/\r\n/g, '\n').trimEnd()
   )
 }
 

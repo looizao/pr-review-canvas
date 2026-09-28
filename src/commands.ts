@@ -274,7 +274,14 @@ export async function runValidate(ctx: AppContext, argv: string[], io: CliIo): P
     )
   }
   const fixed =
-    values.fix === true ? await fixModel(path.resolve(file), text, context) : { text, trims: [], folds: [] }
+    values.fix === true
+      ? await fixModel(
+          path.resolve(file),
+          text,
+          context,
+          (await ctx.derived.ensure(context.headSha, context.mergeBaseSha)).patches
+        )
+      : { text, trims: [], folds: [] }
   const report = await validateFile(ctx, parseModelText(fixed.text, path.basename(file)), context)
   if (values.human !== true) {
     printJson(io, values.fix === true ? { ...report, fixed: [...fixed.folds, ...fixed.trims] } : report)
@@ -310,7 +317,8 @@ export async function runValidate(ctx: AppContext, argv: string[], io: CliIo): P
 async function fixModel(
   file: string,
   text: string,
-  context: GenerationContext
+  context: GenerationContext,
+  patches: Readonly<Record<string, string>>
 ): Promise<{ text: string; trims: TitleTrim[]; folds: FoldFix[] }> {
   let parsed: unknown
   try {
@@ -321,7 +329,9 @@ async function fixModel(
   }
   // Folds first, so every reported path, a trimmed fold title's included, is one into the file
   // as written back.
-  const folds = ReviewArtifactSchema.safeParse(parsed).success ? [] : applyFoldFixes(parsed, context.files)
+  const folds = ReviewArtifactSchema.safeParse(parsed).success
+    ? []
+    : applyFoldFixes(parsed, context.files, patches)
   const trims = applyTitleTrims(parsed, context.caps)
   if (!trims.some(trim => trim.outcome === 'fixed') && folds.length === 0) {
     return { text, trims, folds }
@@ -596,7 +606,8 @@ export async function runExport(ctx: AppContext, argv: string[], io: CliIo): Pro
     out: values.out,
   })
   printJson(io, result)
-  io.stderr(`drag ${result.path} into the ${ctx.config.host.noun} description or a comment`)
+  if (result.prNumber !== undefined)
+    io.stderr(`drag ${result.path} into the ${ctx.config.host.noun} description or a comment`)
   return EXIT.ok
 }
 

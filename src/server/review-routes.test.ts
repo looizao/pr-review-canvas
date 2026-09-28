@@ -1079,3 +1079,127 @@ describe('postedFromPending', () => {
     expect(postedFromPending(drafts, [comment()])).toEqual([{ commentId: 5001, pointFingerprint: 'fp-1' }])
   })
 })
+
+it('recovers submitted links on refresh only from the saved review receipt', async () => {
+  const raw = {
+    id: 9001,
+    user: { login: 'octocat' },
+    body: 'match\r\n',
+    path: 'src/app.ts',
+    line: 4,
+    original_line: 4,
+    side: 'RIGHT',
+    start_line: null,
+    commit_id: HEAD_SHA,
+    created_at: '2026-09-10T12:00:00Z',
+    html_url: 'https://github.com/acme/widgets/pull/42#discussion_r9001',
+    pull_request_review_id: 7001,
+  }
+  const t = await makeTestContext({
+    git: gitFor42(),
+    gh: ghFor42({
+      routes: {
+        'repos/acme/widgets/pulls/42/comments': ghJson([
+          { ...raw, id: 9000, pull_request_review_id: 6999 },
+          raw,
+        ]),
+      },
+    }),
+  })
+  try {
+    await t.ctx.state.completePending(
+      42,
+      [
+        {
+          id: 'draft',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          body: 'match',
+          headSha: HEAD_SHA,
+          createdAt: raw.created_at,
+          updatedAt: raw.created_at,
+          reviewId: 7001,
+          pointFingerprint: 'point',
+        },
+        {
+          id: 'legacy',
+          path: 'src/app.ts',
+          line: 4,
+          side: 'new',
+          body: 'match',
+          headSha: HEAD_SHA,
+          createdAt: raw.created_at,
+          updatedAt: raw.created_at,
+          pointFingerprint: 'legacy-point',
+        },
+      ],
+      []
+    )
+    const res = await createApp(t.ctx).request('/api/prs/42?refresh=1', { headers: LOCAL })
+    expect(res.status).toBe(200)
+    expect((await t.ctx.state.read(42)).posted).toEqual([
+      { commentId: 9001, pointFingerprint: 'point', at: '2026-09-10T12:00:00.000Z' },
+    ])
+  } finally {
+    await t.cleanup()
+  }
+})
+
+it('recovers delayed review receipts once, in one write, through the submission and refresh routes', async () => {
+  let comments: Array<Record<string, unknown>> = []
+  const forge = ghFor42({
+    routes: {
+      'repos/acme/widgets/pulls/42/reviews/7001/comments': ghHandler(() => {
+        throw new Error('receipt not available yet')
+      }),
+      'repos/acme/widgets/pulls/42/comments': ghHandler(() =>
+        comments.length === 0 ? [] : [{ ...comments[0], id: 8999, pull_request_review_id: 6999 }, ...comments]
+      ),
+    },
+    postRoutes: {
+      'repos/acme/widgets/pulls/42/reviews': ghPost(body => {
+        const input = body as { comments: Array<Record<string, unknown>> }
+        comments = input.comments.map((comment, i) => ({
+          ...POSTED_INLINE,
+          ...comment,
+          id: 9000 + i,
+          pull_request_review_id: 7001,
+          body: `${String(comment['body'])}\r\n`,
+        }))
+        return POSTED_REVIEW
+      }),
+    },
+  })
+  const t = await contextWithCanvas(forge)
+  try {
+    const app = createApp(t.ctx)
+    for (const body of ['Check the input', 'Check the result']) {
+      expect(
+        (
+          await app.request(
+            ...post('/api/prs/42/pending', { path: 'src/app.ts', line: 4, side: 'new', body })
+          )
+        ).status
+      ).toBe(201)
+    }
+    const submitted = await app.request(
+      ...post('/api/prs/42/review', { event: 'COMMENT', body: 'Review notes' })
+    )
+    expect(submitted.status).toBe(201)
+    const before = await t.ctx.state.read(42)
+    expect(before.posted).toEqual([])
+    const writes = vi.spyOn(t.ctx.state, 'addPosted')
+    expect((await app.request('/api/prs/42?refresh=1', { headers: LOCAL })).status).toBe(200)
+    const recovered = await t.ctx.state.read(42)
+    expect(recovered.rev).toBe(before.rev! + 1)
+    expect(recovered.posted.map(p => p.commentId)).toEqual([9000, 9001])
+    expect(writes).toHaveBeenCalledTimes(1)
+    const disk = await readFile(`${t.ctx.prs.prDir(42)}/state.json`, 'utf8')
+    expect((await app.request('/api/prs/42?refresh=1', { headers: LOCAL })).status).toBe(200)
+    expect(writes).toHaveBeenCalledTimes(1)
+    expect(await readFile(`${t.ctx.prs.prDir(42)}/state.json`, 'utf8')).toBe(disk)
+  } finally {
+    await t.cleanup()
+  }
+})

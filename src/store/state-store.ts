@@ -29,7 +29,7 @@ export interface StateStore {
   setReviewed(key: ReviewKey, id: string, reviewed: boolean, opts?: SetReviewedOptions): Promise<PrState>
   setDismissed(key: ReviewKey, fingerprint: string, dismissed: boolean, reason?: string): Promise<PrState>
   setThreadHidden(key: ReviewKey, rootCommentId: number, hidden: boolean): Promise<PrState>
-  addPosted(key: ReviewKey, entry: PostedEntry): Promise<PrState>
+  addPosted(key: ReviewKey, entries: readonly PostedEntry[]): Promise<PrState>
   /** Adds one comment to the pending review and returns the state that holds it. */
   addPending(key: ReviewKey, input: AddPendingInput, headSha: string): Promise<PrState>
   /** Rewrites one draft's body. A draft that is no longer there leaves the state alone. */
@@ -82,8 +82,10 @@ export function createStateStore(prs: PrStore, now: () => Date): StateStore {
   const update = (key: ReviewKey, mutate: (state: PrState) => PrState): Promise<PrState> => {
     const run = async (): Promise<PrState> => {
       const current = await read(key)
+      const changed = mutate(current)
+      if (changed === current) return current
       // Every write counts up, so the page can tell which of two answers was written later.
-      const next = { ...mutate(current), rev: (current.rev ?? 0) + 1, updatedAt: now().toISOString() }
+      const next = { ...changed, rev: (current.rev ?? 0) + 1, updatedAt: now().toISOString() }
       await writeJsonAtomic(file(key), next)
       return next
     }
@@ -143,13 +145,15 @@ export function createStateStore(prs: PrStore, now: () => Date): StateStore {
         }
         return { ...state, hiddenThreads: next }
       }),
-    addPosted: (key, entry) =>
+    addPosted: (key, entries) =>
       update(key, state => {
-        if (state.posted.some(p => p.commentId === entry.commentId)) {
-          return state
+        const known = new Set(state.posted.map(p => p.commentId))
+        const added = entries.filter(entry => !known.has(entry.commentId))
+        if (added.length === 0) return state
+        return {
+          ...state,
+          posted: [...state.posted, ...added.map(entry => ({ ...entry, at: now().toISOString() }))],
         }
-        const posted = { ...entry, at: now().toISOString() }
-        return { ...state, posted: [...state.posted, posted] }
       }),
     addPending: (key, input, headSha) => {
       pendingSeq += 1

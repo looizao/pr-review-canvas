@@ -92,7 +92,14 @@ const line = z.number().int().positive()
 const FoldGeometrySchema = z.object({
   layers: z.array(
     z.object({
-      tests: z.array(z.object({ status: z.enum(TEST_STATUSES) })),
+      tests: z.array(
+        z.object({
+          status: z.enum(TEST_STATUSES),
+          behavior: z.string(),
+          testPath: z.string().optional(),
+          anchor: z.object({ path: z.string(), line, side: SideSchema }).optional(),
+        })
+      ),
       files: z.array(
         z.object({
           path: z.string(),
@@ -114,7 +121,11 @@ const FoldGeometrySchema = z.object({
  * files, folds, tests, and points have the shape the rules read is touched; a reversed range and a
  * fold that partly overlaps another are reported by the validator and left alone.
  */
-export function applyFoldFixes(output: unknown, files: readonly FileEntry[]): FoldFix[] {
+export function applyFoldFixes(
+  output: unknown,
+  files: readonly FileEntry[],
+  patches: Readonly<Record<string, string>> = {}
+): FoldFix[] {
   if (!FoldGeometrySchema.safeParse(output).success) {
     return []
   }
@@ -129,7 +140,7 @@ export function applyFoldFixes(output: unknown, files: readonly FileEntry[]): Fo
         return
       }
       const hunks = byPath.get(file.path) ?? []
-      const pinned = pinnedRanges(file, layer, model.points, hunks)
+      const pinned = pinnedRanges(file, layer, model.points, hunks, files, patches)
       const kept: typeof file.folds = []
 
       for (const fold of file.folds) {
@@ -160,13 +171,24 @@ export function applyFoldFixes(output: unknown, files: readonly FileEntry[]): Fo
         const pins = pinned.filter(pin => rangesOverlap(range, pin, hunks))
         if (pins.length > 0) {
           const piece = shrink(range, pins)
-          const at = pins.map(formatRange).join(', ')
+          const at = pins
+            .map(pin =>
+              pin.generatedFrom === undefined
+                ? `the attention point at ${formatRange(pin)}`
+                : `the point generated from the missing test '${pin.generatedFrom}' at ${formatRange(pin)}`
+            )
+            .join(', ')
           if (piece === null) {
-            drop(`no single range around the attention point at ${at} keeps a line`)
+            drop(`no single range around ${at} keeps a line`)
             continue
           }
           range = piece
-          steps.push(`shrunk to keep the attention point at ${at} visible`)
+          steps.push(`shrunk to keep ${at} visible`)
+        }
+
+        if (steps.length > 0 && range.endLine - range.startLine + 1 < 3) {
+          drop(`${steps.join(', then ')}; fewer than three lines remain`)
+          continue
         }
 
         const twin = kept.find(earlier => sameRange(earlier, range))

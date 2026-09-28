@@ -123,8 +123,8 @@ describe('applyFoldFixes', () => {
     output.points = [point(12)]
 
     expect(applyFoldFixes(output, files).map(describeFoldFix)).toEqual([
-      'fold "lines 12-20" new 12-20 -> new 13-14, clipped to the chunk it starts in, ' +
-        'then shrunk to keep the attention point at new 12 visible',
+      'dropped fold "lines 12-20" at new 12-20: clipped to the chunk it starts in, ' +
+        'then shrunk to keep the attention point at new 12 visible; fewer than three lines remain',
     ])
   })
 

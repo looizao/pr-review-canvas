@@ -1,3 +1,4 @@
+import { missingTestPins } from './missing-tests.js'
 import type {
   CodeFold,
   FileEntry,
@@ -144,11 +145,13 @@ function foldRelation(
 /** Ranges no fold may ever hide: attention points, and the marker a missing test adds. */
 export function pinnedRanges(
   file: Pick<ModelFile, 'path' | 'hunks'>,
-  layer: { files: readonly object[]; tests: ReadonlyArray<Pick<ModelLayer['tests'][number], 'status'>> },
+  layer: Parameters<typeof missingTestPins>[0],
   points: ReadonlyArray<Pick<ModelOutput['points'][number], 'path' | 'side' | 'line' | 'endLine'>>,
-  hunks: readonly Hunk[]
-): SourceRange[] {
-  const ranges: SourceRange[] = []
+  hunks: readonly Hunk[],
+  files: readonly FileEntry[] = [],
+  patches: Readonly<Record<string, string>> = {}
+): Array<SourceRange & { generatedFrom?: string }> {
+  const ranges: Array<SourceRange & { generatedFrom?: string }> = []
 
   for (const point of points.filter(p => p.path === file.path)) {
     const side = point.side ?? 'new'
@@ -159,13 +162,14 @@ export function pinnedRanges(
     }
   }
 
-  const needsTestPoint = layer.files[0] === file && layer.tests.some(test => test.status === 'missing')
-  const firstHunk = needsTestPoint ? hunks.find(hunk => hunk.id === file.hunks[0]) : undefined
-
-  if (firstHunk !== undefined) {
-    const side = firstHunk.newLines === 0 ? 'old' : 'new'
-    const line = side === 'new' ? firstHunk.newStart : firstHunk.oldStart
-    ranges.push({ side, startLine: line, endLine: line })
+  for (const pin of missingTestPins(layer, files, patches)) {
+    if (pin.path === file.path)
+      ranges.push({
+        side: pin.side,
+        startLine: pin.line,
+        endLine: pin.line,
+        generatedFrom: pin.generatedFrom,
+      })
   }
 
   return ranges
@@ -175,9 +179,11 @@ function fileFolds(
   file: ModelFile,
   layer: ModelLayer,
   output: ModelOutput,
-  hunks: readonly Hunk[]
+  hunks: readonly Hunk[],
+  files: readonly FileEntry[],
+  patches: Readonly<Record<string, string>>
 ): FileFolds {
-  const pinned = pinnedRanges(file, layer, output.points, hunks)
+  const pinned = pinnedRanges(file, layer, output.points, hunks, files, patches)
   const rows = fileRows(file, hunks)
   return {
     file,
@@ -331,9 +337,9 @@ function generationErrors(
         'FOLD_MISSING',
         where,
         annotations.length === 0
-          ? `${rows} changed lines with no attention point or annotation, and nothing hidden at ` +
+          ? `${rows} diff rows in its chunks with no attention point or annotation, and nothing hidden at ` +
               'any level; collapse the file or fold its routine ranges'
-          : `${rows} changed lines, ${unannotated} of them outside its annotations, and nothing hidden ` +
+          : `${rows} diff rows in its chunks, ${unannotated} of them outside its annotations, and nothing hidden ` +
               'at any level; an annotation marks what to read — fold the routine ranges around it'
       )
     )
@@ -346,7 +352,7 @@ function generationErrors(
         error(
           'FOLD_MISSING',
           where,
-          `${hidden} of ${rows} changed lines hide at aggressive; a core file keeps its defining ` +
+          `${hidden} of ${rows} diff rows in its chunks hide at aggressive; a core file keeps its defining ` +
             `lines and folds the rest, at least half of the ${judged} lines outside its attention points`
         )
       )
@@ -385,7 +391,7 @@ function layerErrors(layer: ModelLayer, files: readonly FileFolds[]): Validation
     error(
       'FOLD_MISSING',
       `layer:${layer.key}`,
-      `${open} changed lines stay open at moderate outside the attention points, and aggressive hides ` +
+      `${open} diff rows in its chunks stay open at moderate outside the attention points, and aggressive hides ` +
         'none of them; aggressive leaves only the core on screen — collapse the files outside it, ' +
         'fold the routine ranges inside it'
     ),
@@ -408,7 +414,7 @@ export function validateFolds(
 
   return output.layers.flatMap(layer => {
     const layerFiles = layer.files.map(file =>
-      fileFolds(file, layer, output, byPath.get(file.path)?.hunks ?? [])
+      fileFolds(file, layer, output, byPath.get(file.path)?.hunks ?? [], files, options.patches ?? {})
     )
     if (options.storedArtifact === true) {
       return layerFiles.flatMap(correctnessErrors)
@@ -424,6 +430,8 @@ export function validateFolds(
 }
 
 export interface FoldValidationOptions {
+  patches?: Readonly<Record<string, string>>
+
   /** The globs that make a file a test; the built-in list when omitted. */
   testPatterns?: readonly string[] | undefined
   /**

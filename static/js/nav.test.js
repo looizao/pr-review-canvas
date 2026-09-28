@@ -139,7 +139,7 @@ describe('next/prev', () => {
     expect(step(order, 'layer-other', 'layer', 1, all)).toBeNull()
     expect(step(order, null, 'layer', -1, all)?.id).toBe('layer-other')
     expect(step(order, 'layer-other', 'layer', -1, all)?.id).toBe('layer-run-path')
-    expect(step(order, 'layer-run-path', 'layer', -1, all)).toBeNull()
+    expect(step(order, 'layer-run-path', 'layer', -1, all)?.id).toBe('overview')
     expect(step(order, null, 'file', 1, all)?.id).toBe('file-src_app_ts')
     expect(step(order, 'file-src_app_test_ts', 'file', 1, all)?.id).toBe('file-src_app_ts-other')
     expect(step(order, 'file-src_gone_ts', 'file', 1, all)).toBeNull()

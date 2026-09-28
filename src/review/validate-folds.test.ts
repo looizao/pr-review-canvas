@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { CodeFold, FileEntry, ModelLayer, ModelOutput } from '../contract/review-artifact.js'
-import { toFileEntry } from '../git/diff-collector.js'
+import { toFileEntry, toPatchMap } from '../git/diff-collector.js'
 import { SYNTHETIC_FILES } from '../testing/synthetic.js'
 import { validateFolds } from './validate-folds.js'
 
@@ -33,7 +33,7 @@ describe('validateFolds', () => {
     const { output, file } = fixture()
     file.collapsed = 'light'
 
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
   })
 
   it.each([
@@ -45,7 +45,7 @@ describe('validateFolds', () => {
     const { output, fold } = fixture()
     Object.assign(fold, range)
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -58,7 +58,7 @@ describe('validateFolds', () => {
     const { output, file } = fixture()
     file.folds?.push({ title: 'return value', side: 'new', startLine: 2, endLine: 4, level: 'light' })
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -73,7 +73,7 @@ describe('validateFolds', () => {
     const { output, file } = fixture()
     file.folds?.push({ title: 'run() again', side: 'new', startLine: 3, endLine: 5, level: 'moderate' })
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       { code: 'FOLD_INVALID', where, message: `${where}: fold 2 repeats the range of an earlier fold` },
     ])
   })
@@ -83,7 +83,7 @@ describe('validateFolds', () => {
     fold.level = 'moderate'
     file.folds?.push({ title: 'the body', side: 'new', startLine: 4, endLine: 5, level: 'light' })
 
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
   })
 
   it('rejects a nested fold that does not lower the level', () => {
@@ -91,7 +91,7 @@ describe('validateFolds', () => {
     fold.level = 'light'
     file.folds?.push({ title: 'the body', side: 'new', startLine: 4, endLine: 5, level: 'moderate' })
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -106,11 +106,11 @@ describe('validateFolds', () => {
     const { output, file, fold } = fixture()
     fold.level = 'moderate'
     file.folds = [{ title: 'the body', side: 'new', startLine: 4, endLine: 5, level: 'light' }, fold]
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
 
     fold.level = 'light'
     file.folds[0]!.level = 'moderate'
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -125,10 +125,10 @@ describe('validateFolds', () => {
     const { output, file } = fixture()
     file.hunks = ['src_app_ts#1', 'src_app_ts#2']
     file.folds?.push({ title: 'tail', side: 'new', startLine: 11, endLine: 13, level: 'light' })
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
 
     file.folds?.push({ title: 'old return', side: 'old', startLine: 2, endLine: 2, level: 'light' })
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -150,7 +150,7 @@ describe('validateFolds', () => {
       folds: [{ title: 'removed', side: 'old', startLine: 1, endLine: 2, level: 'light' }],
     })
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       { code: 'FOLD_INVALID', where: gone, message: `${gone}: fold 1 would hide an attention point` },
     ])
   })
@@ -160,7 +160,7 @@ describe('validateFolds', () => {
     file.annotations = [{ side: 'new', startLine: 4, endLine: 4, text: 'A decision here' }]
     file.collapsed = 'light'
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -178,11 +178,11 @@ describe('validateFolds', () => {
     const { output, file, fold } = fixture()
     file.annotations = [{ side: 'new', startLine: 4, endLine: 4, text: 'A decision here' }]
     fold.level = 'aggressive'
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
 
     // The fold shows the annotation's text as its title; a collapsed file would show only its path.
     file.collapsed = 'aggressive'
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -202,7 +202,7 @@ describe('validateFolds', () => {
     })
 
     file.annotations = [note(3, 3), note(5, 5)]
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -211,7 +211,7 @@ describe('validateFolds', () => {
     ])
 
     file.annotations = [note(4, 6)]
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -235,7 +235,7 @@ describe('validateFolds', () => {
       },
     ]
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       { code: 'FOLD_INVALID', where, message: `${where}: fold 1 would hide an attention point` },
     ])
   })
@@ -256,7 +256,7 @@ describe('validateFolds', () => {
       },
     ]
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       { code: 'FOLD_INVALID', where, message: `${where}: fold 1 would hide an attention point` },
     ])
   })
@@ -267,7 +267,7 @@ describe('validateFolds', () => {
     file.collapsed = 'light'
     fold.startLine = 1
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where,
@@ -288,7 +288,7 @@ describe('validateFolds', () => {
     layer.files.push(tests)
     const testWhere = 'layer:run/file:src/app.test.ts'
 
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where: testWhere,
@@ -297,12 +297,12 @@ describe('validateFolds', () => {
     ])
 
     tests.collapsed = 'moderate'
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
 
     // The same for a fold: a test body folds from moderate, never at light.
     delete tests.collapsed
     tests.folds = [{ title: 'runs', side: 'new', startLine: 3, endLine: 4, level: 'light' }]
-    expect(validateFolds(output, files)).toEqual([
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([
       {
         code: 'FOLD_INVALID',
         where: testWhere,
@@ -310,7 +310,7 @@ describe('validateFolds', () => {
       },
     ])
     tests.folds[0]!.level = 'moderate'
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
   })
 
   it.each(['src/__snapshots__/app.test.ts.snap', 'tests/fixtures/users.json'])(
@@ -319,7 +319,7 @@ describe('validateFolds', () => {
       const { output, layer } = fixture()
       layer.files.push({ path: snapshotPath, hunks: ['snap#1'], annotations: [], collapsed: 'light' })
 
-      expect(validateFolds(output, files)).toEqual([])
+      expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
     }
   )
 
@@ -356,7 +356,7 @@ describe('validateFolds', () => {
         {
           code: 'FOLD_MISSING',
           where: bigWhere,
-          message: `${bigWhere}: 60 changed lines with no attention point or annotation, and nothing hidden at any level; collapse the file or fold its routine ranges`,
+          message: `${bigWhere}: 60 diff rows in its chunks with no attention point or annotation, and nothing hidden at any level; collapse the file or fold its routine ranges`,
         },
       ])
     })
@@ -379,7 +379,7 @@ describe('validateFolds', () => {
         {
           code: 'FOLD_MISSING',
           where: bigWhere,
-          message: `${bigWhere}: 60 changed lines, 59 of them outside its annotations, and nothing hidden at any level; an annotation marks what to read — fold the routine ranges around it`,
+          message: `${bigWhere}: 60 diff rows in its chunks, 59 of them outside its annotations, and nothing hidden at any level; an annotation marks what to read — fold the routine ranges around it`,
         },
       ])
 
@@ -490,7 +490,7 @@ describe('validateFolds', () => {
         {
           code: 'FOLD_MISSING',
           where: coreWhere,
-          message: `${coreWhere}: 40 of 200 changed lines hide at aggressive; a core file keeps its defining lines and folds the rest, at least half of the 200 lines outside its attention points`,
+          message: `${coreWhere}: 40 of 200 diff rows in its chunks hide at aggressive; a core file keeps its defining lines and folds the rest, at least half of the 200 lines outside its attention points`,
         },
       ])
     })
@@ -565,7 +565,7 @@ describe('validateFolds', () => {
         {
           code: 'FOLD_MISSING',
           where: layerWhere,
-          message: `${layerWhere}: 50 changed lines stay open at moderate outside the attention points, and aggressive hides none of them; aggressive leaves only the core on screen — collapse the files outside it, fold the routine ranges inside it`,
+          message: `${layerWhere}: 50 diff rows in its chunks stay open at moderate outside the attention points, and aggressive hides none of them; aggressive leaves only the core on screen — collapse the files outside it, fold the routine ranges inside it`,
         },
       ])
     })
@@ -647,9 +647,9 @@ describe('validateFolds', () => {
     const { output, file, fold } = fixture()
     fold.endLine = 3
     file.folds?.push({ title: 'return', side: 'new', startLine: 4, endLine: 5, level: 'light' })
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
 
     file.folds = undefined
-    expect(validateFolds(output, files)).toEqual([])
+    expect(validateFolds(output, files, { patches: toPatchMap(SYNTHETIC_FILES) })).toEqual([])
   })
 })

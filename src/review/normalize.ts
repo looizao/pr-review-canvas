@@ -1,5 +1,6 @@
 // Turns a validated ModelOutput into the ReviewArtifact the server stores: ids, fingerprints,
 // isTest, config risk tags, the points that missing tests add, and the generator stamp.
+import { missingTestAnchor } from './missing-tests.js'
 import { createHash } from 'node:crypto'
 import type {
   FileEntry,
@@ -24,6 +25,7 @@ import { DEFAULT_TEST_PATTERNS, isTestPath } from './test-paths.js'
 export interface NormalizeInput {
   pr: Pr
   files: readonly FileEntry[]
+  patches?: Readonly<Record<string, string>>
   highRisk: readonly HighRiskRule[]
   /** The caps in force; a generated `tests` point title is cut to `caps.pointTitle`. */
   caps: TextCaps
@@ -124,40 +126,44 @@ function modelPoint(p: ModelPoint, layers: readonly Layer[], files: readonly Fil
   return point
 }
 
-/** One `tests` point per missing test entry, anchored on the layer's first hunk, for the author. */
-function testPoints(layer: Layer, files: readonly FileEntry[], titleCap: number): Unassigned[] {
-  const out: Unassigned[] = []
-  const first = layer.files[0]
-  const entry = first === undefined ? undefined : files.find(f => f.path === first.path)
-  const hunk = entry?.hunks.find(h => h.id === first?.hunks[0])
-  if (first === undefined || hunk === undefined) {
-    return out
-  }
-  const side: Side = hunk.newLines === 0 ? 'old' : 'new'
-  const line = side === 'new' ? hunk.newStart : hunk.oldStart
-  for (const t of layer.tests) {
+/** One attention point for each missing behavior, with the writer's routing and anchor. */
+function testPoints(
+  layer: Layer,
+  files: readonly FileEntry[],
+  titleCap: number,
+  patches: Readonly<Record<string, string>>
+): { layer: Layer; points: Unassigned[] } {
+  const points: Unassigned[] = []
+  const tests = layer.tests.map(t => {
     if (t.status !== 'missing') {
-      continue
+      return t
     }
-    const title = t.behavior.length > titleCap ? `${t.behavior.slice(0, titleCap - 1)}…` : t.behavior
+    const anchor = missingTestAnchor(t, layer, files, patches)
+    if (anchor === null) return t
+    const title =
+      t.title ??
+      (t.behavior.length <= titleCap
+        ? t.behavior
+        : (t.behavior
+            .slice(0, titleCap - 1)
+            .replace(/\S*$/, '')
+            .trimEnd() || (titleCap >= 13 ? 'Missing test' : titleCap >= 5 ? 'Test' : '')) + '…')
     const note = t.note === undefined ? '' : ` ${t.note}`
     const point: Unassigned = {
       kind: 'tests',
       level: 'check',
       title,
-      path: first.path,
-      line,
-      side,
+      ...anchor,
       body: `The layer "${layer.title}" lists this behavior without a test.${note}`,
-      // The author either adds the test or says why none is needed.
-      audience: 'author',
-      fingerprint: fingerprint({ kind: 'tests', path: first.path, title }),
+      audience: t.audience ?? 'reviewer',
+      fingerprint: fingerprint({ kind: 'tests', path: anchor.path, title }),
       origin: 'tests',
       layerId: layer.id,
     }
-    out.push(point)
-  }
-  return out
+    points.push(point)
+    return { ...t, title, audience: point.audience, anchor }
+  })
+  return { layer: { ...layer, tests }, points }
 }
 
 const LEVEL_ORDER = new Map(POINT_LEVELS.map((l, i) => [l, i]))
@@ -175,10 +181,18 @@ function sortPoints(points: Unassigned[]): Point[] {
 
 export function normalize(output: ModelOutput, input: NormalizeInput): ReviewArtifact {
   const testPatterns = input.testPatterns ?? DEFAULT_TEST_PATTERNS
-  const layers = output.layers.map(l => toLayer(l, input.highRisk, testPatterns))
+  const generated = output.layers.map(l =>
+    testPoints(
+      toLayer(l, input.highRisk, testPatterns),
+      input.files,
+      input.caps.pointTitle,
+      input.patches ?? {}
+    )
+  )
+  const layers = generated.map(g => g.layer)
   const points = [
     ...output.points.map(p => modelPoint(p, layers, input.files)),
-    ...layers.flatMap(l => testPoints(l, input.files, input.caps.pointTitle)),
+    ...generated.flatMap(g => g.points),
   ]
   const artifact: ReviewArtifact = {
     version: 1,
@@ -210,7 +224,22 @@ export function artifactToModelOutput(artifact: ReviewArtifact): ModelOutput {
       const modelRisk = risk
         .filter(r => r.source === 'model')
         .map(r => ({ label: r.label, reason: r.reason ?? '' }))
-      const out: ModelLayer = { ...rest, files: files.map(({ isTest: _isTest, ...f }) => f) }
+      // Before missing entries stored their point properties, all generated points in a layer
+      // used its first hunk. Stable point sorting therefore kept the missing-entry order.
+      const legacyPoints = artifact.points.filter(p => p.origin === 'tests' && p.layerId === layer.id)
+      let missingIndex = 0
+      const tests = layer.tests.map(test => {
+        if (test.status !== 'missing') return test
+        const point = legacyPoints[missingIndex++]
+        if (test.title !== undefined || point === undefined) return test
+        return {
+          ...test,
+          title: point.title,
+          audience: point.audience,
+          anchor: { path: point.path, line: point.line, side: point.side ?? 'new' },
+        }
+      })
+      const out: ModelLayer = { ...rest, tests, files: files.map(({ isTest: _isTest, ...f }) => f) }
       if (modelRisk.length > 0) {
         out.risk = modelRisk
       }

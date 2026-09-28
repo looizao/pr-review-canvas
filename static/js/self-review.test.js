@@ -81,6 +81,7 @@ describe('what a reader sees', () => {
     expect(selfReviewNoteHtml(artifact.points)).toContain('hidden')
     setSelfReview(true, {})
     expect(selfReviewNoteHtml([decide])).toContain('Self-review done')
+    expect(selfReviewNoteHtml([decide])).not.toContain('Resolve what you can')
     expect(selfReviewNoteHtml([decide])).toContain('1 point goes to the reviewer')
     expect(selfReviewNoteHtml([tests, decide, debt])).toContain('2 points are marked yours')
     expect(selfReviewNoteHtml([tests])).toContain('1 point is marked yours')
