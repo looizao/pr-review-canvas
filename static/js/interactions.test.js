@@ -2053,7 +2053,15 @@ describe('the AI Chat commands', () => {
     expect(calls).toEqual([
       [
         'pending-add',
-        { path: 'src/app.ts', line: 3, startLine: 2, side: 'new', body: 'Rename.', headSha: HEAD },
+        {
+          path: 'src/app.ts',
+          line: 3,
+          startLine: 2,
+          side: 'new',
+          body: 'Rename.',
+          headSha: HEAD,
+          proposalFingerprint: 'proposal:45747567ecdc439b',
+        },
       ],
     ])
     expect(cardCommands(root)).toEqual(['in your review', 'edit', 'copy'])
@@ -2070,7 +2078,15 @@ describe('the AI Chat commands', () => {
     expect(calls).toEqual([
       [
         'comment',
-        { kind: 'inline', path: 'src/app.ts', line: 3, side: 'new', body: 'One line.', headSha: HEAD },
+        {
+          kind: 'inline',
+          path: 'src/app.ts',
+          line: 3,
+          side: 'new',
+          body: 'One line.',
+          headSha: HEAD,
+          proposalFingerprint: 'proposal:ef576f5b6d27a0fa',
+        },
       ],
     ])
     expect(cardCommands(root)).toEqual(['view comment', 'edit', 'copy'])

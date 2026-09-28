@@ -1,6 +1,7 @@
 // @ts-check
 import { esc } from './dom.js'
 import { postToLabel } from './host.js'
+import { normalizedCommentBody } from './proposed-comment.js'
 
 /** @param {string} url */
 export function viewCommentHtml(url) {
@@ -32,7 +33,7 @@ export function sameAnchoredComment(a, b) {
     a.line === b.line &&
     a.side === b.side &&
     (a.startLine ?? a.line) === (b.startLine ?? b.line) &&
-    a.body.replace(/\r\n/g, '\n').trimEnd() === b.body.replace(/\r\n/g, '\n').trimEnd()
+    normalizedCommentBody(a.body) === normalizedCommentBody(b.body)
   )
 }
 
@@ -58,13 +59,7 @@ export function postedCommentUrl(proposed, posted) {
   const known = posted.find(
     c => c.proposalFingerprint !== undefined && c.proposalFingerprint === proposed.proposalFingerprint
   )
-  return (
-    known?.url ??
-    posted.find(
-      c =>
-        c.proposalFingerprint === undefined && c.inReplyToId === undefined && samePostedComment(c, proposed)
-    )?.url
-  )
+  return known?.url ?? posted.find(c => c.inReplyToId === undefined && samePostedComment(c, proposed))?.url
 }
 
 /**
@@ -73,10 +68,10 @@ export function postedCommentUrl(proposed, posted) {
  * @param {ReadonlyArray<import('./contract-types.js').PendingComment>} pending
  */
 export function isQueuedComment(proposed, pending) {
-  return pending.some(p =>
-    p.proposalFingerprint === undefined
-      ? sameAnchoredComment(p, proposed)
-      : p.proposalFingerprint === proposed.proposalFingerprint
+  return pending.some(
+    p =>
+      (p.proposalFingerprint !== undefined && p.proposalFingerprint === proposed.proposalFingerprint) ||
+      sameAnchoredComment(p, proposed)
   )
 }
 

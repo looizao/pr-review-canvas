@@ -80,7 +80,7 @@ it('uses the saved proposal fingerprint after the posted text and coordinates ch
   const proposal = { ...proposed, proposalFingerprint: 'turn:0' }
   const changed = { ...posted, body: 'Edited on GitHub', line: null, proposalFingerprint: 'turn:0' }
   expect(postedCommentUrl(proposal, [changed])).toBe(posted.url)
-  expect(postedCommentUrl(proposal, [{ ...posted, proposalFingerprint: 'other-turn:0' }])).toBeUndefined()
+  expect(postedCommentUrl(proposal, [{ ...posted, proposalFingerprint: 'before-edit' }])).toBe(posted.url)
 })
 
 it.each([
@@ -124,12 +124,12 @@ it('finds a queued proposal by its body and complete diff location', () => {
   expect(isQueuedComment(proposed, [queued])).toBe(true)
 })
 
-it('keeps an edited draft associated with its proposal and distinguishes repeated proposals', () => {
+it('keeps an edited draft associated with its proposal and recognizes its edited text again', () => {
   const proposal = { ...proposed, proposalFingerprint: 'turn:0' }
   expect(
     isQueuedComment(proposal, [{ ...queued, body: 'Edited draft', proposalFingerprint: 'turn:0' }])
   ).toBe(true)
-  expect(isQueuedComment(proposal, [{ ...queued, proposalFingerprint: 'other-turn:0' }])).toBe(false)
+  expect(isQueuedComment(proposal, [{ ...queued, proposalFingerprint: 'before-edit' }])).toBe(true)
 })
 
 it.each([

@@ -693,7 +693,8 @@ A pending review holds comments on your machine until you submit them together.
   Neither state offers to submit that proposal again. **refresh** recovers the link when GitHub
   supplies the submitted review's comments. Older submitted records without a saved review ID
   stay **submitted**, since they cannot be matched safely to a specific review.
-  Each new proposal has a stable fingerprint that follows its draft and identifies the posted
+  Each proposal gets a fingerprint from its original text and anchor, so identical proposals in
+  other turns share the same status. The fingerprint follows its draft and identifies the posted
   comment, so its link survives draft edits, GitHub edits, and later commits moving the lines.
   Delayed receipts and older records use GitHub's complete original range to find the comment.
 - A bar under the progress line shows how many drafts are waiting. Each draft appears on its line

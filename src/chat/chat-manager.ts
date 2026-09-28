@@ -272,7 +272,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
   ): AsyncIterable<ChatEvent> {
     const settings = await effectiveSettings()
     const thread = await resolveThread(target.key, settings.chatAgent, input.thread)
-    const turnId = `${thread.name}:${thread.rev}`
     const at = deps.now().toISOString()
     const contextBlock = await renderChatContext(input.context, {
       artifact: target.artifact,
@@ -317,20 +316,13 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         target.key,
         thread,
         input.message,
-        {
-          id: turnId,
-          role: 'assistant',
-          text: '',
-          at: deps.now().toISOString(),
-          incomplete: 'cancelled',
-          ...fallback,
-        },
+        { role: 'assistant', text: '', at: deps.now().toISOString(), incomplete: 'cancelled', ...fallback },
         target.headSha,
         cwd,
         // The seed never went anywhere, so the thread stays where it was.
         false
       )
-      yield { event: 'turn', thread: thread.name, turnId, agent: settings.chatAgent, seeded }
+      yield { event: 'turn', thread: thread.name, agent: settings.chatAgent, seeded }
       yield { event: 'cancelled' }
       return
     }
@@ -359,7 +351,7 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
     let incomplete: string | undefined
     let ended = false
     try {
-      yield { event: 'turn', thread: thread.name, turnId, agent: settings.chatAgent, seeded }
+      yield { event: 'turn', thread: thread.name, agent: settings.chatAgent, seeded }
       for await (const event of run.events) {
         switch (event.type) {
           case 'chunk': {
@@ -421,7 +413,6 @@ export function createChatManager(deps: ChatManagerDeps): ChatManager {
         thread,
         input.message,
         {
-          id: turnId,
           role: 'assistant',
           text: answer,
           at: deps.now().toISOString(),

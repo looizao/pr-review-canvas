@@ -41,8 +41,6 @@ export const ChatThreadInputSchema = z.object({ agent: z.string().min(1).max(40)
 
 /** One saved turn of a thread, as `chat/<name>.jsonl` stores it. */
 export const ChatTurnSchema = z.object({
-  /** Stable identity of new assistant turns, shared by the stream and saved history. */
-  id: z.string().optional(),
   role: z.enum(['user', 'assistant']),
   text: z.string(),
   at: z.string(),
@@ -91,7 +89,7 @@ export type ChatCheckoutEvent =
   | { event: 'checkout'; status: 'fallback'; message: string; branch: string | null }
 
 export type ChatEvent =
-  | { event: 'turn'; thread: string; turnId: string; agent: string; seeded: boolean }
+  | { event: 'turn'; thread: string; agent: string; seeded: boolean }
   | ChatCheckoutEvent
   | { event: 'chunk'; text: string }
   | { event: 'thought'; text: string }

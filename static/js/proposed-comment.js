@@ -17,6 +17,31 @@ import { splitFences } from './fences.js'
 /** The comment body a card will show; longer than this is not a review comment. */
 export const PROPOSED_BODY_MAX = 4000
 
+/** @param {string} body */
+export function normalizedCommentBody(body) {
+  return body.replace(/\r\n/g, '\n').trimEnd()
+}
+
+/**
+ * Identity of the original proposal. Draft edits keep this key, as attention-point edits do.
+ * FNV-1a over the anchor and normalized body works synchronously in both browser and server.
+ * @param {ProposedComment} comment
+ */
+export function proposalFingerprint(comment) {
+  const source = JSON.stringify([
+    comment.path,
+    comment.side,
+    comment.startLine ?? comment.line,
+    comment.line,
+    normalizedCommentBody(comment.body),
+  ])
+  let hash = 0xcbf29ce484222325n
+  for (const byte of new TextEncoder().encode(source)) {
+    hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n)
+  }
+  return `proposal:${hash.toString(16).padStart(16, '0')}`
+}
+
 /**
  * What a target has to satisfy to be postable: the file is in this pull request, and the line is
  * one the diff shows on that side.
