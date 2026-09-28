@@ -7,7 +7,8 @@ import { parseArgs } from 'node:util'
 import { exportCanvas } from './canvas/export.js'
 import { importCanvas } from './canvas/import.js'
 import { CANVAS_ZIP_MAX_BYTES } from './canvas/zip.js'
-import type { ErrorCode } from './contract/api.js'
+import type { CheckoutInfo } from './chat/checkouts.js'
+import type { ErrorCode, ImportResult } from './contract/api.js'
 import { CHECKOUT_IDLE_NEVER } from './contract/settings.js'
 import type { GenerationContext, PrepareTargetInput } from './contract/generation-context.js'
 import type { LocalKey } from './contract/review-key.js'
@@ -43,6 +44,27 @@ import { readText, writeTextAtomic } from './store/atomic-json.js'
 export interface CliIo {
   stdout(line: string): void
   stderr(line: string): void
+  /** Print results and errors as one JSON line instead of text. `outputMode` decides it. */
+  json: boolean
+}
+
+/** The steps of review generation: the skill reads their JSON, so they print nothing else. */
+const AGENT_COMMANDS: ReadonlySet<string> = new Set(['prepare', 'validate', 'publish'])
+
+/**
+ * Takes `--json` out of a command's arguments and decides whether the command prints JSON: with
+ * the flag, on a stdout that is not a terminal (a script or an agent is reading), or for a command
+ * only an agent runs. doctor prints its checklist on a pipe too, so only the flag switches it.
+ */
+export function outputMode(
+  command: string,
+  args: string[],
+  stdoutIsTTY: boolean
+): { json: boolean; rest: string[] } {
+  const rest = args.filter(arg => arg !== '--json')
+  const flag = rest.length !== args.length
+  const json = command === 'doctor' ? flag : flag || !stdoutIsTTY || AGENT_COMMANDS.has(command)
+  return { json, rest }
 }
 
 /** Exit codes: 0 ok, 1 error, 2 usage, 4 gh/glab auth or missing, 5 invalid model output. */
@@ -59,12 +81,26 @@ export function printJson(io: CliIo, value: unknown): void {
   io.stdout(JSON.stringify(value))
 }
 
+/** The failure as the JSON envelope, or as an `error:` line and its hint on stderr. */
 export function printErrorEnvelope(io: CliIo, code: ErrorCode, message: string, hint?: string): void {
+  if (!io.json) {
+    io.stderr(`error: ${message} (${code})`)
+    if (hint !== undefined) io.stderr(`hint: ${hint}`)
+    return
+  }
   const error: { code: ErrorCode; message: string; hint?: string } = { code, message }
   if (hint !== undefined) {
     error.hint = hint
   }
   printJson(io, { error })
+}
+
+function shortSha(sha: string): string {
+  return sha.slice(0, 7)
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
 function isParseArgsError(err: unknown): err is Error {
@@ -400,8 +436,8 @@ export async function runPublish(ctx: AppContext, argv: string[], io: CliIo): Pr
 
 /**
  * `doctor [--all-checks] [--json]`: every check the tool needs, as a checklist on `output` that a
- * person or an agent can read. `--json` prints one JSON line on `io` instead. Exit 1 when a check
- * fails, so a script can read the code instead of the report.
+ * person or an agent can read. With `io.json` it prints one JSON line on `io` instead. Exit 1 when
+ * a check fails, so a script can read the code instead of the report.
  */
 export async function runDoctor(
   deps: DoctorDeps,
@@ -411,11 +447,11 @@ export async function runDoctor(
 ): Promise<number> {
   const { values } = parseArgs({
     args: argv,
-    options: { 'all-checks': { type: 'boolean' }, json: { type: 'boolean' } },
+    options: { 'all-checks': { type: 'boolean' } },
     strict: true,
   })
   const report = await runDoctorChecks(deps, { allChecks: values['all-checks'] === true })
-  if (values.json === true) {
+  if (io.json) {
     printJson(io, report)
   } else {
     printDoctorReport(report, output)
@@ -428,7 +464,7 @@ export interface InstallSkillEnv {
   cwd: string
 }
 
-/** `install-skill [--claude-dir <dir>] [--codex-dir <dir>] [--force]`, both dirs under the repo root by default. */
+/** `install-skill [--claude-dir <dir>] [--codex-dir <dir>] [--force] [--json]`, both dirs under the repo root by default. */
 export async function runInstallSkill(env: InstallSkillEnv, argv: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -449,7 +485,12 @@ export async function runInstallSkill(env: InstallSkillEnv, argv: string[], io: 
     ],
   })
   await ignoreLocalSettings(env.repoRoot)
-  printJson(io, result)
+  if (io.json) {
+    printJson(io, result)
+    return EXIT.ok
+  }
+  io.stdout(`Copied the ${result.skill} skill to:`)
+  for (const target of result.targets) io.stdout(`  ${target.kind.padEnd(6)}  ${target.path}`)
   return EXIT.ok
 }
 
@@ -473,7 +514,7 @@ async function resolveHead(
   return { headSha, prNumber }
 }
 
-/** `export (--pr <n> | --head <ref|sha>) [--out <file|dir>]`: writes the zip and prints its path. */
+/** `export (--pr <n> | --head <ref|sha>) [--out <file|dir>] [--json]`: writes the zip and prints its path. */
 export async function runExport(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -486,7 +527,11 @@ export async function runExport(ctx: AppContext, argv: string[], io: CliIo): Pro
     prNumber: target.prNumber,
     out: values.out,
   })
-  printJson(io, result)
+  if (io.json) {
+    printJson(io, result)
+  } else {
+    io.stdout(`Exported the canvas for ${shortSha(result.headSha)} to ${result.path}`)
+  }
   if (result.prNumber !== undefined)
     io.stderr(`drag ${result.path} into the ${ctx.config.host.noun} description or a comment`)
   return EXIT.ok
@@ -530,7 +575,7 @@ async function readZipFile(zipPath: string, shown: string): Promise<Uint8Array> 
   }
 }
 
-/** `import <zip> [--pr <n>] [--force]`: the same path the drop zone and discovery use. */
+/** `import <zip> [--pr <n>] [--force] [--json]`: the same path the drop zone and discovery use. */
 export async function runImport(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
   const { values, positionals } = parseArgs({
     args: argv,
@@ -550,12 +595,37 @@ export async function runImport(ctx: AppContext, argv: string[], io: CliIo): Pro
     options.prNumber = prNumber
     options.currentHead = await fetchPrRefs(ctx.git, ctx.config.host, meta)
   }
-  printJson(io, await importCanvas(ctx, options))
+  const result = await importCanvas(ctx, options)
+  if (io.json) {
+    printJson(io, result)
+    return EXIT.ok
+  }
+  for (const warning of result.warnings) io.stderr(`warning: ${warning}`)
+  io.stdout(describeImport(result))
   return EXIT.ok
 }
 
+/** One line on what an import did, for a person reading the terminal. */
+export function describeImport(result: ImportResult): string {
+  const canvas = shortSha(result.headSha)
+  if (result.status === 'exists') {
+    return `A canvas for ${canvas} is already stored and is at least as new; kept it.`
+  }
+  if (result.status === 'ready') {
+    return `Imported the canvas for ${canvas}.`
+  }
+  const head = shortSha(result.currentHeadSha)
+  const behind =
+    result.relation === 'ancestor' && result.commitsBehind !== undefined
+      ? `, ${plural(result.commitsBehind, 'commit')} ahead of it`
+      : result.relation === 'unrelated'
+        ? ', which does not contain it'
+        : ''
+  return `Imported the canvas for ${canvas}, but the head is now ${head}${behind}. The canvas is stale.`
+}
+
 /**
- * `clean [--all] [--older-than <days>] [--dry-run]`: removes idle review checkouts, the ones with
+ * `clean [--all] [--older-than <days>] [--dry-run] [--json]`: removes idle review checkouts, the ones with
  * no chat turn for `checkoutIdleDays`, or every one with `--all`. A checkout a chat turn holds is
  * left alone. Canvases and review state are never touched.
  */
@@ -586,18 +656,31 @@ export async function runClean(ctx: AppContext, argv: string[], io: CliIo): Prom
       io.stderr(
         'pr-review clean: idle cleanup is off (checkoutIdleDays: -1), so nothing was removed. Use --all or --older-than <days>.'
       )
-      printJson(io, { removed: [], skipped: [], dryRun: values['dry-run'] === true })
+      if (io.json) printJson(io, { removed: [], skipped: [], dryRun: values['dry-run'] === true })
       return EXIT.ok
     }
     olderThanDays = checkoutIdleDays
   }
   const result = await ctx.checkouts.sweep({ all, olderThanDays, dryRun: values['dry-run'] === true })
-  const brief = (list: typeof result.removed) =>
-    list.map(({ key, sha, lastUsedAt, dir }) => ({ key, sha, lastUsedAt, dir }))
-  printJson(io, {
-    removed: brief(result.removed),
-    skipped: brief(result.skipped),
-    dryRun: values['dry-run'] === true,
-  })
+  const dryRun = values['dry-run'] === true
+  if (io.json) {
+    const brief = (list: CheckoutInfo[]) =>
+      list.map(({ key, sha, lastUsedAt, dir }) => ({ key, sha, lastUsedAt, dir }))
+    printJson(io, { removed: brief(result.removed), skipped: brief(result.skipped), dryRun })
+    return EXIT.ok
+  }
+  const checkoutLine = ({ key, sha, lastUsedAt, dir }: CheckoutInfo) =>
+    `  ${typeof key === 'number' ? `#${key}` : key} at ${shortSha(sha)}, last used ${lastUsedAt}: ${dir}`
+  if (result.removed.length === 0) {
+    io.stdout('No review checkouts to remove.')
+  } else {
+    const n = plural(result.removed.length, 'review checkout')
+    io.stdout(dryRun ? `Would remove ${n}:` : `Removed ${n}:`)
+    for (const checkout of result.removed) io.stdout(checkoutLine(checkout))
+  }
+  if (result.skipped.length > 0) {
+    io.stdout(`Left ${plural(result.skipped.length, 'review checkout')} a chat turn is using:`)
+    for (const checkout of result.skipped) io.stdout(checkoutLine(checkout))
+  }
   return EXIT.ok
 }

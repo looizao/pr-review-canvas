@@ -205,10 +205,10 @@ it('clean dry-run, active lock protection, and never-clean settings agree', asyn
   await lease.release()
   await t.ctx.settings.write({ checkoutIdleDays: -1 })
   const output: string[] = []
-  await runClean(t.ctx, [], { stdout: line => output.push(line), stderr: () => undefined })
+  await runClean(t.ctx, [], { stdout: line => output.push(line), stderr: () => undefined, json: true })
   expect(JSON.parse(output[0]!)).toMatchObject({ removed: [] })
   expect(await t.ctx.checkouts.list()).toHaveLength(1)
-  await runClean(t.ctx, ['--all'], { stdout: () => undefined, stderr: () => undefined })
+  await runClean(t.ctx, ['--all'], { stdout: () => undefined, stderr: () => undefined, json: true })
   expect(await t.ctx.checkouts.list()).toEqual([])
 })
 

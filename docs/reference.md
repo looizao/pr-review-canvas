@@ -276,24 +276,32 @@ showed. If the install fails, the current version runs the remaining steps itsel
   was installed.
 
 Without a terminal, `upgrade` prints the plan and changes nothing. `--yes` applies it without
-asking. stdout is one JSON line with `applied` and, after applying, `ok` and each step's `status`
-(`done` or `failed`, with a `detail`). The exit code is `1` when a step fails. When a skill copy
-changes, stderr says to commit and push it.
+asking. The plan and each step's outcome go to stderr. With `--json`, or when stdout is a pipe,
+stdout is one JSON line with `applied` and, after applying, `ok` and each step's `status` (`done`
+or `failed`, with a `detail`). The exit code is `1` when a step fails. When a skill copy changes,
+stderr says to commit and push it.
 
 ### Output and exit codes
 
 Help prints to stdout, so `pr-review --help | less` works.
-One-shot commands normally print a JSON result on stdout. Preparation progress goes to stderr.
-`validate --human` prints text, and a failed `publish` prints validation diagnostics before its
-JSON error. `serve` stays running and writes its startup message to stderr.
+`prepare`, `validate`, and `publish` print a JSON result on stdout: the skill reads it.
+Preparation progress goes to stderr. `validate --human` prints text, and a failed `publish` prints
+validation diagnostics before its JSON error. `serve` stays running and writes its startup message
+to stderr.
+
+`install-skill`, `export`, `import`, `clean`, and `upgrade` print text at a terminal. With
+`--json`, or when stdout is a pipe, they print the JSON result instead, so scripts and agents
+read the same fields as before.
 
 `doctor` prints a checklist. Each check is `ok` or `failed`, and a failed check includes its
 hint, so a person and an agent read the same report. It wraps to a terminal; on a pipe each
 detail and hint stays on one line. `doctor --json` prints that report as one
 JSON line: `ok`, `version`, `cli` (`gh` or `glab`, the CLI the `gh` and `ghAuth` checks ran), and
-a `checks` object. The other commands stay one JSON line either way.
+a `checks` object. Unlike the commands above, a piped `doctor` still prints the checklist.
 
-Command failures use `{ "error": { "code", "message", "hint" } }`, with `hint` optional.
+Command failures use `{ "error": { "code", "message", "hint" } }`, with `hint` optional, wherever
+the command prints JSON. At a terminal they print `error: <message> (<code>)` and `hint: <hint>`
+on stderr.
 Validation failures from `validate` use its report format instead.
 
 | Exit code | Meaning                                                                  |

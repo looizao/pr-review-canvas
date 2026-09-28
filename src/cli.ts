@@ -8,6 +8,7 @@ import {
   type CliIo,
   EXIT,
   namedCanvasDir,
+  outputMode,
   printErrorEnvelope,
   reportFailure,
   runDoctor,
@@ -47,9 +48,11 @@ const SUBCOMMANDS = [
   'clean',
 ] as const
 
+/** Filled in by main once it knows the command line. */
 const io: CliIo = {
   stdout: line => process.stdout.write(`${line}\n`),
   stderr: line => process.stderr.write(`${line}\n`),
+  json: true,
 }
 
 async function buildContext(
@@ -207,7 +210,9 @@ async function upgradeCommand(argv: string[]): Promise<number> {
 
 export async function main(argv: string[]): Promise<number> {
   // `pnpm review -- --port 3011` forwards the `--` itself; drop it so parseArgs sees the flags.
-  const [command, ...rest] = argv.filter(a => a !== '--')
+  const [command, ...args] = argv.filter(a => a !== '--')
+  const { json, rest } = outputMode(command ?? '', args, process.stdout.isTTY === true)
+  io.json = json
   if (command === undefined || command === '--help' || command === '-h') {
     printUsage(process.stdout, readPackageVersion())
     return command === undefined ? EXIT.usage : EXIT.ok
