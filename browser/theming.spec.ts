@@ -46,7 +46,7 @@ async function clickAppearance(page: Page, selector: string) {
   expect((await saved).ok()).toBe(true)
 }
 
-test('starts in the github skin, cycles through sage to terminal, and remembers the choice', async ({
+test('starts in the github skin, cycles through olive to terminal, and remembers the choice', async ({
   page,
   reviewUrl,
 }) => {
@@ -61,10 +61,10 @@ test('starts in the github skin, cycles through sage to terminal, and remembers 
     commandBracket: 'none',
   })
 
-  // Sage wears the github layout, so only the palette changes.
+  // Olive wears the github layout, so only the palette changes.
   await clickAppearance(page, '#skin-toggle')
-  await expect(root).toHaveAttribute('data-skin', 'sage')
-  await expect(toggle).toHaveText('skin: sage')
+  await expect(root).toHaveAttribute('data-skin', 'olive')
+  await expect(toggle).toHaveText('skin: olive')
   expect(await readLook(page)).toMatchObject({
     cardRadius: '6px',
     stripeHeight: '1px',
@@ -171,7 +171,7 @@ const COMBINATIONS = [
     cardRadius: '6px',
   },
   {
-    skin: 'sage',
+    skin: 'olive',
     theme: 'light',
     pageBg: 'rgb(247, 247, 242)',
     cardHeaderBg: 'rgb(243, 244, 236)',
@@ -179,7 +179,7 @@ const COMBINATIONS = [
     cardRadius: '6px',
   },
   {
-    skin: 'sage',
+    skin: 'olive',
     theme: 'dark',
     pageBg: 'rgb(29, 31, 26)',
     cardHeaderBg: 'rgb(44, 48, 39)',
@@ -207,7 +207,7 @@ for (const want of COMBINATIONS) {
   })
 }
 
-for (const skin of ['terminal', 'github', 'sage'] as const) {
+for (const skin of ['terminal', 'github', 'olive'] as const) {
   test(`keeps collapse and dismissal working in the ${skin} skin`, async ({ page, reviewUrl }) => {
     await page.goto(`${reviewUrl}?skin=${skin}`)
     const layer = page.locator('section.layer[data-layer="run-path"]')

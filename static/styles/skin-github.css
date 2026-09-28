@@ -1,8 +1,8 @@
-/* ---- GitHub skin, and the layout the sage skin shares ----
+/* ---- GitHub skin, and the layout the olive skin shares ----
    Loaded after the component files so it repaints the terminal skin without them knowing about
    it. GitHub's palette hangs off `[data-skin="github"]` on <html>; the layout below it applies to
    every skin listed in its `:is()` and reads only tokens, so a skin built on it is a palette (see
-   skin-sage.css). Every color goes through light-dark(), so light and dark work in each skin.
+   skin-olive.css). Every color goes through light-dark(), so light and dark work in each skin.
 
    What changes: Primer colors, rounded corners, hairline borders, real buttons in place of the
    [ bracket ] commands, icons, and denser spacing. Each section of a card gets a plain title over
@@ -95,8 +95,8 @@
 }
 
 /* The layout the GitHub-built skins share. Each skin sets its palette in its own `:root` block
-   (this file for github, skin-sage.css for sage); everything below reads only tokens. */
-:is([data-skin='github'], [data-skin='sage']) {
+   (this file for github, skin-olive.css for olive); everything below reads only tokens. */
+:is([data-skin='github'], [data-skin='olive']) {
   --r: 6px;
   --fs: 13px;
   --gap: 16px;

@@ -1,14 +1,14 @@
 // @ts-check
-// The skin command cycles terminal → github → sage. `data-skin` on <html> says which look the page
+// The skin command cycles terminal → github → olive. `data-skin` on <html> says which look the page
 // wears: the component styles are written in the terminal skin, `styles/skin-github.css` repaints
-// them with GitHub's layout and palette, and `styles/skin-sage.css` swaps in the site's palette on
+// them with GitHub's layout and palette, and `styles/skin-olive.css` swaps in the site's palette on
 // that layout. It is independent of the light/dark theme, so every pairing works.
 //
 // The choice is saved in `.pr-review/settings.yml`, so it holds for every browser that opens this
 // server and can be edited by hand. The server renders `data-skin` into the page, which is why this
 // module reads the attribute instead of storage and never has to guess before the styles apply.
 
-export const SKINS = /** @type {const} */ (['terminal', 'github', 'sage'])
+export const SKINS = /** @type {const} */ (['terminal', 'github', 'olive'])
 /** @typedef {(typeof SKINS)[number]} Skin */
 
 /** The look a page wears when the settings file says nothing. */

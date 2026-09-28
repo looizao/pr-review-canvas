@@ -1,4 +1,4 @@
-/* ---- Sage skin ----
+/* ---- Olive skin ----
    The project site's look on the GitHub skin's layout: warm paper and ink, olive links and
    progress, a muted purple for attention, and lime for done. skin-github.css draws the layout for
    both skins, so this file only sets the tokens it reads.
@@ -6,7 +6,7 @@
    Where you are is olive, like the site's current layer. The primary button is ink on paper, like
    the site's buttons. Dark mode is the site's dark band: ink ground, paper text, lime accents. */
 
-:root[data-skin='sage'] {
+:root[data-skin='olive'] {
   /* `--ink` is the border color the component files draw with. */
   --ink: light-dark(#dcded3, #3a3e33);
   --line: light-dark(#dcded3, #3a3e33);

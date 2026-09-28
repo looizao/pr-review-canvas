@@ -3,19 +3,19 @@
 import { applySkin, DEFAULT_SKIN, isSkin, nextSkin, readSkin, SKINS, skinLabel } from './skin.js'
 
 describe('skin', () => {
-  it('cycles terminal → github → sage → terminal', () => {
-    expect(SKINS).toEqual(['terminal', 'github', 'sage'])
+  it('cycles terminal → github → olive → terminal', () => {
+    expect(SKINS).toEqual(['terminal', 'github', 'olive'])
     expect(DEFAULT_SKIN).toBe('github')
     expect(nextSkin('terminal')).toBe('github')
-    expect(nextSkin('github')).toBe('sage')
-    expect(nextSkin('sage')).toBe('terminal')
+    expect(nextSkin('github')).toBe('olive')
+    expect(nextSkin('olive')).toBe('terminal')
     expect(skinLabel('github')).toBe('skin: github')
   })
 
   it('knows the names it accepts', () => {
     expect(isSkin('terminal')).toBe(true)
     expect(isSkin('github')).toBe(true)
-    expect(isSkin('sage')).toBe(true)
+    expect(isSkin('olive')).toBe(true)
     expect(isSkin('neon')).toBe(false)
     expect(isSkin(null)).toBe(false)
   })
