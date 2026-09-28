@@ -46,9 +46,6 @@ body {
   margin-top: 17px;
   white-space: nowrap;
 }
-.promo-heading em {
-  color: var(--purple);
-}
 .promo-subtitle {
   font-size: 18px;
   color: #666b5e;

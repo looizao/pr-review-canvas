@@ -333,10 +333,6 @@
 .app-file-h .pill {
   font-size: 11px;
 }
-.app-file .diff-code {
-  font-size: 13px;
-  line-height: 1.8;
-}
 .test-row {
   display: flex;
   flex-wrap: wrap;
@@ -345,7 +341,6 @@
   gap: 4px 16px;
   padding: 8px 12px;
 }
-/* Code excerpts, shared by the demo canvas and the fold example: one block per line. */
 /* A card's header row, like the app's file header: a small semibold path and a small muted note. */
 .file-heading {
   display: flex;
@@ -368,6 +363,7 @@
   color: var(--muted);
   white-space: nowrap;
 }
+/* Code excerpts, shared by the demo canvas and the fold example: one block per line. */
 .diff-code span,
 .code-fold pre span {
   display: block;
@@ -576,7 +572,6 @@
   }
   .demo-caption {
     display: block;
-    font-size: 12px;
   }
   .demo-caption > span {
     display: block;
@@ -585,9 +580,6 @@
   .file-heading {
     gap: 8px;
     padding-inline: 10px;
-  }
-  .fold-example .diff-code {
-    font-size: 14px;
   }
   .chat-demo {
     padding: 18px;

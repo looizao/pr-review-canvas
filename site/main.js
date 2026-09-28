@@ -113,8 +113,9 @@ for (const button of document.querySelectorAll('.copy-button')) {
         delete button.dataset.copied
       }, 2000)
     } catch {
-      setText('copy-status', 'Clipboard unavailable. Select and copy the command text.')
-      button.title = 'Clipboard unavailable. Select and copy the command text.'
+      // Without a clipboard, select the commands so they can be copied by hand.
+      setText('copy-status', 'Clipboard unavailable. The commands are selected; copy them by hand.')
+      getSelection()?.selectAllChildren(button.parentElement.querySelector('code'))
     }
   })
 }
