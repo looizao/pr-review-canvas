@@ -1,6 +1,7 @@
 // A tour model of the synthetic pull request, valid against its diff: what the tour tests write
 // and what the validator is expected to pass.
-import type { TourModel } from '../contract/tour.js'
+import type { TourArtifact, TourModel } from '../contract/tour.js'
+import { BASE_SHA, HEAD_SHA, syntheticArtifact } from './synthetic.js'
 
 const SCENE = (text: string) =>
   `<div class="scene"><div class="banner good"><i data-icon="check"></i>${text}</div></div>`
@@ -83,5 +84,25 @@ export function syntheticTourModel(): TourModel {
       },
     ],
     notToured: [{ title: 'The renamed file', path: 'src/new-name.ts' }],
+  }
+}
+
+/** The synthetic tour as the store keeps it: published for PR #42 at HEAD_SHA, toured by no one. */
+export function syntheticTour(over: Partial<TourArtifact> = {}): TourArtifact {
+  return {
+    version: 1,
+    pr: syntheticArtifact().pr,
+    repo: { owner: 'acme', name: 'widgets' },
+    headSha: HEAD_SHA,
+    mergeBaseSha: BASE_SHA,
+    blastRadius: ['schema'],
+    budget: { landmarks: 4, decisions: 2, quiz: 2 },
+    guide: null,
+    ...syntheticTourModel(),
+    generatedAt: '2026-09-10T12:00:00.000Z',
+    generator: { agent: 'claude', harness: 'claude-code', attempts: 1 },
+    source: 'local',
+    record: { touredBy: [] },
+    ...over,
   }
 }

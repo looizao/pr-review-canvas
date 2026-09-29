@@ -855,6 +855,27 @@ The three later steps use the data directory that holds the tour dir, as `valida
 do for a canvas. `tour publish` answers `CANVAS_STALE` when the head moved and `CANVAS_ELSEWHERE`
 when the tour dir sits in another data directory.
 
+### Taking a tour
+
+`/tour/<n>`, `/tour/branch`, and `/tour/uncommitted` draw the tour of the target's head, or the
+newest older one with a bar saying how far behind it is. The page walks the cover, the landmarks,
+the decisions, the quiz, and the plan; every step is a browser history entry, so the back and
+forward buttons move through the tour, a reload lands on the step the reader was on, and a step's
+URL (`#landmark-<id>`, `#decision-<key>`, `#quiz-<id>`, `#plan`) can be shared. The keys: `→`,
+`space`, and `Enter` for next, `←` for back, `i` for the code behind a landmark, `k` and `c` to
+keep or to say what you want instead, `1` to `3` to answer, `?` for help. A landmark's scene and
+micro-world are drawn in sandboxed frames from `/tour-scene/<key>/<landmark>/scene|micro`.
+
+Where the reader is and what they answered is saved to `tours/<headSha>/reader.json` as they go
+(`PUT /api/tours/<n>/reader`), so nothing is lost between visits; the bundle the page opens with
+is `GET /api/tours/<n>`. A decision must be kept or its change approved, and a question answered
+right, before the step after it opens. **Confirm the plan** (`POST /api/tours/<n>/finish`) writes
+the re-implementation prompt to `tours/<headSha>/prompt.md`, records the reader in the tour's
+record (and the author's picks, so a regenerated tour carries them by decision key), and shares
+the record on the pull request once. The quiz result stays on the machine. With `?preview`, the
+page draws `tour-model.json` as the generator has written it and saves nothing; `?landmark=<id>`
+opens on that landmark, which is how `tour preview` takes its screenshots.
+
 ### The guide
 
 `tour.guide`, `docs/pr-tour.md` by default, is the project's committed notes for tours: how to

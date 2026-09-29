@@ -1,32 +1,12 @@
 // @vitest-environment node
 import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
-import type { TourArtifact } from '../contract/tour.js'
 import { createFakeGit, makeTempDir } from '../testing/fakes.js'
-import { BASE_SHA, HEAD_SHA, syntheticArtifact } from '../testing/synthetic.js'
-import { syntheticTourModel } from '../testing/synthetic-tour.js'
+import { HEAD_SHA } from '../testing/synthetic.js'
+import { syntheticTour } from '../testing/synthetic-tour.js'
 import { createTourStore, tourBelongsTo } from './tour-store.js'
 
 const OTHER_SHA = 'c'.repeat(40)
-
-export function syntheticTour(over: Partial<TourArtifact> = {}): TourArtifact {
-  return {
-    version: 1,
-    pr: syntheticArtifact().pr,
-    repo: { owner: 'acme', name: 'widgets' },
-    headSha: HEAD_SHA,
-    mergeBaseSha: BASE_SHA,
-    blastRadius: ['schema'],
-    budget: { landmarks: 4, decisions: 2, quiz: 2 },
-    guide: null,
-    ...syntheticTourModel(),
-    generatedAt: '2026-09-10T12:00:00.000Z',
-    generator: { agent: 'claude', harness: 'claude-code', attempts: 1 },
-    source: 'local',
-    record: { touredBy: [] },
-    ...over,
-  }
-}
 
 let dir: string
 beforeEach(async () => {

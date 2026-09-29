@@ -3,6 +3,7 @@ import type { HtmlEscapedString } from 'hono/utils/html'
 import type { ErrorEnvelope, HomeData, ReviewBootstrap } from '../contract/api.js'
 import { keyLabel, keyToString, type LocalKey } from '../contract/review-key.js'
 import type { Appearance } from '../contract/settings.js'
+import type { TourBootstrap } from '../contract/tour-api.js'
 import { type Host, publicHost } from '../host/host.js'
 
 type Html = HtmlEscapedString | Promise<HtmlEscapedString>
@@ -50,9 +51,13 @@ export interface PageOptions {
 
 export function pageShell(opts: PageOptions): Html {
   const entry = opts.entry ?? '/static/js/app.js'
-  const preload = Object.entries(IMPORT_MAP.imports)
-    .filter(([name]) => !LAZY_IMPORTS.includes(name))
-    .map(([, href]) => href)
+  // The vendored libraries are the review app's; a page with its own module preloads none.
+  const preload =
+    opts.entry === undefined
+      ? Object.entries(IMPORT_MAP.imports)
+          .filter(([name]) => !LAZY_IMPORTS.includes(name))
+          .map(([, href]) => href)
+      : []
   return html`<!doctype html>
 <html lang="en" data-skin="${opts.appearance.skin}" data-theme="${opts.appearance.theme}">
 <head>
@@ -111,6 +116,27 @@ export function reviewPage(
   })
 }
 
+/** The tour page: its module boots from the bootstrap and fetches the bundle. */
+export function tourPage(
+  page: Omit<TourBootstrap, 'host'> & { host: Host },
+  nonce: string,
+  appearance: Appearance
+): Html {
+  const bootstrap: TourBootstrap = { ...page, host: publicHost(page.host) }
+  const key = keyToString(page.key)
+  const what = typeof page.key === 'number' ? `${page.host.nounShort} #${key}` : keyLabel(page.key)
+  return pageShell({
+    title: `Tour · ${what} · ${page.owner}/${page.repo}`,
+    bootstrap,
+    nonce,
+    appearance,
+    app: true,
+    entry: '/static/js/tour/tour.js',
+    body: html`<a class="skip" href="#main">Skip to content</a>
+<pr-tour class="page tour-page" data-pr="${key}"><div class="loading">Loading the tour of ${what}…</div></pr-tour>`,
+  })
+}
+
 export function homePage(
   data: HomeData & {
     owner: string
@@ -120,6 +146,8 @@ export function homePage(
     host: Host
     /** The local reviews prepared here, so the home page can link straight to them. */
     localReviews: readonly LocalKey[]
+    /** The local reviews with a tour. */
+    localTours: readonly LocalKey[]
   },
   nonce: string,
   appearance: Appearance
@@ -151,7 +179,7 @@ export function homePage(
         ? html`<p class="muted">Nothing reviewed here yet. Run <code>/pr-review-canvas branch</code> to read the current branch against the default one, or <code>/pr-review-canvas uncommitted</code> to read it with your working-tree edits on top, before opening a ${noun}.</p>`
         : html`<ul class="plain">${data.localReviews.map(
             key =>
-              html`<li><a href="/review/${key}">${keyLabel(key)}</a> <span class="muted">/review/${key}</span></li>`
+              html`<li><a href="/review/${key}">${keyLabel(key)}</a> <span class="muted">/review/${key}</span>${data.localTours.includes(key) ? html` · <a href="/tour/${key}">tour</a>` : ''}</li>`
           )}</ul>`
     }</div></section>
 <section class="panel"><div class="panel-h"><h2>Recent</h2></div>
@@ -160,10 +188,12 @@ ${
     ? html`<div class="body muted">No ${noun}s opened yet.</div>`
     : html`<ul class="plain body">${data.recentPrs.map(
         p =>
-          html`<li><a href="/review/${String(p.number)}"><span class="mono num">#${String(p.number)}</span> ${p.title}</a>${p.hasCanvas === false ? html` <span class="muted">no canvas yet</span>` : ''}</li>`
+          html`<li><a href="/review/${String(p.number)}"><span class="mono num">#${String(p.number)}</span> ${p.title}</a>${p.hasCanvas === false ? html` <span class="muted">no canvas yet</span>` : ''}${p.hasTour === true ? html` · <a href="/tour/${String(p.number)}">tour</a>` : ''}</li>`
       )}</ul>`
 }
 </section>
+<section class="panel"><div class="panel-h"><h2>The tour</h2></div>
+<div class="body"><p class="muted">The recommended pass before a review: run <code>/pr-tour &lt;number&gt;</code> in your agent, then open <code>/tour/&lt;number&gt;</code> to read the change as landmarks, keep or change its decisions, and take the quiz.</p></div></section>
 </main>
 <footer><span>pr-review ${data.version}</span><span>local review app · ${label} operations and AI requests contact their services</span></footer>
 </div>`,
