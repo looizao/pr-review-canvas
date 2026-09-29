@@ -76,7 +76,7 @@ const COMMANDS: CommandHelp[] = [
   },
   {
     name: 'install-skill',
-    summary: 'Copy the skill into Claude Code and Codex.',
+    summary: 'Copy the bundled skills into Claude Code and Codex.',
     flags: [
       { form: '--claude-dir <dir>', detail: `default ${CLAUDE_SKILLS_DIR}` },
       { form: '--codex-dir <dir>', detail: `default ${CODEX_SKILLS_DIR}` },

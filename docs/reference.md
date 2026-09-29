@@ -233,16 +233,20 @@ Relative custom paths resolve from the command's working directory. For example:
 pr-review install-skill --codex-dir ~/.codex/skills
 ```
 
-Installation copies the bundled skill on every platform. The copies and their `.pr-review-install`
-marker files can be committed to Git. Re-running the command refreshes managed copies and replaces
-legacy symlinks. An unmanaged directory requires `--force` to replace it.
+Installation copies every bundled skill on every platform: each directory under the package's
+`skills/` that has a `SKILL.md`, the canvas skill `pr-review-canvas` first, into the same skills
+directories. The copies and their `.pr-review-install` marker files can be committed to Git.
+Re-running the command refreshes managed copies and replaces legacy symlinks. An unmanaged
+directory requires `--force` to replace it.
 
 Each installed `SKILL.md` records `metadata.body-sha256` in its YAML frontmatter. The SHA-256 hash
 covers the body after the closing frontmatter delimiter, with CRLF normalized to LF. `doctor`
-compares the recorded hash and actual body against the skill bundled with the running CLI. Any
-outdated or modified copy in `.claude/skills` or `.agents/skills` fails the skill check, even if the
-other copy is current. Refresh copies with `pr-review upgrade` or `pr-review install-skill` (repeat
-any custom directory flags used during installation). Automatic discovery checks the two default directories.
+compares the recorded hash and actual body against the skill bundled with the running CLI, and the
+files a skill ships beside its `SKILL.md` against the bundled ones. Any outdated or modified copy
+in `.claude/skills` or `.agents/skills` fails the skill check, even if the other copy is current;
+so does a bundled skill missing from a directory that has the canvas skill. Refresh copies with
+`pr-review upgrade` or `pr-review install-skill` (repeat any custom directory flags used during
+installation). Automatic discovery checks the two default directories.
 
 `serve` runs this skill check automatically and prints failures with a repair hint to stderr.
 Warnings do not prevent the server from starting. Use `doctor --all-checks` for full diagnostics.
@@ -257,14 +261,14 @@ pr-review upgrade [--yes] [--only package,acpx,skill] [--repo <dir>]
 
 `upgrade` checks three things, prints a plan to stderr, and asks `Proceed? [y/N]`:
 
-| What              | When it changes                                                             | How                                                        |
-| ----------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| pr-review         | npm has a newer version, and this copy is the global npm install            | `npm install -g @vintasoftware/pr-review-canvas@<version>` |
-| acpx              | npm has a newer version, and the acpx on PATH is the global npm install     | `npm install -g acpx@<version>`                            |
-| The project skill | A copy in `.claude/skills` or `.agents/skills` differs from the bundled one | The same copy `install-skill` makes                        |
+| What               | When it changes                                                                                                                    | How                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| pr-review          | npm has a newer version, and this copy is the global npm install                                                                   | `npm install -g @vintasoftware/pr-review-canvas@<version>` |
+| acpx               | npm has a newer version, and the acpx on PATH is the global npm install                                                            | `npm install -g acpx@<version>`                            |
+| The project skills | A copy in `.claude/skills` or `.agents/skills` differs from the bundled one, or a bundled skill is missing beside the canvas skill | The same copies `install-skill` makes                      |
 
 When pr-review itself upgrades, the skill step covers every copy, since the new version may ship
-a new skill. After installing, it runs the new version as `pr-review upgrade --yes --only <kinds>`
+a new skill, or a new one beside it. After installing, it runs the new version as `pr-review upgrade --yes --only <kinds>`
 with the confirmed steps, so the new version copies its own skill and takes only the steps the plan
 showed. If the install fails, the current version runs the remaining steps itself.
 

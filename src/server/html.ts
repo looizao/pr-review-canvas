@@ -40,6 +40,8 @@ export interface PageOptions {
   body: Html
   /** Load the app module. Off for the plain pages (home, error). */
   app: boolean
+  /** The module the page boots from, when it is not the review app. */
+  entry?: string
   /** The nonce of this response's Content-Security-Policy; the inline scripts carry it. */
   nonce: string
   /** How this page is painted, from the settings file or this request's `?skin` and `?theme`. */
@@ -47,6 +49,7 @@ export interface PageOptions {
 }
 
 export function pageShell(opts: PageOptions): Html {
+  const entry = opts.entry ?? '/static/js/app.js'
   const preload = Object.entries(IMPORT_MAP.imports)
     .filter(([name]) => !LAZY_IMPORTS.includes(name))
     .map(([, href]) => href)
@@ -60,14 +63,32 @@ export function pageShell(opts: PageOptions): Html {
 <link rel="stylesheet" href="/static/styles.css">
 <script type="importmap" nonce="${opts.nonce}">${raw(jsonForScript(IMPORT_MAP))}</script>
 ${opts.app ? preload.map(href => html`<link rel="modulepreload" href="${href}">`) : ''}
-${opts.app ? html`<link rel="modulepreload" href="/static/js/app.js">` : ''}
+${opts.app ? html`<link rel="modulepreload" href="${entry}">` : ''}
 <script id="bootstrap" type="application/json" nonce="${opts.nonce}">${raw(jsonForScript(opts.bootstrap))}</script>
 </head>
 <body>
 ${opts.body}
-${opts.app ? html`<script type="module" src="/static/js/app.js"></script>` : ''}
+${opts.app ? html`<script type="module" src="${entry}"></script>` : ''}
 </body>
 </html>`
+}
+
+/**
+ * The page a landmark's scene or micro-world is drawn in. The scene is generated HTML, placed as
+ * written with its icons inlined, after the kit's stylesheet and the scene runtime, both inline so
+ * the frame loads nothing. Its policy (`sceneFramePolicy`) runs its scripts with no origin and no
+ * network. The runtime sizes the frame to `.scene-root` and takes the theme the tour page sends.
+ */
+export function sceneFrame(opts: {
+  scene: string
+  skin: string
+  theme: 'light' | 'dark' | 'auto'
+  kit: string
+  runtime: string
+}): string {
+  return `<!doctype html><html lang="en" data-skin="${opts.skin.replace(/[^\w-]/g, '')}" data-theme="${opts.theme}"><head><meta charset="utf-8"><title>scene</title>
+<style>${opts.kit}</style><script>${opts.runtime}</script></head>
+<body><main class="scene-root"><div class="scene-fit">${opts.scene}</div></main></body></html>`
 }
 
 export function reviewPage(

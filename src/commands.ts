@@ -21,7 +21,7 @@ import {
   CLAUDE_SKILLS_DIR,
   CODEX_SKILLS_DIR,
   ignoreLocalSettings,
-  installSkill,
+  installBundledSkills,
   SkillDirExistsError,
 } from './review/install-skill.js'
 import { artifactToModelOutput } from './review/normalize.js'
@@ -477,7 +477,7 @@ export async function runInstallSkill(env: InstallSkillEnv, argv: string[], io: 
   })
   const resolve = (flag: string | undefined, fallback: string): string =>
     flag === undefined ? path.join(env.repoRoot, fallback) : path.resolve(env.cwd, flag)
-  const result = await installSkill({
+  const result = await installBundledSkills({
     force: values.force === true,
     targets: [
       { kind: 'claude', dir: resolve(values['claude-dir'], CLAUDE_SKILLS_DIR) },
@@ -489,8 +489,10 @@ export async function runInstallSkill(env: InstallSkillEnv, argv: string[], io: 
     printJson(io, result)
     return EXIT.ok
   }
-  io.stdout(`Copied the ${result.skill} skill to:`)
-  for (const target of result.targets) io.stdout(`  ${target.kind.padEnd(6)}  ${target.path}`)
+  for (const skill of [result, ...result.companions]) {
+    io.stdout(`Copied the ${skill.skill} skill to:`)
+    for (const target of skill.targets) io.stdout(`  ${target.kind.padEnd(6)}  ${target.path}`)
+  }
   return EXIT.ok
 }
 

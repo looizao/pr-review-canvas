@@ -31,9 +31,9 @@ pr-review install-skill
 pr-review doctor --all-checks
 ```
 
-`install-skill` installs the generation skill for Claude Code and Codex in
-`.claude/skills/pr-review-canvas` and `.agents/skills/pr-review-canvas`.
-Commit these copies so your team can use them. Restart your coding agent if the skill
+`install-skill` installs every skill the package ships for Claude Code and Codex, each in its
+own directory under `.claude/skills/` and `.agents/skills/`, starting with the generation skill
+`pr-review-canvas`. Commit these copies so your team can use them. Restart your coding agent if the skill
 does not appear. Repeat this setup for each project.
 
 `doctor --all-checks` checks your repository, host CLI login, local storage, installed
