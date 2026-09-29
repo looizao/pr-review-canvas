@@ -26,6 +26,7 @@ export type {
   ChatHistoryResponse,
   ChatThreadsResponse,
   ChatTurn,
+  TourGrillContext,
 } from '../../src/contract/chat.js'
 export type { ReviewKey } from '../../src/contract/review-key.js'
 export type { CanvasSharing, SettleInput, SettleResponse } from '../../src/contract/self-review.js'

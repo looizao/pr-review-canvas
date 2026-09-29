@@ -869,7 +869,20 @@ micro-world are drawn in sandboxed frames from `/tour-scene/<key>/<landmark>/sce
 Where the reader is and what they answered is saved to `tours/<headSha>/reader.json` as they go
 (`PUT /api/tours/<n>/reader`), so nothing is lost between visits; the bundle the page opens with
 is `GET /api/tours/<n>`. A decision must be kept or its change approved, and a question answered
-right, before the step after it opens. **Confirm the plan** (`POST /api/tours/<n>/finish`) writes
+right, before the step after it opens.
+
+A change pick opens the **grilling**: with AI Chat on (`chat.enabled`, acpx installed, and
+`tour.grill` not `off`), the drawer talks to the chat agent in the tour's own thread (`t0`, which
+the canvas's pane never lists), seeded from `prompts/tour-grill.md` with the landmarks and the
+decisions, and read-only like every chat turn (`POST /api/tours/<n>/grill`, its history at
+`GET /api/tours/<n>/grill/history`). The agent asks what it needs, then emits a fenced
+`restatement` block that the page turns into a card: approve settles the decision and puts it in
+the plan, edit lets the reader correct it, reject sends the correction back. With `tour.reverseQuiz`
+on, **Ask how it would do it** has the agent say the steps it would take. On the plan, **Restate
+the plan with the agent** asks for one fenced `plan` block. The reader may speak instead of type
+(`tour.audio`): the browser's Web Speech API turns it into text, the page says once where the
+audio goes, and the reader can turn audio off for themselves. Without chat, the reader writes the
+restatement in the same card. **Confirm the plan** (`POST /api/tours/<n>/finish`) writes
 the re-implementation prompt to `tours/<headSha>/prompt.md`, records the reader in the tour's
 record (and the author's picks, so a regenerated tour carries them by decision key), and shares
 the record on the pull request once. The quiz result stays on the machine. With `?preview`, the
@@ -914,8 +927,8 @@ Under `tour:` in `pr-review.config.yml`; see the [example configuration](../pr-r
 | `tour.models`                  | `{}`              | Per agent id, over `generation.models`                                                                       |
 | `tour.guide`                   | `docs/pr-tour.md` | The committed guide, relative to the repository root                                                         |
 
-The prompt template is `prompts/tour.md`, overridable as `prompts: { tour.md: <path> }` like the
-others. The scene guide the generator reads is `skills/pr-tour/scenes.md`.
+The prompt template is `prompts/tour.md`, and the grilling's seed is `prompts/tour-grill.md`; both
+are overridable as `prompts: { tour.md: <path>, tour-grill.md: <path> }` like the others. The scene guide the generator reads is `skills/pr-tour/scenes.md`.
 
 ## AI Chat
 

@@ -1,4 +1,5 @@
 // The bundle the tour page opens with: the tour for the key, the reader's state, and who is reading.
+import type { ChatStatus } from '../contract/api.js'
 import type { TourBundle, TourPageLandmark, TourPageTour } from '../contract/tour-api.js'
 import { isLocalKey, keyToString, type ReviewKey } from '../contract/review-key.js'
 import type { TourArtifact } from '../contract/tour.js'
@@ -32,6 +33,19 @@ export async function tourReviewer(
   return { login, author: isAuthor(login, pr) }
 }
 
+/** Whether the grilling can run: chat is on for the project and acpx is on the PATH. */
+export async function tourChatStatus(ctx: AppContext): Promise<ChatStatus> {
+  const enabled = ctx.projectConfig.config.chat.enabled
+  if (!enabled) return { enabled: false, acpx: false }
+  const [acpx, settings] = await Promise.all([ctx.preflight.get(), ctx.chat.effectiveSettings()])
+  return {
+    enabled: acpx.installed,
+    acpx: acpx.installed,
+    agent: settings.chatAgent,
+    model: settings.chatModel,
+  }
+}
+
 export async function resolveTourBundle(
   ctx: AppContext,
   loader: PrLoader,
@@ -54,6 +68,7 @@ export async function resolveTourBundle(
       codeView: {},
       returnTo: null,
       audioNoticeSeen: false,
+      audioOff: false,
     },
     reviewer,
     preview: found.preview,
@@ -64,6 +79,7 @@ export async function resolveTourBundle(
       grill: config.grill,
       audio: config.audio,
     },
+    chat: await tourChatStatus(ctx),
     skillCommand: `/pr-tour ${keyToString(key)}`,
     warnings: [...ctx.projectConfig.warnings],
   }

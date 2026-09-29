@@ -3,7 +3,7 @@
 /** @typedef {import('../contract-types.js').TourBundle} TourBundle */
 /** @typedef {import('../contract-types.js').TourReaderState} TourReaderState */
 /** @typedef {import('../contract-types.js').TourFinishResponse} TourFinishResponse */
-import { fetchJson } from '../api.js'
+import { ApiError, fetchJson, readSseFrames } from '../api.js'
 
 /**
  * @param {string} key
@@ -109,4 +109,92 @@ export function createSaver(save, opts = {}) {
       )
     },
   }
+}
+
+/**
+ * @param {string} key
+ * @param {{ fetchImpl?: typeof fetch }} [opts]
+ * @returns {Promise<import('../contract-types.js').ChatHistoryResponse>}
+ */
+export function fetchGrillHistory(key, opts = {}) {
+  return fetchJson(`/api/tours/${encodeURIComponent(key)}/grill/history`, { fetchImpl: opts.fetchImpl })
+}
+
+/**
+ * @param {string} key
+ * @param {{ fetchImpl?: typeof fetch }} [opts]
+ * @returns {Promise<{ cancelled: boolean }>}
+ */
+export function cancelGrill(key, opts = {}) {
+  return fetchJson(`/api/tours/${encodeURIComponent(key)}/grill/cancel`, {
+    method: 'POST',
+    body: {},
+    fetchImpl: opts.fetchImpl,
+  })
+}
+
+/**
+ * Sends one grilling message and calls `onEvent` for every frame until the turn ends. Rejects
+ * with an ApiError when the server refuses the message.
+ * @param {string} key
+ * @param {{ message: string, context: import('../contract-types.js').TourGrillContext }} input
+ * @param {{ onEvent: (event: { event: string, data: unknown }) => void, signal?: AbortSignal, fetchImpl?: typeof fetch }} opts
+ * @returns {Promise<void>}
+ */
+export async function streamGrill(key, input, opts) {
+  const doFetch = opts.fetchImpl ?? fetch
+  /** @type {RequestInit} */
+  const init = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+    body: JSON.stringify(input),
+  }
+  if (opts.signal !== undefined) {
+    init.signal = opts.signal
+  }
+  const res = await doFetch(`/api/tours/${encodeURIComponent(key)}/grill`, init)
+  if (!res.ok) {
+    /** @type {unknown} */
+    let body = null
+    try {
+      body = await res.json()
+    } catch {
+      body = null
+    }
+    throw isEnvelope(body)
+      ? new ApiError(body.error, res.status)
+      : new ApiError({ code: 'INTERNAL', message: `${res.status} ${res.statusText}` }, res.status)
+  }
+  const reader = res.body?.getReader()
+  if (reader === undefined) {
+    return
+  }
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) {
+      break
+    }
+    const read = readSseFrames(buffer, decoder.decode(value, { stream: true }))
+    buffer = read.buffer
+    for (const event of read.events) {
+      opts.onEvent(event)
+    }
+  }
+}
+
+/**
+ * @param {unknown} body
+ * @returns {body is import('../contract-types.js').ErrorEnvelope}
+ */
+function isEnvelope(body) {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'error' in body &&
+    typeof body.error === 'object' &&
+    body.error !== null &&
+    'code' in body.error
+  )
 }

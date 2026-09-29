@@ -3,8 +3,7 @@
 import { z } from 'zod'
 import type { Pr } from './review-artifact.js'
 import type { LocalKey, ReviewKey } from './review-key.js'
-import type { PublicHost } from './api.js'
-import type { CanvasRelation } from './api.js'
+import type { CanvasRelation, ChatStatus, PublicHost } from './api.js'
 import { type Landmark, PICKS, REASON_PLACES, type TourArtifact, type TourRecord } from './tour.js'
 
 /** The reader's approved restatement of a change, what changes, where, and what stays the same. */
@@ -64,6 +63,8 @@ export const TourReaderStateSchema = z.object({
   /** The step a jump came from, so the page can offer the way back. */
   returnTo: z.number().int().nonnegative().nullable().default(null),
   audioNoticeSeen: z.boolean().default(false),
+  /** The reader turned speech off for themselves, whatever the project says. */
+  audioOff: z.boolean().default(false),
   finished: TourFinishedSchema.optional(),
 })
 export type TourReaderState = z.infer<typeof TourReaderStateSchema>
@@ -123,6 +124,8 @@ export interface TourBundle {
   /** Whether finishing shares the record on the pull request. */
   shares: boolean
   options: TourPageOptions
+  /** Whether the grilling can run through AI Chat, and with which agent. */
+  chat: ChatStatus
   skillCommand: string
   warnings: string[]
 }

@@ -9,6 +9,7 @@ import { writeTextAtomic } from '../store/atomic-json.js'
 import { readTourComment } from '../tour/comment.js'
 import { prepareTour } from '../tour/prepare.js'
 import { DEFAULT_PROJECT_CONFIG } from '../project-config.js'
+import { createFakeRunner } from '../testing/fake-runner.js'
 import {
   ghHandler,
   ghPost,
@@ -517,5 +518,92 @@ describe('GET /tour/:n and the home page', () => {
     const after = await (await get('/')).text()
     expect(after).toContain('href="/tour/42"')
     expect(after).toContain('href="/tour/branch"')
+  })
+})
+
+describe('the grilling routes', () => {
+  const CHAT_ON = {
+    config: { ...DEFAULT_PROJECT_CONFIG, chat: { ...DEFAULT_PROJECT_CONFIG.chat, enabled: true } },
+    warnings: [],
+    source: null,
+  }
+  const RESTATEMENT =
+    '```restatement\n{ "what": "Multiply.", "where": ["src/app.ts:4"], "unchanged": "Callers." }\n```'
+
+  async function grill(body: unknown): Promise<Response> {
+    return createApp(t.ctx).request('/api/tours/42/grill', {
+      method: 'POST',
+      headers: { ...WRITE, accept: 'text/event-stream' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('grills in the tour thread with the tour seed, streams the answer, and keeps the transcript', async () => {
+    const runner = createFakeRunner({
+      script: [
+        { type: 'chunk', text: 'Thanks. ' },
+        { type: 'chunk', text: RESTATEMENT },
+        { type: 'done', stopReason: 'end_turn' },
+      ],
+    })
+    t = await context({ projectConfig: CHAT_ON, runner })
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    expect((await json<TourBundle>(await get('/api/tours/42'))).chat).toEqual({
+      enabled: true,
+      acpx: true,
+      agent: 'claude',
+      model: null,
+    })
+    const res = await grill({
+      message: 'I want to change this',
+      context: { kind: 'tour-decision', key: 'sum-over-product' },
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+    const body = await res.text()
+    expect(body).toContain('event: turn')
+    expect(body).toContain('"thread":"pr-review-acme-widgets-42-claude-t0"')
+    expect(body).toContain('Multiply.')
+    expect(body).toContain('event: done')
+    const prompt = runner.runs[0]?.prompt ?? ''
+    expect(prompt).toContain('# Grilling a change with the reader of a tour')
+    expect(prompt).toContain('## Context: decision `sum-over-product` — Sum over product?')
+    expect(prompt).toContain('## Question\n\nI want to change this')
+    const history = await json<{ name: string; turns: Array<{ role: string; text: string }> }>(
+      await get('/api/tours/42/grill/history')
+    )
+    expect(history.name).toBe('pr-review-acme-widgets-42-claude-t0')
+    expect(history.turns.map(turn => turn.role)).toEqual(['user', 'assistant'])
+    expect(history.turns[1]?.text).toContain(RESTATEMENT)
+    expect(await json<{ cancelled: boolean }>(await send('/api/tours/42/grill/cancel', 'POST', {}))).toEqual({
+      cancelled: false,
+    })
+  })
+
+  it('refuses without chat, without a tour, with a canvas context, and answers an unknown decision as a refusal', async () => {
+    t = await context({
+      projectConfig: {
+        config: { ...DEFAULT_PROJECT_CONFIG, chat: { ...DEFAULT_PROJECT_CONFIG.chat, enabled: false } },
+        warnings: [],
+        source: null,
+      },
+    })
+    expect((await grill({ message: 'x', context: { kind: 'tour-plan' } })).status).toBe(404)
+    expect((await get('/api/tours/42/grill/history')).status).toBe(404)
+    expect((await send('/api/tours/42/grill/cancel', 'POST', {})).status).toBe(404)
+    await t.cleanup()
+    t = await context({ projectConfig: CHAT_ON })
+    const missing = await grill({ message: 'x', context: { kind: 'tour-plan' } })
+    expect(missing.status).toBe(404)
+    expect((await json<ErrorEnvelope>(missing)).error.code).toBe('CANVAS_NOT_FOUND')
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    expect((await grill({ message: 'x', context: { kind: 'pr' } })).status).toBe(400)
+    const unknown = await grill({ message: 'x', context: { kind: 'tour-decision', key: 'nope' } })
+    expect(unknown.status).toBe(400)
+    expect((await json<ErrorEnvelope>(unknown)).error.message).toBe('this tour has no decision nope')
+    expect(await json<{ name: string; turns: unknown[] }>(await get('/api/tours/42/grill/history'))).toEqual({
+      name: 'pr-review-acme-widgets-42-claude-t0',
+      turns: [],
+    })
   })
 })

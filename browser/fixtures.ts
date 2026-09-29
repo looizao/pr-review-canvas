@@ -124,6 +124,12 @@ export const test = base.extend<{
           'repos/acme/widgets/issues/comments/6001': share,
         },
       }),
+      // Chat off: the grilling falls back to the form; `tour-grill.spec.ts` covers the agent.
+      projectConfig: {
+        config: { ...DEFAULT_PROJECT_CONFIG, chat: { ...DEFAULT_PROJECT_CONFIG.chat, enabled: false } },
+        warnings: [],
+        source: null,
+      },
     })
     try {
       await server.t.ctx.tours.write(HEAD_SHA, await fixtureTour())

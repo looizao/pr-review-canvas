@@ -26,6 +26,7 @@ export function syntheticTourBundle(over: Partial<TourBundle> = {}): TourBundle 
     preview: false,
     shares: true,
     options: { finalQuiz: 'on', reverseQuiz: 'on', grill: 'change', audio: 'on' },
+    chat: { enabled: false, acpx: false },
     skillCommand: '/pr-tour 42',
     warnings: [],
     ...over,

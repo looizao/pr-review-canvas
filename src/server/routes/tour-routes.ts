@@ -1,5 +1,6 @@
 // The tour's API: the bundle the page opens with, the reader's state between visits, and finishing.
 import { Hono } from 'hono'
+import { TourGrillSendSchema } from '../../contract/chat.js'
 import { TourFinishInputSchema, TourReaderInputSchema } from '../../contract/tour-api.js'
 import { resolveTourBundle, tourReviewer } from '../../tour/bundle.js'
 import { finishTour } from '../../tour/finish.js'
@@ -8,8 +9,11 @@ import { readReaderState, writeReaderState } from '../../tour/reader.js'
 import type { PrLoader } from '../bundle.js'
 import type { AppContext } from '../context.js'
 import { AppError } from '../errors.js'
+import { logRequestError } from '../errors.js'
 import { oneAtATime } from '../one-at-a-time.js'
+import { SSE_HEADERS, sseStream } from '../sse.js'
 import { parseTargetKey } from './api.js'
+import { replayFrom, toChatError } from './chat-routes.js'
 import { readBody } from './review-routes.js'
 
 /** The stored tour the page is on, which must be the one a write names. */
@@ -71,6 +75,85 @@ export function tourRoutes(ctx: AppContext, loader: PrLoader): Hono {
       return finishTour(ctx, { key, headSha: found.headSha, artifact: found.artifact, reader, reviewer })
     })
     return c.json(answer)
+  })
+
+  // The grilling: a change pick talks to the chat agent in the tour's own thread, read-only.
+  const requireChat = (): void => {
+    if (!ctx.projectConfig.config.chat.enabled) {
+      throw new AppError(
+        'NOT_FOUND',
+        'chat is turned off for this repository',
+        404,
+        'set chat.enabled in pr-review.config.yml'
+      )
+    }
+  }
+
+  api.post('/tours/:n/grill', async c => {
+    requireChat()
+    const key = parseTargetKey(c.req.param('n'))
+    const input = await readBody(
+      c.req.raw,
+      TourGrillSendSchema,
+      '{ "message": "…", "context": { "kind": "tour-decision", "key": "…" } }'
+    )
+    const found = await lookupTour(ctx, loader, key)
+    if (found.status === 'missing') {
+      throw new AppError('CANVAS_NOT_FOUND', `no tour of ${String(key)}`, 404, 'generate one with /pr-tour')
+    }
+    const reviewer = await tourReviewer(ctx, key, found.pr)
+    const reader = await readReaderState(ctx, found.headSha, found.artifact, reviewer.author)
+    // The diff of the tour's own commit, so a stale tour is grilled on the code it describes.
+    const derived = await ctx.derived.readOrBuild(found.headSha, found.artifact.mergeBaseSha)
+    if (derived === null) {
+      throw new AppError(
+        'NOT_FOUND',
+        'the diff of this tour is not available locally, so the agent cannot quote it',
+        404,
+        'fetch the head and reload'
+      )
+    }
+    const events = ctx.chat.send(
+      {
+        key,
+        headSha: found.headSha,
+        tour: { artifact: found.artifact, reader },
+        files: derived.files,
+        patches: derived.patches,
+        derivedDir: ctx.derived.derivedDir(found.headSha),
+        readLines: (side, filePath, from, to) =>
+          ctx.derived.readLines(found.headSha, side, filePath, from, to),
+      },
+      { message: input.message, context: input.context }
+    )
+    const iterator = events[Symbol.asyncIterator]()
+    let first
+    try {
+      first = await iterator.next()
+    } catch (err) {
+      throw toChatError(err)
+    }
+    return new Response(
+      sseStream(
+        replayFrom(first, iterator),
+        undefined,
+        () => {
+          void ctx.chat.cancel(key)
+        },
+        err => logRequestError(ctx.log, c.req, err)
+      ),
+      { headers: SSE_HEADERS }
+    )
+  })
+
+  api.get('/tours/:n/grill/history', async c => {
+    requireChat()
+    return c.json(await ctx.chat.tourHistory(parseTargetKey(c.req.param('n'))))
+  })
+
+  api.post('/tours/:n/grill/cancel', async c => {
+    requireChat()
+    return c.json({ cancelled: await ctx.chat.cancel(parseTargetKey(c.req.param('n'))) })
   })
 
   return api

@@ -441,7 +441,11 @@ export function planHtml(bundle) {
        <div class="tour-prompt"><div class="tour-actions"><button class="tour-btn" type="button" data-act="copy">copy</button></div><pre id="prompt">${esc(finished.prompt)}</pre></div>`
     : bundle.preview
       ? '<div class="tour-actions"><span class="tour-hint">A preview is not finished: publish the tour first.</span></div>'
-      : `<div class="tour-actions"><button class="tour-btn accent" type="button" data-act="confirm">Confirm the plan</button><span class="tour-hint">writes the prompt${bundle.shares ? ', shares the record' : ''}</span></div>`
+      : `<div class="tour-actions"><button class="tour-btn accent" type="button" data-act="confirm">Confirm the plan</button><span class="tour-hint">writes the prompt${bundle.shares ? ', shares the record' : ''}</span>${
+          bundle.chat.enabled && bundle.options.grill !== 'off'
+            ? '<button class="tour-btn quiet" type="button" data-act="grill-plan">Restate the plan with the agent</button>'
+            : ''
+        }</div>`
   return `
     <p class="tour-eyebrow"><span class="tour-stage-tag">The plan</span></p>
     <h2 class="tour-title">${esc(title)}</h2>

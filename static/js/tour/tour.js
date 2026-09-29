@@ -17,7 +17,7 @@ import { isTypingTarget } from '../keyboard.js'
 import { applySkin, DEFAULT_SKIN, readSkin, skinLabel } from '../skin.js'
 import { applyTheme, nextTheme, readTheme, themeLabel } from '../theme.js'
 import { listenToFrames, mountFrames, tellFramesTheme } from './frames.js'
-import { GRILL_DIALOG_ID, grillHtml, readRestatement } from './grill.js'
+import { createGrill, GRILL_DIALOG_ID } from './grill.js'
 import {
   coverHtml,
   decisionHtml,
@@ -98,6 +98,8 @@ export class PrTourElement extends HTMLElement {
   frames = null
   /** @type {ReturnType<typeof setTimeout> | null} */
   poll = null
+  /** @type {ReturnType<typeof createGrill> | null} */
+  grill = null
   /** @type {(() => void) | null} */
   unwire = null
 
@@ -108,6 +110,8 @@ export class PrTourElement extends HTMLElement {
 
   disconnectedCallback() {
     this.stopPolling()
+    this.grill?.stop()
+    this.grill = null
     this.frames?.stop()
     this.frames = null
     this.unwire?.()
@@ -144,6 +148,8 @@ export class PrTourElement extends HTMLElement {
     const boot = /** @type {TourBootstrap} */ (this.bootstrap)
     this.stopPolling()
     this.frames?.stop()
+    this.grill?.stop()
+    this.grill = null
     this.unwire?.()
     this.bundle = bundle
     const now = new Date()
@@ -178,6 +184,20 @@ export class PrTourElement extends HTMLElement {
       '<dialog class="tour-help" id="help-dialog" aria-label="Tour help"></dialog>' +
       footerHtml(boot.version)
     this.frames = listenToFrames(this, { preview: bundle.preview })
+    this.grill = createGrill({
+      dialog: /** @type {HTMLDialogElement} */ (qs(`#${GRILL_DIALOG_ID}`, this)),
+      key: this.key,
+      bundle,
+      onApprove: (decision, restatement) => {
+        this.updatePick(decision, pick => {
+          pick.pick = 'change'
+          pick.approved = true
+          pick.restatement = restatement
+        })
+        toast(this, 'change approved · in the plan')
+      },
+      onReader: () => this.save(),
+    })
     this.wireCommands()
     this.wireEvents()
     const first = this.firstStep(boot)
@@ -298,22 +318,12 @@ export class PrTourElement extends HTMLElement {
 
   /** @param {Decision} d */
   openGrill(d) {
-    const dialog = /** @type {HTMLDialogElement} */ (qs(`#${GRILL_DIALOG_ID}`, this))
     const bundle = /** @type {TourBundle} */ (this.bundle)
     this.updatePick(d, pick => {
       pick.pick = 'change'
       pick.approved = false
     })
-    dialog.innerHTML = grillHtml(d, bundle.reader.picks[d.key]?.restatement)
-    dialog.showModal()
-    dialog.querySelector('textarea')?.focus()
-  }
-
-  closeGrill() {
-    const dialog = /** @type {HTMLDialogElement} */ (qs(`#${GRILL_DIALOG_ID}`, this))
-    if (dialog.open) {
-      dialog.close()
-    }
+    void this.grill?.open(d, bundle.reader.picks[d.key]?.restatement)
   }
 
   openHelp() {
@@ -426,8 +436,8 @@ export class PrTourElement extends HTMLElement {
         this.openHelp()
       } else if (act === 'close-help') {
         ;/** @type {HTMLDialogElement} */ (qs('#help-dialog', this)).close()
-      } else if (act === 'close-grill') {
-        this.closeGrill()
+      } else if (act === 'grill-plan') {
+        void this.grill?.openPlan()
       } else if (act === 'code' && step?.kind === 'landmark') {
         bundle.reader.codeOpen[step.landmark.id] = bundle.reader.codeOpen[step.landmark.id] !== true
         this.save()
@@ -505,26 +515,6 @@ export class PrTourElement extends HTMLElement {
         this.save()
       }
     }
-    /** @param {Event} e */
-    const onSubmit = e => {
-      const form = e.target
-      if (!(form instanceof HTMLFormElement) || form.dataset['act'] !== 'restate') {
-        return
-      }
-      e.preventDefault()
-      const decision = this.decisionStep()?.decision ?? null
-      const restatement = readRestatement(form)
-      if (decision === null || restatement === null) {
-        return
-      }
-      this.updatePick(decision, pick => {
-        pick.pick = 'change'
-        pick.approved = true
-        pick.restatement = restatement
-      })
-      this.closeGrill()
-      toast(this, 'change approved · in the plan')
-    }
     /** @param {KeyboardEvent} e */
     const onKeydown = e => {
       if (e.key === 'Escape' || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) {
@@ -569,14 +559,12 @@ export class PrTourElement extends HTMLElement {
     this.addEventListener('click', onClick)
     this.addEventListener('input', onInput)
     this.addEventListener('change', onChange)
-    this.addEventListener('submit', onSubmit)
     document.addEventListener('keydown', onKeydown)
     window.addEventListener('popstate', onPopstate)
     this.unwire = () => {
       this.removeEventListener('click', onClick)
       this.removeEventListener('input', onInput)
       this.removeEventListener('change', onChange)
-      this.removeEventListener('submit', onSubmit)
       document.removeEventListener('keydown', onKeydown)
       window.removeEventListener('popstate', onPopstate)
     }

@@ -33,6 +33,9 @@ function fakeServer(bundle, opts = {}) {
       if (opts.fail) {
         return json({ error: { code: 'PR_NOT_FOUND', message: 'no such pull request', hint: 'check' } }, 404)
       }
+      if (url.endsWith('/grill/history')) {
+        return json({ name: 't0', turns: [] })
+      }
       if (url.startsWith('/api/tours/') && method === 'GET') {
         return json(typeof bundle === 'function' ? bundle() : bundle)
       }
@@ -56,6 +59,13 @@ function fakeServer(bundle, opts = {}) {
       }
       if (url === '/api/appearance') {
         return json(JSON.parse(String(init?.body)))
+      }
+      if (url.endsWith('/grill') && method === 'POST') {
+        const frames =
+          'event: turn\ndata: {"thread":"t0","agent":"claude","seeded":true}\n\n' +
+          'event: chunk\ndata: {"text":"```plan\\n{ \\"changes\\": [], \\"kept\\": [\\"sum-over-product\\"] }\\n```"}\n\n' +
+          'event: done\ndata: {"stopReason":"end_turn"}\n\n'
+        return new Response(frames, { status: 200, headers: { 'content-type': 'text/event-stream' } })
       }
       return json({ error: { code: 'NOT_FOUND', message: url } }, 404)
     }
@@ -527,6 +537,32 @@ describe('the tour page', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('.toast')?.textContent).toContain('clipboard is not available')
     )
+  })
+
+  it('offers the agent on the plan when chat is on, and shows its plan card', async () => {
+    const bundle = syntheticTourBundle({
+      chat: { enabled: true, acpx: true, agent: 'claude', model: null },
+      reader: {
+        ...freshReaderState(),
+        step: 7,
+        picks: { 'sum-over-product': { pick: 'keep', approved: true } },
+        quiz: { 'q-run': { answered: 1, right: true } },
+      },
+    })
+    const server = fakeServer(bundle)
+    vi.stubGlobal('fetch', server.impl)
+    mount()
+    await drawn('[data-act="grill-plan"]')
+    click('[data-act="grill-plan"]')
+    const dialog = document.querySelector('#tour-grill')
+    if (!(dialog instanceof HTMLDialogElement)) {
+      throw new Error('no dialog')
+    }
+    await vi.waitFor(() => expect(dialog.querySelector('.tour-plan-card')).not.toBeNull())
+    expect(dialog.querySelector('.tour-plan-card')?.textContent).toContain('Sum over product?')
+    expect(server.calls).toContain('POST /api/tours/42/grill')
+    click('[data-act="close-grill"]')
+    expect(dialog.open).toBe(false)
   })
 
   it('shows a network failure and an error without a hint', async () => {
