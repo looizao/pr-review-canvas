@@ -191,6 +191,39 @@
 .tour-code[hidden] {
   display: none;
 }
+/* Two views of the same chunks: a literate diff in reading order, or the raw diff. */
+.tour-code-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin: 0 0 4px;
+}
+.tour-code-tab {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.tour-code-tab[aria-selected='true'] {
+  border-color: var(--mood-accent);
+  background: var(--mood-accent-bg);
+  color: var(--fg);
+  font-weight: 600;
+}
+.tour-literate p {
+  margin: 14px 0 6px;
+  max-width: 62ch;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.tour-literate .tour-code-file {
+  margin-top: 6px;
+}
 .tour-code-file {
   font-family: var(--mono);
   font-size: 12px;
@@ -294,6 +327,7 @@
 .tour-cover-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px 16px;
   font-size: 13px;
   color: var(--fg-muted);

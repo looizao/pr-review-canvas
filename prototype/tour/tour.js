@@ -10,8 +10,11 @@ const rail = document.getElementById('rail')
 const nav = document.getElementById('nav')
 const chat = /** @type {HTMLDialogElement} */ (document.getElementById('chat'))
 const helpDialog = /** @type {HTMLDialogElement} */ (document.getElementById('help-dialog'))
-app.dataset.mood = tour.mood
+// The mood catalog. A tour picks one; `?mood=` overrides it so every mood can be tried on any tour.
+const MOODS = ['terminal', 'blueprint', 'paper', 'grid']
+app.dataset.mood = MOODS.includes(params.get('mood')) ? params.get('mood') : tour.mood
 document.title = `Tour · #${tour.key} ${tour.title}`
+const hostName = /gitlab/.test(tour.url) ? 'GitLab' : 'GitHub'
 
 const steps = [
   { kind: 'cover' },
@@ -34,6 +37,7 @@ const PLACE_LABEL = { code: 'code comment', pr: 'PR comment', tour: 'tour only' 
 const storeKey = `tour-proto-${tour.key}`
 const state = load()
 state.notes ??= {}
+state.codeView ??= {}
 function load() {
   try {
     const raw = sessionStorage.getItem(storeKey)
@@ -50,6 +54,7 @@ function load() {
     planConfirmed: false,
     returnTo: null,
     codeOpen: {},
+    codeView: {},
     notes: {},
   }
 }
@@ -190,11 +195,15 @@ function renderCover() {
     3,
     Math.round(tour.landmarks.length * 1.2 + tour.decisions.length * 0.8 + tour.quiz.length * 0.4)
   )
-  const others = ['67', '68'].filter(k => k !== String(tour.key))
+  const spec = tour.spec
+    ? tour.spec.url
+      ? `<span>spec: <a href="${esc(tour.spec.url)}" target="_blank" rel="noopener">${esc(tour.spec.title)}</a></span>`
+      : `<span>spec: ${esc(tour.spec.title)}</span>`
+    : '<span>no spec on file</span>'
   stage.innerHTML = `
-    <p class="tour-eyebrow"><span class="tour-stage-tag">Tour</span><span>#${tour.key} · ${esc(tour.repo)}</span></p>
+    <p class="tour-eyebrow"><span class="tour-stage-tag">Tour</span><span><a href="${esc(tour.url)}" target="_blank" rel="noopener">#${tour.key}</a> · ${esc(tour.repo)}</span></p>
     <h1 class="tour-title">${esc(tour.title)}</h1>
-    <p class="tour-cover-meta"><span>by ${esc(tour.author)}</span><span class="mono">${esc(tour.head)} → main</span><span><span class="ok">+${tour.changed.added}</span> <span class="bad">−${tour.changed.removed}</span> in ${tour.changed.files} files</span>${tour.spec ? `<span>spec: ${esc(tour.spec.title)}</span>` : '<span>no spec on file</span>'}</p>
+    <p class="tour-cover-meta"><span>by ${esc(tour.author)}</span><span class="mono">${esc(tour.head)} → main</span><span><span class="ok">+${tour.changed.added}</span> <span class="bad">−${tour.changed.removed}</span> in ${tour.changed.files} files</span>${spec}<span><a href="${esc(tour.url)}" target="_blank" rel="noopener">pull request on ${hostName}</a></span></p>
     <p class="tour-lead">${esc(tour.landmarks[0].lead)}</p>
     <div class="tour-budget">
       <div><b>${tour.landmarks.length}</b><span>landmarks</span></div>
@@ -205,8 +214,7 @@ function renderCover() {
     <div class="tour-cover-actions">
       <button class="tour-btn accent" type="button" data-nav="next">Start the tour</button>
       <span class="tour-hint"><kbd>→</kbd> next · <kbd>←</kbd> back · <kbd>i</kbd> code · <kbd>?</kbd> help</span>
-    </div>
-    <p class="tour-hint" style="margin-top:28px">Mood: ${esc(tour.mood)} · shared on the pull request · other tours: ${others.map(k => `<a href="?pr=${k}">#${k}</a>`).join(' ')} · <a href="#" data-act="reset">reset this tour</a></p>`
+    </div>`
 }
 
 function returnBanner() {
@@ -228,6 +236,8 @@ function renderLandmark(landmark) {
   const n = tour.landmarks.indexOf(landmark) + 1
   const decisionsHere = tour.decisions.filter(d => d.landmark === landmark.id)
   const codeOpen = state.codeOpen[landmark.id] === true
+  const hasLiterate = Boolean(landmark.literate?.length)
+  const codeView = hasLiterate ? (state.codeView[landmark.id] ?? 'literate') : 'raw'
   const note = state.notes[landmark.id] ?? ''
   stage.innerHTML = `
     ${returnBanner()}
@@ -242,11 +252,32 @@ function renderLandmark(landmark) {
     ${
       landmark.code?.length
         ? `<div class="tour-actions"><button class="tour-btn quiet" type="button" data-act="code">${codeOpen ? 'hide code' : 'code behind this landmark'} <kbd>i</kbd></button></div>
-           <div class="tour-code" ${codeOpen ? '' : 'hidden'}>${landmark.code.map(renderChunk).join('')}</div>`
+           <div class="tour-code" ${codeOpen ? '' : 'hidden'}>
+             ${
+               hasLiterate
+                 ? `<div class="tour-code-tabs" role="tablist">
+                      <button class="tour-code-tab" type="button" role="tab" aria-selected="${codeView === 'literate'}" data-act="code-view" data-view="literate">literate diff</button>
+                      <button class="tour-code-tab" type="button" role="tab" aria-selected="${codeView === 'raw'}" data-act="code-view" data-view="raw">raw diff</button>
+                      <span class="tour-hint">${codeView === 'literate' ? 'the change in reading order, with the lines that matter' : `${plural(landmark.code.length, 'chunk')} as the diff has them`}</span>
+                    </div>`
+                 : ''
+             }
+             ${codeView === 'literate' ? renderLiterate(landmark) : landmark.code.map(renderChunk).join('')}
+           </div>`
         : ''
     }`
   mount(landmark.scene, `scene-${landmark.id}`)
   mount(landmark.micro, `micro-${landmark.id}`)
+}
+/** A literate diff: prose in reading order, with the chunks it explains embedded where they belong. */
+function renderLiterate(landmark) {
+  return `<div class="tour-literate">${landmark.literate
+    .map(block => {
+      if (typeof block === 'string') return `<p>${inline(block)}</p>`
+      const chunk = block.chunk === undefined ? block : landmark.code[block.chunk]
+      return chunk ? renderChunk(chunk) : ''
+    })
+    .join('')}</div>`
 }
 function mount(scene, id) {
   if (!scene) return
@@ -567,12 +598,12 @@ document.addEventListener('click', e => {
     go(Number(t.dataset.i))
     return
   }
-  if (act === 'reset') {
-    e.preventDefault()
-    sessionStorage.removeItem(storeKey)
-    location.reload()
-  } else if (act === 'code' && step.kind === 'landmark') {
+  if (act === 'code' && step.kind === 'landmark') {
     state.codeOpen[step.landmark.id] = !state.codeOpen[step.landmark.id]
+    save()
+    render()
+  } else if (act === 'code-view' && step.kind === 'landmark') {
+    state.codeView[step.landmark.id] = t.dataset.view
     save()
     render()
   } else if (act === 'landmark') {
@@ -788,6 +819,21 @@ document.getElementById('theme-toggle').addEventListener('click', e => {
   const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]
   document.documentElement.dataset.theme = next
   ;/** @type {HTMLElement} */ (e.currentTarget).textContent = next
+})
+// Prototype controls: try every mood on this tour, and start the tour over.
+const moodToggle = document.getElementById('mood-toggle')
+moodToggle.textContent = app.dataset.mood
+moodToggle.addEventListener('click', () => {
+  const next = MOODS[(MOODS.indexOf(app.dataset.mood) + 1) % MOODS.length]
+  app.dataset.mood = next
+  moodToggle.textContent = next
+  const url = new URL(location.href)
+  url.searchParams.set('mood', next)
+  history.replaceState(null, '', url)
+})
+document.getElementById('reset').addEventListener('click', () => {
+  sessionStorage.removeItem(storeKey)
+  location.reload()
 })
 chat.addEventListener('close', () => render())
 

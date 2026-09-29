@@ -28,6 +28,7 @@ export default {
   key: 68,
   title: 'feat: cleaner github skin with clear section and file separation',
   repo: 'vintasoftware/pr-review-canvas',
+  url: 'https://github.com/vintasoftware/pr-review-canvas/pull/68',
   head: '0640fa0',
   author: 'fjsj',
   changed: { files: 24, added: 1375, removed: 162 },
@@ -146,6 +147,13 @@ export default {
    --bad: light-dark(#d1242f, #e5534b);
    --warn: light-dark(#9a6700, #c69026);`,
         },
+      ],
+      literate: [
+        'The change starts at the skin’s root, where two new tokens carry its two ideas. `--fs: 13px` is the denser base text, where the base stylesheet has 14px. `--inset` is how far a section’s box sits in from its card edge, the one distance every box and file card below will use:',
+        { chunk: 0 },
+        'Next to them, two tints name the colors’ jobs, and the comment is the rule the rest of the file follows: purple for where you are and what needs attention, green for tests and done, blue stays a link. The old `--annot-bg` only changes notation:',
+        { chunk: 1 },
+        'The rest of the skin is these tokens applied, section by section, and the next three landmarks walk them. The third part of this change, `lint:css`, is what guarantees a token set here is read somewhere.',
       ],
       decisions: [],
     },
@@ -395,6 +403,15 @@ export default {
 +}`,
         },
       ],
+      literate: [
+        'The bug first, because it explains the shape of everything after it. In the base stylesheet the hairline between files was `.file + .file`. Each card renders as `<pr-file><article class="file">`, so a `.file` never has a `.file` sibling, and the rule matched nothing in either skin. The selector now steps through the wrappers, and the comment records why:',
+        { chunk: 0 },
+        'With the hairline back, the github skin builds its sections. `.lbl.sub` stops being a grey bar and becomes a plain flex title, inset by `--inset`. The block right after it, tests, findings, or conversation, takes the border and the radius. A square before Tests and Attention points is colored by `--sect`, which `:has()` sets from the neighbor that follows:',
+        { chunk: 1 },
+        'Files follow the same idea one level down: the list is inset, each card gets a border and a radius, and the very selector that draws the hairline gives the 12px gap here. The Other changes layer has no `.files` list, so its cards inset themselves and keep a gap under the last one:',
+        { chunk: 2 },
+        'The micro-world on this landmark lets you switch each of these three moves off and on and watch the page height change.',
+      ],
       decisions: ['d3'],
     },
 
@@ -503,6 +520,15 @@ export default {
    text-transform: none;
    letter-spacing: normal;`,
         },
+      ],
+      literate: [
+        'Density is a handful of numbers, set in one place. `.body` gets 12px of padding, the overview summary stays at 14px against the 13px base, the layer header tightens to 8px 12px with a 16px title, and the `Layer n of m` label turns purple:',
+        { chunk: 0 },
+        'The rail is where blue lost a job. Its items tighten from 6px to 4px, and the current item swaps the accent, which is the link blue, for `--tint-attention` and a purple bar. The comment is the reason in one line:',
+        { chunk: 1 },
+        'Green gains one in return: the test pill moves from the accent tint to `--tint-done` and `--ok`, so a test reads as done rather than as a link:',
+        { chunk: 2 },
+        'Read the three hunks together and the legend on this landmark’s scene is the code, one color at a time. Two decisions wait here: purple for the current place, and 13px against readability.',
       ],
       decisions: ['d1', 'd4'],
     },
@@ -658,6 +684,46 @@ export default {
  }`,
         },
       ],
+      literate: [
+        'One selector decides which commands are buttons. The `:is()` list names them by place and by `data-act`: the header toolbar, sign-off, a point’s copy, post, add, and resolve, the ask of a layer or a file, the layer’s last step, and the `reviewed` toggles. The declarations after it are GitHub’s btn-sm: inline-flex, 26px tall, a hairline border, the button background:',
+        { chunk: 0 },
+        'Nested inside that rule, two more decide how a button looks. `::before` draws a glyph by masking `currentcolor` with whatever `--icon` the command set, falling back to a transparent gradient so a command without one draws nothing rather than a solid square. A second nested `:is()` makes copy, the file ask, and the header toggles square and hides their word with `font-size: 0`, keeping it for screen readers:',
+        { chunk: 1 },
+        'Each command names its glyph with `--icon` in one block of one-liners. The theme button reads the theme it is on:',
+        {
+          path: 'static/styles/skin-github.css',
+          lang: 'css',
+          diff: `@@ -146,6 +161,172 @@
++/* Glyphs. */
++[data-skin='github'] .cmd[data-copy] {
++  --icon: var(--i-copy);
++}
++[data-skin='github'] .cmd[data-act='point-post'] {
++  --icon: var(--i-send);
++}
++[data-skin='github'] .cmd[data-act='point-queue'] {
++  --icon: var(--i-plus);
++}
++[data-skin='github'] .cmd[data-act='ask'] {
++  --icon: var(--i-comment);
++}
++[data-skin='github'] :is(.layer-end .cmd, [data-act='point-settle'], [data-act='settle-save']) {
++  --icon: var(--i-check);
++}
++/* The theme button shows the theme it is on. */
++[data-skin='github'] #theme-toggle {
++  --icon: var(--i-auto);
++}
++:root[data-skin='github'][data-theme='light'] #theme-toggle {
++  --icon: var(--i-sun);
++}
++:root[data-skin='github'][data-theme='dark'] #theme-toggle {
++  --icon: var(--i-moon);
++}`,
+        },
+        'Because the word is now invisible on those buttons, the two that are not self-explanatory get a tooltip. `askButtonHtml` grows a `title` option for the file ask, and points.js passes “Copy as Markdown” on the copy button. The words themselves never change, so the terminal skin still reads `[ copy ]` and `[ ask ]`:',
+        { chunk: 2 },
+      ],
       decisions: ['d2'],
     },
 
@@ -789,6 +855,27 @@ export default {
      }
    })`,
         },
+      ],
+      literate: [
+        'The guard is a script and a config, wired into `pnpm check`. The script’s header comment is its spec: three kinds of dead CSS that Stylelint cannot see because the markup is built in JavaScript, and what counts as a use. `SCOPES` pairs each set of stylesheets with the sources that write its markup, and `dynamic` names what a library writes at run time:',
+        { chunk: 0 },
+        'Stylelint covers what the script does not: a custom property read but set in none of the `referenceFiles`, plus unknown values, animations, and custom media. The nulled rules are the ones where oxfmt owns the blank lines or the skin overrides by specificity on purpose:',
+        { chunk: 1 },
+        'Both run under one script, and `check` calls it between `lint` and `format:check`, so a stray class or an unread token fails the same command that fails a type error:',
+        {
+          path: 'package.json',
+          lang: 'json',
+          diff: `@@ -20,9 +20,10 @@
+     "lint": "oxlint --deny-warnings",
+     "lint:fix": "oxlint --fix --deny-warnings",
++    "lint:css": "stylelint \\"static/**/*.css\\" \\"site/**/*.css\\" && node scripts/check-css-usage.mjs",
+     "format": "oxfmt --write",
+     "format:check": "oxfmt --check",
+-    "check": "pnpm lint && pnpm format:check && pnpm typecheck",
++    "check": "pnpm lint && pnpm lint:css && pnpm format:check && pnpm typecheck",`,
+        },
+        'One existing test had to move. The theming probe read the header command’s `::before` for the closing bracket, and `::before` now holds the icon, so it reads `::after`. That is the kind of coupling the scene on this landmark lists: a rule the code depends on, with no check to say so until something breaks:',
+        { chunk: 2 },
       ],
       decisions: [],
     },

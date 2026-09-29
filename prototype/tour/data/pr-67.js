@@ -196,6 +196,7 @@ export default {
   key: 67,
   title: 'Print human-readable output for install-skill, export, import, clean, upgrade, and errors',
   repo: 'vintasoftware/pr-review-canvas',
+  url: 'https://github.com/vintasoftware/pr-review-canvas/pull/67',
   head: '7f7f84e',
   author: 'fjsj',
   changed: { files: 12, added: 314, removed: 63 },
@@ -281,6 +282,13 @@ export default {
 +\`--json\`, or when stdout is a pipe, they print the JSON result instead, so scripts and agents
 +read the same fields as before.`,
         },
+      ],
+      literate: [
+        'Start where a person first meets the rule: the help text. The `OUTPUT` block in help.ts used to promise one JSON line from every command. It now names the three commands that keep that promise and describes the split for the rest, in two sentences a reader can hold:',
+        { chunk: 0 },
+        'The reference says the same thing at more length, in the section on output and exit codes. Its first paragraph narrows the JSON promise to `prepare`, `validate`, and `publish`. The new second paragraph gives the five commands their text form and says exactly when the JSON comes back:',
+        { chunk: 1 },
+        'Everything else in this change is what makes these two paragraphs true. The next landmarks follow the rule from the one function that decides it, to the lines each command prints, to the one command that runs another pr-review.',
       ],
       decisions: [],
     },
@@ -408,6 +416,14 @@ export default {
      return command === undefined ? EXIT.usage : EXIT.ok`,
         },
       ],
+      literate: [
+        'The rule lives in one function. `outputMode` takes the command name, its arguments, and whether stdout is a terminal. It pulls `--json` out of the arguments, so no command has to declare the flag, and answers with a boolean and the arguments that remain. The comment above it is the rule in words; the last line of the body is the rule in code:',
+        { chunk: 0 },
+        'Read the `json` expression from the left. `doctor` is handled first, by name, and gets only the flag. Every other command gets the flag, or a stdout that is not a terminal, or membership in `AGENT_COMMANDS`. The new `json` field on `CliIo` above it is where the answer will live.',
+        '`main` calls it once, before it knows which command will run. The answer goes into `io.json`, the shared io object every command receives. `rest` replaces the old argument list, so a command with strict `parseArgs` never sees `--json` and never has to reject it:',
+        { chunk: 1 },
+        'From here on a command has one question to ask, `io.json`, and never a flag to parse. The two decisions on this landmark are about that shape: whether a pipe should count, and whether one owner is right.',
+      ],
       decisions: ['d1', 'd3'],
     },
 
@@ -521,6 +537,50 @@ Copied the pr-review-canvas skill to:
    return EXIT.ok`,
         },
       ],
+      literate: [
+        'Failures first, because every command shares them. `printErrorEnvelope` gains a text branch at the top: when `io.json` is off it writes the `error:` line and, if there is one, the `hint:` line on stderr, then returns before the envelope is built. The JSON path below it is untouched:',
+        { chunk: 0 },
+        'Then each command gets its sentences. The pattern is the same everywhere: if `io.json`, print the result as before and return; otherwise print lines for a person. `install-skill` is the smallest case, one heading and one line per target:',
+        { chunk: 1 },
+        '`export` and `import` follow the same shape. Export names the zip it wrote. Import prints its warnings on stderr and one line from `describeImport`, a new function that turns the result status into a sentence: the canvas is ready, or stale by so many commits, or was already stored and kept:',
+        {
+          path: 'src/commands.ts',
+          lang: 'ts',
+          diff: `@@ -550,12 +595,37 @@ export async function runImport(ctx: AppContext, argv: string[], io: CliIo): Pro
+-  printJson(io, await importCanvas(ctx, options))
++  const result = await importCanvas(ctx, options)
++  if (io.json) {
++    printJson(io, result)
++    return EXIT.ok
++  }
++  for (const warning of result.warnings) io.stderr(\`warning: \${warning}\`)
++  io.stdout(describeImport(result))
+   return EXIT.ok
+ }
+
++/** One line on what an import did, for a person reading the terminal. */
++export function describeImport(result: ImportResult): string {
++  const canvas = shortSha(result.headSha)
++  if (result.status === 'exists') {
++    return \`A canvas for \${canvas} is already stored and is at least as new; kept it.\`
++  }
++  if (result.status === 'ready') {
++    return \`Imported the canvas for \${canvas}.\`
++  }
++  const head = shortSha(result.currentHeadSha)
++  const behind =
++    result.relation === 'ancestor' && result.commitsBehind !== undefined
++      ? \`, \${plural(result.commitsBehind, 'commit')} ahead of it\`
++      : result.relation === 'unrelated'
++        ? ', which does not contain it'
++        : ''
++  return \`Imported the canvas for \${canvas}, but the head is now \${head}\${behind}. The canvas is stale.\`
++}`,
+        },
+        '`clean` is the longest, because it has three things to say: nothing to remove, what it removed or would remove, and what it left alone because a chat turn still holds it. The JSON branch keeps the exact object it printed before:',
+        { chunk: 2 },
+        'The simulator on this landmark runs a model of exactly these branches, so you can see each sentence and each envelope land on its stream.',
+      ],
       decisions: ['d4'],
     },
 
@@ -606,6 +666,15 @@ Copied the pr-review-canvas skill to:
 +      const child = capture(json)`,
         },
       ],
+      literate: [
+        '`upgrade` is the one command that runs another pr-review, so it has to speak both languages. Two edits in upgrade.ts. First, the handoff line passes `--json` to the newly installed child, right after `--yes`:',
+        { chunk: 0 },
+        'Second, the end of `runUpgrade`. Where it printed the report unconditionally, it now prints it only in JSON mode, and otherwise closes with one line on stderr, where the plan and each step already went:',
+        { chunk: 1 },
+        'The test fake had to learn the rule the real cli.ts applies. It used to hand the child every argument as flags. Now it runs `outputMode` with `stdoutIsTTY` set to false, which is what `execFile` gives a child, and captures the child in the mode that produces:',
+        { chunk: 2 },
+        'That `false` is the whole reason an older parent still works. Even when the parent never passes the flag, the pipe alone makes the child print JSON, and the parent reads its last stdout line as before. The decision here asks whether the explicit flag is worth keeping on top of that.',
+      ],
       decisions: ['d2'],
     },
 
@@ -686,6 +755,15 @@ Copied the pr-review-canvas skill to:
 
  Export prints \`{ "status": "exported", "path", "name", "headSha", "prNumber" }\`; \`prNumber\``,
         },
+      ],
+      literate: [
+        'What must stay true is easiest to see in three small edits. The shared `io` in cli.ts starts with `json: true`, and the comment says who fills it in. Because the field is now part of `CliIo`, a test fake that builds one has to say which mode it is in, which is why three unrelated test files changed:',
+        { chunk: 0 },
+        '`doctor` shows what a command must not do anymore: declare `json` in its own `parseArgs`. Its option is gone, and the branch reads `io.json` like everyone else. Its exception, checklist on a pipe, lives in `outputMode`, not here:',
+        { chunk: 1 },
+        'And the skill, the one reader that parses `export`, now asks for JSON explicitly rather than relying on the pipe. It costs nothing and keeps working if the pipe rule ever changes:',
+        { chunk: 2 },
+        'A new command copies doctor’s branch, never its old option; prints exactly one line in JSON mode, because the upgrade parent reads the last one; fails through `printErrorEnvelope`; and joins `AGENT_COMMANDS` only if the skill parses it.',
       ],
       decisions: [],
     },

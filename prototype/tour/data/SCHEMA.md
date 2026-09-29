@@ -9,6 +9,7 @@ export default {
   key: 67,
   title: 'Print human-readable output for …',           // the PR title
   repo: 'vintasoftware/pr-review-canvas',
+  url: 'https://github.com/vintasoftware/pr-review-canvas/pull/67',   // the pull request; the cover links to it
   head: '7f7f84e',                                        // short sha
   author: 'fjsj',
   changed: { files: 12, added: 314, removed: 63 },
@@ -35,6 +36,12 @@ export default {
                                         // behavior, inputs in, outcomes out. At most ONE landmark has a micro.
       code: [                           // the chunks behind this landmark, shown on demand; 0 to 3
         { path: 'src/cli-text.ts', lang: 'ts', diff: '@@ -1,4 +1,6 @@\n …unified diff text…' },
+      ],
+      literate: [                       // the same change as a literate diff (Litt): prose in reading order,
+        'Start where a person first meets the rule: …',   //   each chunk embedded where the prose reaches it.
+        { chunk: 0 },                   //   a string is a paragraph (inline `code` allowed, ≤ 70 words);
+        'Then …',                       //   { chunk: n } embeds code[n]; { path, lang, diff } embeds a snippet
+        { path: 'src/cli.ts', lang: 'ts', diff: '…' },   //   the raw view does not show. 3 to 6 blocks.
       ],
       decisions: ['d1'],                // ids of decisions anchored here; only on 'why' landmarks (and maybe 'respect')
     },
@@ -93,6 +100,10 @@ Rules for the content:
   landmarks each explain one part and why it is shaped that way (decisions anchor there); the last
   landmark is what a later change must respect: invariants, extension points, pokayoke.
 - Reading all landmarks takes under 8 minutes. Prefer fewer, sharper landmarks.
+- A literate diff walks the landmark's chunks in the order that explains them, not the order of
+  the diff: the rule before its uses, the bug before its fix, the shared path before the cases. Each
+  paragraph says what the next chunk does and why it is shaped that way; the chunk then shows it.
+  The raw view shows the same chunks in diff order, so the two never disagree about the code.
 - Decisions are choices a reasonable engineer could make another way. Both sides have a real
   cost. Most recommendations are `keep`; a `change` recommendation must be argued in `context`.
   Cover at least three categories; include a `pokayoke` decision when the change has one.

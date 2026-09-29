@@ -1,13 +1,16 @@
 # Tour prototype
 
-A scripted, static prototype of the tour described in [docs/tour-design.md](../../docs/tour-design.md).
-Nothing here talks to a server, an agent, or a forge: the chat, the quiz, and the sharing are
-scripted from the data files so the flow and the look can be iterated on before anything is built.
-It is deleted before the design is merged.
+A scripted, static prototype of the tour described in
+[ADR 0005](../../docs/adr/0005-the-tour.md). Nothing here talks to a server, an agent, or a
+forge: the chat, the quiz, and the sharing are scripted from the data files so the flow and the
+look can be iterated on before anything is built. It is deleted before the design is merged.
 
 ```bash
 node prototype/tour/serve.mjs      # then open http://localhost:3011/?pr=67 or ?pr=68
 ```
+
+The header has two prototype-only controls: `mood` cycles the catalog on the current tour (also
+`?mood=terminal|blueprint|paper|grid`), and `reset` forgets picks, answers, and notes.
 
 - `index.html`, `tour.css`, `tour.js`: the page. It loads the app's real stylesheet for tokens,
   the header, and the skins, and adds the tour's own rules and the mood catalog.

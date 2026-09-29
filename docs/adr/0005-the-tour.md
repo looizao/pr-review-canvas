@@ -1,10 +1,14 @@
-# Tour design
+# The tour: a guided pass that builds the reader's theory of a change, apart from the canvas
 
 A **tour** is a guided pass over one change. It builds the reader's theory of the change through
-landmarks that explain, decisions the reader keeps or changes, and a quiz. This document records the
-design settled on 2026-09-28, before any code. The glossary for it is the "Tour" section of
-[CONTEXT.md](../CONTEXT.md). The decision to keep the tour apart from the canvas is
-[ADR 0005](adr/0005-tour-is-its-own-artifact.md).
+landmarks that explain, decisions the reader keeps or changes, and a quiz. A tour and a canvas
+(layers, folds, attention points) are generated from the same diff, but we generate the tour with
+its own skill, store it as its own file per head commit, and share it as its own pull request
+comment. The two meet only through links between their pages. Author and reviewer may use the
+tour, the canvas, or both.
+
+This record holds the design settled on 2026-09-28, before any code. The glossary for it is the
+"Tour" section of [CONTEXT.md](../../CONTEXT.md).
 
 ## Why
 
@@ -28,22 +32,44 @@ The reading behind it:
 - Litt, [Understanding is the new bottleneck](https://www.geoffreylitt.com/2026/07/02/understanding-is-the-new-bottleneck):
   explanations as literate prose arranged by idea with figures, quizzes as speed regulators,
   micro-worlds where agents write code to help us understand code, shared spaces for team models.
+  His [explain-diff skill](https://gist.github.com/geoffreylitt/a29df1b5f9865506e8952488eac3d524)
+  is the same idea as a prompt: background, intuition with toy data and figures, a code
+  walkthrough grouped in an understandable order, five medium questions with feedback, one long
+  page. A "literate diff" is that walkthrough: prose in a sensible order with embedded snippets,
+  faster to review than a raw diff.
 - Litt, [AI HUDs](https://www.geoffreylitt.com/2025/07/27/enough-ai-copilots-we-need-ai-huds) and
   [the generated debugger](https://www.geoffreylitt.com/2024/12/22/making-programming-more-fun-with-an-ai-generated-debugger):
   show rather than converse; a bespoke tool built for the moment turns a slog into puzzles.
 - Litt, [Code like a surgeon](https://www.geoffreylitt.com/2025/10/24/code-like-a-surgeon): agents
   prepare the operating room; the human keeps the primary work with fast feedback loops.
-- Kun Chen: agents cannot judge "how does it feel". Only a human who experiences the thing can.
-- staysaasy: people do not want more decisions. Every decision a tool asks is a cost.
-- Berkopec: pokayoke. Structures that make a class of mistake impossible are what to validate in
-  generated code.
+- [Kun Chen](https://x.com/kunchenguid/status/2094609213532332528): agents cannot judge "how does
+  it feel". Only a human who experiences the thing can.
+- [staysaasy](https://x.com/staysaasy/status/2101692598674993592): people do not want more
+  decisions. Every decision a tool asks is a cost.
+- [Berkopec](https://x.com/nateberkopec/status/2099617912550289763):
+  [pokayoke](https://en.wikipedia.org/wiki/Poka-yoke). Structures that make a class of mistake
+  impossible are what to validate in generated code.
 - [cekrem on Naur](https://cekrem.github.io/posts/programming-as-theory-building-naur/): generated
   code is "nobody's theory"; review for theoretical consistency.
-- The Pragmatic Engineer, September 2026: coding by hand is over at 37signals; "nobody is reading
-  anything"; sloppy features ship because nobody felt them.
-- The Pragmatic Engineer, [What is happening with code reviews?](https://newsletter.pragmaticengineer.com/p/what-is-happening-with-code-reviews):
-  teams triage review by blast radius, review the plan, the tests, and the schema rather than the
-  implementation, and keep human review for accountability, knowledge sharing, and compliance.
+- The Pragmatic Engineer, [The end of coding by hand](https://newsletter.pragmaticengineer.com/p/the-pulse-end-of-coding-by-hand)
+  (September 2026): coding by hand is over at 37signals; "nobody is reading anything"; sloppy
+  features ship because nobody felt them.
+- The Pragmatic Engineer, [What is happening with code reviews?](https://newsletter.pragmaticengineer.com/p/what-is-happening-with-code-reviews)
+  (September 2026): teams triage review by blast radius, review the plan, the tests, and the
+  schema rather than the implementation, and keep human review for accountability, knowledge
+  sharing, and compliance. In more detail, seven approaches now that agents write most code:
+  humans review the AI review; triage by blast radius, with human review required only for a
+  change to the public API, auth, the design system, the database schema, or an agent skill;
+  review the plan, the tests, and the schema, because stored data is the one part that cannot be
+  regenerated and because tests cannot say whether a UI looks and feels right; produce less code;
+  review everything by hand; and no human review at all, so far only at early-stage startups
+  behind heavy guardrails. The reasons review exists at all: architecture conversations, missing
+  tests and ignored conventions, less tech debt, knowledge sharing and the bus factor,
+  accountability and traceability, compliance. Two reader comments are the tour in a sentence
+  each: one wants each change to "explain the reason why it's implemented this way and either
+  have me agree or push back with more context"; the other now reviews "what decisions did you
+  make vs did you let the agent make" and "does this back us into a corner in terms of
+  reversibility".
 
 ## The flow
 
@@ -73,6 +99,19 @@ Landmarks come in Naur's order:
 Each landmark has a scene, a picture drawn for this change. One landmark may be a micro-world: an
 interactive model of the changed behavior, when the change has behavior worth playing with. The
 diff chunk behind a landmark is one key away and never required.
+
+The code behind a landmark comes in two views. The **literate diff** is the change as prose in
+reading order, the rule before its uses and the bug before its fix, with each chunk embedded where
+the prose reaches it. The **raw diff** is the same chunks as the diff has them. The two never
+disagree about the code, because the literate view embeds the raw chunks.
+
+Two micro-worlds from the prototype are the seed of the generation skill's catalog. A
+**simulator**: the reader picks the inputs of the changed behavior (a command, a terminal or a
+pipe, a flag) and watches a faithful model of the code's branches print to its streams. A **layout
+switchboard**: each move of a UI change (a size, a box, a gap) toggles off and on over the same
+content, and the page reports what changed. The skill gives the generator the model's full range,
+scripts, SVG, and its own CSS inside the sandbox, plus a catalog of patterns like these, not a
+fixed kit.
 
 Each landmark names what **guards** the behavior it explains: the tests that pin it, found the way the
 canvas finds tests per layer. A behavior with no guard becomes a decision: write the test now, or
@@ -150,6 +189,9 @@ set. The mood themes the landmarks, scenes, and quiz. Controls, chat, and the di
 app's skin and theme. Scenes and micro-worlds run in the sandboxed frame from PR 44 (no origin,
 inline code only, no network). No badges, streaks, or scores.
 
+The catalog has four moods so far: terminal (amber, IBM Plex Mono), blueprint (blue, Space
+Grotesk), paper (rust, Fraunces), and grid (teal, Inter Tight).
+
 ## The guide
 
 A committed markdown file, `docs/pr-tour.md` by default (`tour.guide` in the config points
@@ -217,6 +259,24 @@ The chat agent and model follow the existing chat settings. The blast radius rea
   tour, the canvas, or both.
 - Not in the first version: incremental tours, structured turns in acpx, local transcription,
   screenshots of the running app taken by the skill.
+
+## Apart from the canvas
+
+### Considered options
+
+- **Tour content inside the canvas model.** One generation pass and one shared comment, but the
+  canvas prompt grows past what a generator handles well, the canvas comment is already near
+  GitHub's size limit, and a reader who wants only the tour would still need a canvas.
+- **Tour decisions fed into canvas generation as settled decisions**, as PR 44's deck did. Fewer
+  repeated questions on the canvas, but the two artifacts become coupled by carry rules and
+  validation errors, which is what would stop the tour from becoming its own project.
+
+### Consequences
+
+- A change can have a tour and no canvas, or a canvas and no tour.
+- The diff is prepared twice when both exist. Reading it twice was cheaper than one larger prompt.
+- The tour cannot become a separate package without carrying its own prepare and sharing code,
+  which is the intent.
 
 ## PR 44
 
