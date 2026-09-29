@@ -3,7 +3,7 @@
 // Which pages, and where the pictures go, is the tour's business (`pr-review tour preview`).
 import { execFile } from 'node:child_process'
 import { accessSync, constants } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -88,6 +88,86 @@ export function findBrowser(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): 
 /** What to tell a generator when no browser is found. */
 export const NO_BROWSER_HINT =
   'install Chrome, Chromium, or Edge, or set PR_REVIEW_BROWSER to one; or run `pr-review serve` and open previewUrl in a browser tool'
+
+export interface PreviewTourResult {
+  status: 'previewed' | 'no-browser' | 'no-page'
+  headSha: string
+  landmarks: number
+  /** Two screenshots per landmark, desktop then phone, in tour order; empty without a browser. */
+  screenshots: string[]
+  /** The same preview on a running `pr-review serve`, for a browser tool; absent for a refs run. */
+  previewUrl?: string
+  hint?: string
+}
+
+/**
+ * Screenshots every landmark of the tour as written, on a desktop and on a phone. Validation runs
+ * first, so an invalid tour throws its problems as `tour publish` would. Without a browser, or for
+ * a change set that has no page, it says where to look instead.
+ */
+export async function previewTour(
+  ctx: AppContext,
+  tourDir: string,
+  deps: PreviewDeps,
+  opts: { landmark?: string | undefined } = {}
+): Promise<PreviewTourResult> {
+  const { readTourContext, readTourModel, tourValidationInput, TourInvalidError } =
+    await import('./publish.js')
+  const { validateTourModel } = await import('./validate.js')
+  const context = await readTourContext(tourDir)
+  const model = await readTourModel(context)
+  const result =
+    'error' in model
+      ? {
+          ok: false as const,
+          errors: [{ code: 'SCHEMA' as const, where: '(root)', message: model.error.message }],
+          output: null,
+        }
+      : validateTourModel(model.raw, await tourValidationInput(ctx, context, model.raw))
+  if (!result.ok || result.output === null)
+    throw new TourInvalidError({ ok: false, errors: result.errors }, 0)
+  const landmarks = result.output.landmarks.filter(l => opts.landmark === undefined || l.id === opts.landmark)
+  const key =
+    context.target.kind === 'pr'
+      ? String(context.target.number)
+      : context.target.kind === 'local'
+        ? context.target.source
+        : null
+  const base = { headSha: context.headSha, landmarks: landmarks.length }
+  if (key === null) {
+    return {
+      ...base,
+      status: 'no-page',
+      screenshots: [],
+      hint: 'a --base/--head tour has no page; publish it and open it once a pull request exists',
+    }
+  }
+  const previewUrl = `http://localhost:${ctx.config.port}/tour/${key}?preview`
+  const browser = findBrowser(deps.env, deps.platform)
+  if (browser === null)
+    return { ...base, status: 'no-browser', screenshots: [], previewUrl, hint: NO_BROWSER_HINT }
+  const dir = path.join(tourDir, 'preview')
+  await rm(dir, { recursive: true, force: true })
+  await mkdir(dir, { recursive: true })
+  const server = await deps.startServer(ctx)
+  const screenshots: string[] = []
+  try {
+    for (const [i, landmark] of landmarks.entries()) {
+      for (const [name, viewport] of [
+        ['desktop', PREVIEW_VIEWPORT],
+        ['phone', PHONE_VIEWPORT],
+      ] as const) {
+        const file = path.join(dir, `${String(i + 1).padStart(2, '0')}-${landmark.id}-${name}.png`)
+        const url = `${server.origin}/tour/${key}?preview&landmark=${encodeURIComponent(landmark.id)}&theme=light`
+        await deps.screenshot(browser, url, file, viewport)
+        screenshots.push(file)
+      }
+    }
+  } finally {
+    await server.close()
+  }
+  return { ...base, status: 'previewed', screenshots, previewUrl }
+}
 
 const run = promisify(execFile)
 

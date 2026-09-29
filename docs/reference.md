@@ -368,9 +368,9 @@ Set the `prompts` map in `pr-review.config.yml` to use your own templates:
 
 ```yaml
 prompts:
-    generation-format.md: review-prompts/generation-format.md
-    generation-surfacing.md: review-prompts/generation-surfacing.md
-    chat-seed.md: review-prompts/chat-seed.md
+  generation-format.md: review-prompts/generation-format.md
+  generation-surfacing.md: review-prompts/generation-surfacing.md
+  chat-seed.md: review-prompts/chat-seed.md
 ```
 
 For an npm global install, copy the bundled templates to start editing:
@@ -457,7 +457,7 @@ Custom patterns replace the JavaScript/TypeScript defaults. For example, a Pytho
 
 ```yaml
 tests:
-    patterns: ['**/test_*.py', '**/tests/**']
+  patterns: ["**/test_*.py", "**/tests/**"]
 ```
 
 Test recognition controls ordering, but matching a test to its source file currently follows
@@ -484,6 +484,7 @@ The data directory's `settings.yml` accepts these keys and values:
 | `checkoutSweepMinutes` | `60`     | Integer minutes, 5–1440, between `serve`'s idle sweeps                           |
 | `canvasComment`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
 | `mentionCanvas`        | `null`   | `true`, `false`, or `null` to follow the project (3)                             |
+| `tourComment`          | `null`   | `true`, `false`, or `null` to follow the project's `tour.share` (3)              |
 
 (1) A model ID names a family; see [Model families](#model-families).
 (2) AI Chat only. Canvas generation reads `generation.models` in the project config instead. A
@@ -808,6 +809,92 @@ using the two canvases and your clone:
 The canvas you marked is compared directly with the one on screen, so marks survive any number of
 regenerations in between. When a mark follows, the page names the canvas you made it on. If your
 machine lacks that canvas or cannot rebuild either diff, no marks follow.
+
+## The tour
+
+A tour is a guided pass over one change that builds the reader's theory of it: landmarks that
+explain, decisions the reader keeps or changes, and a quiz. It is generated once per head commit,
+stored beside the canvases, and shared as its own pull request comment; the author and every
+reviewer take the same tour. The design is [ADR 0005](adr/0005-the-tour.md); the words are the
+"Tour" section of [CONTEXT.md](../CONTEXT.md). The tour and the canvas never depend on each other.
+
+### Generating a tour
+
+The bundled [pr-tour skill](../skills/pr-tour/SKILL.md) runs the steps; `/pr-tour <n>`,
+`/pr-tour branch`, `/pr-tour uncommitted`, and `/pr-tour --base <ref> --head <ref>` name the
+same targets `prepare` takes. [pr-tour-setup](../skills/pr-tour-setup/SKILL.md) writes the guide
+the tour is generated with.
+
+```text
+pr-review tour prepare (--pr <n> | --branch | --uncommitted | --base <ref> --head <ref>) [--force]
+pr-review tour validate <tour-model.json> --tour <dir> [--human]
+pr-review tour preview <tourDir> [--landmark <id>]
+pr-review tour publish <tourDir> --agent <id> [--model <id>] --harness claude-code|codex|other [--allow-stale]
+```
+
+`tour prepare` returns `tourDir`, `headSha`, `mergeBaseSha`, `promptPath`, `contextPath`,
+`scenesDir`, `sceneGuidePath`, `models` (`tour.models` over `generation.models`), `sharing`,
+`blastRadius`, `budget`, `guide`, and `status`. The **blast radius** is the set of `highRisk`
+labels the changed paths touch. The **budget** is how many landmarks, decisions, and quiz
+questions the tour may have: three landmarks for every change, about one more per
+`tour.budget.linesPerLandmark` changed lines, one more with a blast radius, never over the
+ceilings; decisions and quiz questions follow. A label that speaks of a schema, a migration, or
+stored data requires a **state landmark**, which the budget never counts.
+
+The generator writes `<tourDir>/tour-model.json` and one scene per landmark under `<scenesDir>`,
+as `<landmark id>.scene.html`, plus at most one `<landmark id>.micro.html`, the micro-world.
+`tour validate` checks the model against the context: the schema, the landmark order (background,
+world, whys, respect), the budget, the caps measured on visible text, every path and anchor
+against the diff, every guard against the head, every scene against the frame's rules, and the
+categories the project keeps. `tour preview` validates, then screenshots every landmark on a
+desktop and a phone through a quiet copy of the server, using Chrome, Chromium, or Edge from the
+PATH or `PR_REVIEW_BROWSER`; without one it prints a `previewUrl` to open in a browser tool.
+`tour publish` validates, stores `tours/<headSha>/tour.json`, and shares.
+
+The three later steps use the data directory that holds the tour dir, as `validate` and `publish`
+do for a canvas. `tour publish` answers `CANVAS_STALE` when the head moved and `CANVAS_ELSEWHERE`
+when the tour dir sits in another data directory.
+
+### The guide
+
+`tour.guide`, `docs/pr-tour.md` by default, is the project's committed notes for tours: how to
+run the app, how to make synthetic data and where fixtures may be written, which non-functional
+requirements matter, where specs and designs live, and what the agent may run. It is an
+allowlist: the generation skill runs nothing it does not name without asking first, and it never
+holds credentials or a production target. Without a guide a tour has no try-it recipes.
+
+### Sharing a tour
+
+A tour is shared as its own hidden comment, marked `pr-review-tour:v1`, holding the tour zip as
+base64, with a visible line on its shape and who has toured it. `tour.share` decides: `auto`
+follows `sharing.canvasComment`, `on` and `off` decide apart from it, and the personal
+`tourComment` wins over all. When the comment does not fit the host's limit or the post fails,
+the zip is exported to `<dataDir>/exports/` for the author to attach by hand. The zip is named
+`pr-<n>-<time>-<sha8>-<repo>-tour.zip` and holds `manifest.json` and `tour.json`.
+
+### Tour config
+
+Under `tour:` in `pr-review.config.yml`; see the [example configuration](../pr-review.config.example.yml).
+
+| Key                            | Default           | Details                                                                                                      |
+| ------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `tour.budget.landmarks`        | `8`               | Ceiling on landmarks; the state landmark does not count                                                      |
+| `tour.budget.decisions`        | `5`               | Ceiling on decisions                                                                                         |
+| `tour.budget.quiz`             | `5`               | Ceiling on quiz questions                                                                                    |
+| `tour.budget.linesPerLandmark` | `150`             | About one why landmark per this many changed lines                                                           |
+| `tour.finalQuiz`               | `on`              | `on`, `off`, or `required` before the prompt is written                                                      |
+| `tour.reverseQuiz`             | `on`              | `on` or `off`: the reader may ask the agent how it would carry the plan out                                  |
+| `tour.grill`                   | `change`          | `change` grills on change picks, `always` on every pick, `off` never                                         |
+| `tour.audio`                   | `on`              | Speech through the browser's Web Speech API, with a one-time notice on where the audio goes                  |
+| `tour.microWorld`              | `on`              | `off` refuses a micro-world                                                                                  |
+| `tour.tryIt`                   | `auto`            | `auto` is on when the guide has a run recipe; `on`; `off`                                                    |
+| `tour.categories`              | all six           | The decision categories the project keeps: `trade-off`, `architecture`, `product`, `pokayoke`, `nfr`, `spec` |
+| `tour.share`                   | `auto`            | `auto` follows `sharing.canvasComment`; `on`; `off`                                                          |
+| `tour.models`                  | `{}`              | Per agent id, over `generation.models`                                                                       |
+| `tour.guide`                   | `docs/pr-tour.md` | The committed guide, relative to the repository root                                                         |
+
+The prompt template is `prompts/tour.md`, overridable as `prompts: { tour.md: <path> }` like the
+others. The scene guide the generator reads is `skills/pr-tour/scenes.md`.
 
 ## AI Chat
 

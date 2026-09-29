@@ -75,6 +75,22 @@ const COMMANDS: CommandHelp[] = [
     ],
   },
   {
+    name: 'tour prepare|validate|preview|publish',
+    summary: 'The tour, a guided pass over a change: the same steps as a canvas, apart from it.',
+    flags: [
+      { form: 'prepare --pr <n> [--force]', detail: 'or --branch, --uncommitted, --base <ref> --head <ref>' },
+      { form: 'validate <model> --tour <dir>', detail: '[--human]' },
+      { form: 'preview <dir> [--landmark <id>]', detail: 'screenshots of every landmark' },
+      {
+        form: 'publish <dir> --agent <id>',
+        detail: '--harness claude-code|codex|other [--model <id>] [--allow-stale]',
+      },
+    ],
+    notes: [
+      'A tour is stored beside the canvases and shared as its own comment. The pr-tour skill runs these.',
+    ],
+  },
+  {
     name: 'install-skill',
     summary: 'Copy the bundled skills into Claude Code and Codex.',
     flags: [

@@ -35,6 +35,9 @@ import {
   validationInput,
 } from './review/publish.js'
 import { applyFoldFixes, describeFoldFix, type FoldFix } from './review/fix-folds.js'
+import { formatTourError } from './contract/tour.js'
+import { namedTourDir } from './tour/named-dir.js'
+import { TourInvalidError } from './tour/publish.js'
 import { applyTitleTrims, type TitleTrim } from './review/trim-caps.js'
 import { validateModelOutput } from './review/validate.js'
 import type { AppContext } from './server/context.js'
@@ -49,7 +52,7 @@ export interface CliIo {
 }
 
 /** The steps of review generation: the skill reads their JSON, so they print nothing else. */
-const AGENT_COMMANDS: ReadonlySet<string> = new Set(['prepare', 'validate', 'publish'])
+const AGENT_COMMANDS: ReadonlySet<string> = new Set(['prepare', 'validate', 'publish', 'tour'])
 
 /**
  * Takes `--json` out of a command's arguments and decides whether the command prints JSON: with
@@ -123,6 +126,16 @@ export function reportFailure(io: CliIo, err: unknown): number {
       io.stdout(formatValidationError(e))
     }
     printErrorEnvelope(io, 'MODEL_INVALID', err.message, 'fix model.json and run publish again')
+    return EXIT.invalid
+  }
+  if (err instanceof TourInvalidError) {
+    for (const e of err.report.errors) io.stdout(formatTourError(e))
+    printErrorEnvelope(
+      io,
+      'MODEL_INVALID',
+      err.message,
+      'fix tour-model.json and the scene files, then publish again'
+    )
     return EXIT.invalid
   }
   if (err instanceof PublishError) {
@@ -402,6 +415,9 @@ export function namedCanvasDir(command: string, argv: string[]): string | undefi
   if (command === 'publish') {
     return parseArgs({ args: argv, options: PUBLISH_OPTIONS, allowPositionals: true, strict: false })
       .positionals[0]
+  }
+  if (command === 'tour') {
+    return namedTourDir(argv)
   }
   return undefined
 }

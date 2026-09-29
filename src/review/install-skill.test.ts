@@ -121,10 +121,13 @@ describe('installSkill', () => {
     ]
     await installSkill({ targets })
     expect((await lstat(path.join(shared, 'pr-review-canvas'))).isDirectory()).toBe(true)
+    // The companion skills go wherever the canvas skill is; without them the install is incomplete.
+    expect((await checkSkill(dir)).ok).toBe(false)
+    await installBundledSkills({ targets })
     expect((await checkSkill(dir)).ok).toBe(true)
     await writeFile(path.join(shared, 'pr-review-canvas', 'SKILL.md'), 'old skill')
     expect((await checkSkill(dir)).ok).toBe(false)
-    await installSkill({ targets })
+    await installBundledSkills({ targets })
     expect((await checkSkill(dir)).ok).toBe(true)
   })
 
