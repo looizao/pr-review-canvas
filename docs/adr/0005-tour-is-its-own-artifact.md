@@ -1,6 +1,6 @@
 # The tour is its own artifact, apart from the canvas
 
-A tour (beats, decisions, grilling, quiz) and a canvas (layers, folds, attention points) are
+A tour (landmarks, decisions, grilling, quiz) and a canvas (layers, folds, attention points) are
 generated from the same diff, but we generate the tour with its own skill, store it as its own
 file per head commit, and share it as its own pull request comment. The two meet only through
 links between their pages. Author and reviewer may use the tour, the canvas, or both.

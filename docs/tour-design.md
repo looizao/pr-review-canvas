@@ -1,7 +1,7 @@
 # Tour design
 
 A **tour** is a guided pass over one change. It builds the reader's theory of the change through
-beats that explain, decisions the reader keeps or changes, and a quiz. This document records the
+landmarks that explain, decisions the reader keeps or changes, and a quiz. This document records the
 design settled on 2026-09-28, before any code. The glossary for it is the "Tour" section of
 [CONTEXT.md](../CONTEXT.md). The decision to keep the tour apart from the canvas is
 [ADR 0005](adr/0005-tour-is-its-own-artifact.md).
@@ -50,9 +50,9 @@ The reading behind it:
 1. **Setup** (optional, once per project): `/pr-tour-setup` interviews the user and writes the
    guide. `/pr-tour` runs the same interview when no guide exists, and the user may skip it.
 2. **Generate**: `/pr-tour <n|branch|uncommitted>` prepares the diff, reads the guide and any specs
-   it names, writes the tour, validates it, previews every beat as a screenshot and fixes what
+   it names, writes the tour, validates it, previews every landmark as a screenshot and fixes what
    reads badly, verifies the try-it recipe, and shares the tour on the pull request.
-3. **Take**: the reader opens `/tour/<key>`, reads the beats, plays the micro-world, picks keep or
+3. **Take**: the reader opens `/tour/<key>`, reads the landmarks, plays the micro-world, picks keep or
    change on each decision, is grilled on each change, answers the quiz.
 4. **Finish**: the agent restates the whole plan once; the reader confirms; the tour writes the
    re-implementation prompt and shares the record, which now lists the reader as having toured.
@@ -62,25 +62,25 @@ The reading behind it:
 The author and every reviewer take the same tour. A reviewer's change requests become comments in
 their pending review, posted with their verdict, plus the same prompt for the author.
 
-## Beats
+## Landmarks
 
-Beats come in Naur's order:
+Landmarks come in Naur's order:
 
 1. What the change means to the world: the user's or the spec's view of it.
 2. Why each part is the way it is. Decisions anchor here.
 3. What a later change must respect: extension points, invariants, pokayoke.
 
-Each beat has a scene, a picture drawn for this change. One beat may be a micro-world: an
+Each landmark has a scene, a picture drawn for this change. One landmark may be a micro-world: an
 interactive model of the changed behavior, when the change has behavior worth playing with. The
-diff chunk behind a beat is one key away and never required.
+diff chunk behind a landmark is one key away and never required.
 
-Each beat names what **guards** the behavior it explains: the tests that pin it, found the way the
+Each landmark names what **guards** the behavior it explains: the tests that pin it, found the way the
 canvas finds tests per layer. A behavior with no guard becomes a decision: write the test now, or
 accept the gap with a reason. Tests are reviewed through the tour, not read.
 
-When the change touches a schema, a migration, or the shape of stored data, one beat is the
-**state beat**: the shape before and after, what happens to existing rows, and how it is undone.
-Stored data is the part of a system that cannot be regenerated, so this beat is never cut by the
+When the change touches a schema, a migration, or the shape of stored data, one landmark is the
+**state landmark**: the shape before and after, what happens to existing rows, and how it is undone.
+Stored data is the part of a system that cannot be regenerated, so this landmark is never cut by the
 budget, and it always carries a reversibility decision.
 
 The budget is proportional to the diff with a configurable ceiling. What the budget leaves out is
@@ -90,7 +90,7 @@ listed at the end, one line each with a link to the code, as **not toured**.
 
 The cover says what the change touches, from the project's existing `highRisk` patterns: for
 example "touches: auth, schema". Those areas raise the budget, so a change to a public API, a
-schema, authentication, the design system, or an agent skill gets more beats and decisions, and a
+schema, authentication, the design system, or an agent skill gets more landmarks and decisions, and a
 change that touches none of them gets a short tour. Teams that route review by risk can require
 the tour for the first kind and leave it optional for the second, and reviewers know at a glance
 where to spend attention.
@@ -118,7 +118,7 @@ codebase can enforce, so a check is cheaper than a comment), or the tour only. T
 proposes the place; the author confirms. Code comments and lint rules become part of the plan, and
 the apply skill writes them. Pull request comments post once, when the tour is finished.
 
-For product decisions the beat also carries a **try-it** recipe: how to run the change, which
+For product decisions the landmark also carries a **try-it** recipe: how to run the change, which
 synthetic data to use, and what to look at. The reader marks that they tried it.
 
 ## Grilling
@@ -137,16 +137,16 @@ says once where the browser sends audio; a project can turn audio off.
 
 ## Quiz
 
-A few plain questions after the decisions that check the reader read the beats: what an end user
+A few plain questions after the decisions that check the reader read the landmarks: what an end user
 or a caller would notice, and which decisions the change made and why. Not gotchas, not edge cases
-the beats did not cover, not details only the code shows, and not UI values nobody needs to
-remember. A wrong answer reopens the beat. The result stays with the reader and never reaches the shared tour or the pull request. A
+the landmarks did not cover, not details only the code shows, and not UI values nobody needs to
+remember. A wrong answer reopens the landmark. The result stays with the reader and never reaches the shared tour or the pull request. A
 project can turn the quiz off or require it before the prompt is written.
 
 ## Look
 
 Each tour gets a **mood** from a validated catalog: an accent and a display font from a bundled
-set. The mood themes the beats, scenes, and quiz. Controls, chat, and the diff keep the
+set. The mood themes the landmarks, scenes, and quiz. Controls, chat, and the diff keep the
 app's skin and theme. Scenes and micro-worlds run in the sandboxed frame from PR 44 (no origin,
 inline code only, no network). No badges, streaks, or scores.
 
@@ -186,19 +186,19 @@ signal, not approving; the verdict stays with the pull request review.
 
 Under `tour:` in `pr-review.config.yml`:
 
-| Key           | Values                                                                    | Default                                                  |
-| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `budget`      | ceilings for beats, decisions, quiz questions, and changed lines per beat | about one beat per 150 changed lines; ceilings 8 / 5 / 5 |
-| `finalQuiz`   | `on`, `off`, `required`                                                   | `on`                                                     |
-| `reverseQuiz` | `on`, `off`                                                               | `on`                                                     |
-| `grill`       | `change`, `always`, `off`                                                 | `change`                                                 |
-| `audio`       | `on`, `off`                                                               | `on`, with the notice                                    |
-| `microWorld`  | `on`, `off`                                                               | `on`                                                     |
-| `tryIt`       | `on`, `off`                                                               | `on` when the guide has a run recipe                     |
-| `categories`  | list                                                                      | all six                                                  |
-| `share`       | `on`, `off`                                                               | same as canvas sharing                                   |
-| `models`      | per agent id                                                              | `generation.models`                                      |
-| `guide`       | path                                                                      | `docs/pr-tour.md`                                        |
+| Key           | Values                                                                            | Default                                                      |
+| ------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `budget`      | ceilings for landmarks, decisions, quiz questions, and changed lines per landmark | about one landmark per 150 changed lines; ceilings 8 / 5 / 5 |
+| `finalQuiz`   | `on`, `off`, `required`                                                           | `on`                                                         |
+| `reverseQuiz` | `on`, `off`                                                                       | `on`                                                         |
+| `grill`       | `change`, `always`, `off`                                                         | `change`                                                     |
+| `audio`       | `on`, `off`                                                                       | `on`, with the notice                                        |
+| `microWorld`  | `on`, `off`                                                                       | `on`                                                         |
+| `tryIt`       | `on`, `off`                                                                       | `on` when the guide has a run recipe                         |
+| `categories`  | list                                                                              | all six                                                      |
+| `share`       | `on`, `off`                                                                       | same as canvas sharing                                       |
+| `models`      | per agent id                                                                      | `generation.models`                                          |
+| `guide`       | path                                                                              | `docs/pr-tour.md`                                            |
 
 The chat agent and model follow the existing chat settings. The blast radius reads the existing
 `highRisk` patterns; there is no second list.

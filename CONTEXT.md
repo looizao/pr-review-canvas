@@ -93,27 +93,27 @@ _Avoid_: Live review, live AI chat
 ## Tour
 
 **Tour**:
-A guided pass over one change that builds the reader's theory of it: beats that explain, decisions the reader keeps or changes, and a quiz. It is generated once per head commit and shared like a canvas, so the author and every reviewer take the same tour; it stands beside the canvas, and either can be used without the other.
+A guided pass over one change that builds the reader's theory of it: landmarks that explain, decisions the reader keeps or changes, and a quiz. It is generated once per head commit and shared like a canvas, so the author and every reviewer take the same tour; it stands beside the canvas, and either can be used without the other.
 _Avoid_: Self-review, Walkthrough, Deck, Onboarding
 
-**Beat**:
-One idea of a tour, told in order: first what the change means to the world, then why each part is the way it is, last what a later change must respect. The code behind a beat is available but never required.
-_Avoid_: Semantic layer, Slide, File
+**Landmark**:
+One idea of a tour, told in order: first what the change means to the world, then why each part is the way it is, last what a later change must respect. The code behind a landmark is available but never required.
+_Avoid_: Beat, Semantic layer, Slide, File
 
 **Scene**:
-A picture, drawn for this change, of what a beat or a decision's side does.
+A picture, drawn for this change, of what a landmark or a decision's side does.
 _Avoid_: Screenshot, Illustration
 
 **Micro-world**:
-A beat the reader plays with: inputs of the changed behavior go in, outcomes come out. A tour has one only when the change has behavior worth playing with.
+A landmark the reader plays with: inputs of the changed behavior go in, outcomes come out. A tour has one only when the change has behavior worth playing with.
 _Avoid_: Demo, Sandbox, Playground
 
 **Mood**:
-The visual identity of one tour, picked from a catalog: an accent and a display font. It themes the beats, scenes, and quiz, not the app around them.
+The visual identity of one tour, picked from a catalog: an accent and a display font. It themes the landmarks, scenes, and quiz, not the app around them.
 _Avoid_: Skin, Theme, Style
 
 **Decision**:
-A choice the change makes that a reasonable engineer could make another way, anchored on a beat. The reader keeps it or asks to change it; keeping records a reason, changing starts a grilling.
+A choice the change makes that a reasonable engineer could make another way, anchored on a landmark. The reader keeps it or asks to change it; keeping records a reason, changing starts a grilling.
 _Avoid_: Attention point, Card, Finding, Issue
 
 **Pokayoke**:
@@ -141,7 +141,7 @@ The approved restatements of a tour, restated once as a whole at the end and con
 _Avoid_: Fix list, Prompt, Task list
 
 **Quiz**:
-A few plain questions after the decisions that check the reader read the beats: what users would notice, and which decisions were made and why. A wrong answer reopens the beat, and the result stays with the reader.
+A few plain questions after the decisions that check the reader read the landmarks: what users would notice, and which decisions were made and why. A wrong answer reopens the landmark, and the result stays with the reader.
 _Avoid_: Test, Score, Assessment
 
 **Try-it**:
@@ -152,9 +152,9 @@ _Avoid_: Screenshot, Demo, Smoke test
 The project's committed notes for tours: how to run the app, how to make synthetic test data, which non-functional requirements matter, where specs and designs live, and what the agent may run. Written in setup and edited as the reader steers the skills.
 _Avoid_: Config, Rulebook, Runbook
 
-**State beat**:
-The beat a tour gives a change to a schema, a migration, or the shape of stored data: the shape before and after, what happens to existing rows, and how it is undone. Never cut by the budget.
-_Avoid_: Migration beat, Database beat
+**State landmark**:
+The landmark a tour gives a change to a schema, a migration, or the shape of stored data: the shape before and after, what happens to existing rows, and how it is undone. Never cut by the budget.
+_Avoid_: Migration landmark, Database landmark
 
 **Blast radius**:
 What a change touches among the areas the project marks as high risk, shown on the cover. It raises the tour's budget and tells a team whether the tour is required.

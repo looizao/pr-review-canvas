@@ -15,7 +15,7 @@ document.title = `Tour · #${tour.key} ${tour.title}`
 
 const steps = [
   { kind: 'cover' },
-  ...tour.beats.map(beat => ({ kind: 'beat', beat })),
+  ...tour.landmarks.map(landmark => ({ kind: 'landmark', landmark })),
   ...tour.decisions.map(decision => ({ kind: 'decision', decision })),
   ...tour.quiz.map(q => ({ kind: 'quiz', q })),
   { kind: 'plan' },
@@ -87,18 +87,23 @@ function reachable(i) {
 function renderRail() {
   const groups = [
     { kind: 'cover', label: '', from: 0, to: 0 },
-    { kind: 'beats', label: plural(tour.beats.length, 'beat'), from: 1, to: tour.beats.length },
+    {
+      kind: 'landmarks',
+      label: plural(tour.landmarks.length, 'landmark'),
+      from: 1,
+      to: tour.landmarks.length,
+    },
     {
       kind: 'decisions',
       label: plural(tour.decisions.length, 'decision'),
-      from: 1 + tour.beats.length,
-      to: tour.beats.length + tour.decisions.length,
+      from: 1 + tour.landmarks.length,
+      to: tour.landmarks.length + tour.decisions.length,
     },
     {
       kind: 'quiz',
       label: plural(tour.quiz.length, 'question'),
-      from: 1 + tour.beats.length + tour.decisions.length,
-      to: tour.beats.length + tour.decisions.length + tour.quiz.length,
+      from: 1 + tour.landmarks.length + tour.decisions.length,
+      to: tour.landmarks.length + tour.decisions.length + tour.quiz.length,
     },
     { kind: 'plan', label: '', from: steps.length - 1, to: steps.length - 1 },
   ]
@@ -122,7 +127,7 @@ function renderRail() {
 }
 function stepTitle(step) {
   if (step.kind === 'cover') return 'Cover'
-  if (step.kind === 'beat') return step.beat.title
+  if (step.kind === 'landmark') return step.landmark.title
   if (step.kind === 'decision') return step.decision.title
   if (step.kind === 'quiz') return step.q.question
   return 'The plan'
@@ -172,7 +177,7 @@ function countOf(kind) {
 function render() {
   const step = steps[state.step]
   if (step.kind === 'cover') renderCover()
-  else if (step.kind === 'beat') renderBeat(step.beat)
+  else if (step.kind === 'landmark') renderLandmark(step.landmark)
   else if (step.kind === 'decision') renderDecision(step.decision)
   else if (step.kind === 'quiz') renderQuiz(step.q)
   else renderPlan()
@@ -183,16 +188,16 @@ function render() {
 function renderCover() {
   const minutes = Math.max(
     3,
-    Math.round(tour.beats.length * 1.2 + tour.decisions.length * 0.8 + tour.quiz.length * 0.4)
+    Math.round(tour.landmarks.length * 1.2 + tour.decisions.length * 0.8 + tour.quiz.length * 0.4)
   )
   const others = ['67', '68'].filter(k => k !== String(tour.key))
   stage.innerHTML = `
     <p class="tour-eyebrow"><span class="tour-stage-tag">Tour</span><span>#${tour.key} · ${esc(tour.repo)}</span></p>
     <h1 class="tour-title">${esc(tour.title)}</h1>
     <p class="tour-cover-meta"><span>by ${esc(tour.author)}</span><span class="mono">${esc(tour.head)} → main</span><span><span class="ok">+${tour.changed.added}</span> <span class="bad">−${tour.changed.removed}</span> in ${tour.changed.files} files</span>${tour.spec ? `<span>spec: ${esc(tour.spec.title)}</span>` : '<span>no spec on file</span>'}</p>
-    <p class="tour-lead">${esc(tour.beats[0].lead)}</p>
+    <p class="tour-lead">${esc(tour.landmarks[0].lead)}</p>
     <div class="tour-budget">
-      <div><b>${tour.beats.length}</b><span>beats</span></div>
+      <div><b>${tour.landmarks.length}</b><span>landmarks</span></div>
       <div><b>${tour.decisions.length}</b><span>decisions</span></div>
       <div><b>${tour.quiz.length}</b><span>questions</span></div>
       <div><b>~${minutes}</b><span>minutes</span></div>
@@ -211,37 +216,37 @@ function returnBanner() {
   const text =
     origin.kind === 'quiz'
       ? ['Reopened from the quiz. Read again, then go back.', 'back to the question']
-      : origin.kind === 'beat'
+      : origin.kind === 'landmark'
         ? [
-            `Jumped from beat ${tour.beats.indexOf(origin.beat) + 1}. Decide now, or go back and keep reading.`,
-            'back to the beat',
+            `Jumped from landmark ${tour.landmarks.indexOf(origin.landmark) + 1}. Decide now, or go back and keep reading.`,
+            'back to the landmark',
           ]
         : ['Jumped from a decision.', 'back to the decision']
   return `<div class="tour-return"><span>${esc(text[0])}</span><button class="tour-btn" type="button" data-act="return">${esc(text[1])}</button></div>`
 }
-function renderBeat(beat) {
-  const n = tour.beats.indexOf(beat) + 1
-  const decisionsHere = tour.decisions.filter(d => d.beat === beat.id)
-  const codeOpen = state.codeOpen[beat.id] === true
-  const note = state.notes[beat.id] ?? ''
+function renderLandmark(landmark) {
+  const n = tour.landmarks.indexOf(landmark) + 1
+  const decisionsHere = tour.decisions.filter(d => d.landmark === landmark.id)
+  const codeOpen = state.codeOpen[landmark.id] === true
+  const note = state.notes[landmark.id] ?? ''
   stage.innerHTML = `
     ${returnBanner()}
-    <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(STAGE_LABEL[beat.stage])}</span><span>beat ${n} of ${tour.beats.length}</span></p>
-    <h2 class="tour-title">${esc(beat.title)}</h2>
-    <p class="tour-lead">${inline(beat.lead)}</p>
-    <div class="tour-body">${beat.body.map(p => `<p>${inline(p)}</p>`).join('')}</div>
-    ${beat.scene ? `<div class="tour-card tour-scene"><div class="tour-card-h"><span>scene</span></div><div class="sc-root" id="scene-${beat.id}"></div></div>` : ''}
-    ${beat.micro ? `<div class="tour-card tour-micro"><div class="tour-card-h"><span>micro-world · play with it</span></div><div class="sc-root" id="micro-${beat.id}"></div></div>` : ''}
+    <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(STAGE_LABEL[landmark.stage])}</span><span>landmark ${n} of ${tour.landmarks.length}</span></p>
+    <h2 class="tour-title">${esc(landmark.title)}</h2>
+    <p class="tour-lead">${inline(landmark.lead)}</p>
+    <div class="tour-body">${landmark.body.map(p => `<p>${inline(p)}</p>`).join('')}</div>
+    ${landmark.scene ? `<div class="tour-card tour-scene"><div class="tour-card-h"><span>scene</span></div><div class="sc-root" id="scene-${landmark.id}"></div></div>` : ''}
+    ${landmark.micro ? `<div class="tour-card tour-micro"><div class="tour-card-h"><span>micro-world · play with it</span></div><div class="sc-root" id="micro-${landmark.id}"></div></div>` : ''}
     ${decisionsHere.length ? `<div class="tour-chips"><span class="tour-chip">${decisionsHere.length === 1 ? 'one decision waits here' : decisionsHere.length + ' decisions wait here'}</span>${decisionsHere.map(d => `<button class="tour-chip link" type="button" data-cat="${d.category}" data-act="jump" data-decision="${d.id}" title="Jump to this decision now">${esc(d.title)} →</button>`).join('')}</div>` : ''}
-    <div class="tour-note"><label for="note-${beat.id}">Something I noticed <span class="tour-hint">optional · carried into this beat's decisions and the plan</span></label><textarea id="note-${beat.id}" data-act="note" data-beat="${beat.id}" rows="2" placeholder="A thought while reading, so you do not have to hold it until the decisions">${esc(note)}</textarea></div>
+    <div class="tour-note"><label for="note-${landmark.id}">Something I noticed <span class="tour-hint">optional · carried into this landmark's decisions and the plan</span></label><textarea id="note-${landmark.id}" data-act="note" data-landmark="${landmark.id}" rows="2" placeholder="A thought while reading, so you do not have to hold it until the decisions">${esc(note)}</textarea></div>
     ${
-      beat.code?.length
-        ? `<div class="tour-actions"><button class="tour-btn quiet" type="button" data-act="code">${codeOpen ? 'hide code' : 'code behind this beat'} <kbd>i</kbd></button></div>
-           <div class="tour-code" ${codeOpen ? '' : 'hidden'}>${beat.code.map(renderChunk).join('')}</div>`
+      landmark.code?.length
+        ? `<div class="tour-actions"><button class="tour-btn quiet" type="button" data-act="code">${codeOpen ? 'hide code' : 'code behind this landmark'} <kbd>i</kbd></button></div>
+           <div class="tour-code" ${codeOpen ? '' : 'hidden'}>${landmark.code.map(renderChunk).join('')}</div>`
         : ''
     }`
-  mount(beat.scene, `scene-${beat.id}`)
-  mount(beat.micro, `micro-${beat.id}`)
+  mount(landmark.scene, `scene-${landmark.id}`)
+  mount(landmark.micro, `micro-${landmark.id}`)
 }
 function mount(scene, id) {
   if (!scene) return
@@ -267,17 +272,17 @@ function renderChunk(c) {
 
 function renderDecision(d) {
   const n = tour.decisions.indexOf(d) + 1
-  const beat = tour.beats.find(b => b.id === d.beat)
-  const beatIndex = tour.beats.indexOf(beat) + 1
+  const landmark = tour.landmarks.find(lm => lm.id === d.landmark)
+  const landmarkIndex = tour.landmarks.indexOf(landmark) + 1
   const p = state.picks[d.id] ?? { pick: d.recommended, place: d.reason.place, tried: false }
   const done = settled({ kind: 'decision', decision: d })
-  const note = state.notes[d.beat] ?? ''
+  const note = state.notes[d.landmark] ?? ''
   stage.innerHTML = `
     ${returnBanner()}
-    <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(CATEGORY_LABEL[d.category] ?? d.category)}</span><span>decision ${n} of ${tour.decisions.length}</span><a href="#" data-act="beat" data-beat="${beat.id}">from beat ${beatIndex}: ${esc(beat.title)}</a></p>
+    <p class="tour-eyebrow"><span class="tour-stage-tag">${esc(CATEGORY_LABEL[d.category] ?? d.category)}</span><span>decision ${n} of ${tour.decisions.length}</span><a href="#" data-act="landmark" data-landmark="${landmark.id}">from landmark ${landmarkIndex}: ${esc(landmark.title)}</a></p>
     <h2 class="tour-title">${esc(d.title)}</h2>
     <p class="tour-lead">${inline(d.context)}</p>
-    ${note.trim() ? `<div class="tour-beat-note"><b>Your note on beat ${beatIndex}</b>${esc(note)}</div>` : ''}
+    ${note.trim() ? `<div class="tour-landmark-note"><b>Your note on landmark ${landmarkIndex}</b>${esc(note)}</div>` : ''}
     <div class="tour-options" role="radiogroup">
       ${option('keep', d.keep, p.pick === 'keep', true, d.recommended === 'keep')}
       ${option('change', d.change, p.pick === 'change', false, d.recommended === 'change')}
@@ -324,8 +329,8 @@ function restatedHtml(r) {
 function renderQuiz(q) {
   const n = tour.quiz.indexOf(q) + 1
   const a = state.quiz[q.id]
-  const beat = tour.beats.find(b => b.id === q.beat)
-  const beatIndex = tour.beats.indexOf(beat) + 1
+  const landmark = tour.landmarks.find(lm => lm.id === q.landmark)
+  const landmarkIndex = tour.landmarks.indexOf(landmark) + 1
   stage.innerHTML = `
     <p class="tour-eyebrow"><span class="tour-stage-tag">Quiz</span><span>question ${n} of ${tour.quiz.length}</span><span>private · stays on this machine</span></p>
     <h2 class="tour-quiz-q">${inline(q.question)}</h2>
@@ -339,8 +344,8 @@ function renderQuiz(q) {
       a
         ? a.right
           ? `<div class="tour-quiz-why right">${inline(q.why)}</div>`
-          : `<div class="tour-quiz-why wrong">Not quite. ${inline(q.why)}<div class="tour-actions"><button class="tour-btn" type="button" data-act="reopen" data-beat="${beat.id}">reopen beat ${beatIndex}: ${esc(beat.title)}</button><span class="tour-hint">then answer again</span></div></div>`
-        : `<p class="tour-hint" style="margin-top:14px">press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to answer · a wrong answer reopens the beat it came from</p>`
+          : `<div class="tour-quiz-why wrong">Not quite. ${inline(q.why)}<div class="tour-actions"><button class="tour-btn" type="button" data-act="reopen" data-landmark="${landmark.id}">reopen landmark ${landmarkIndex}: ${esc(landmark.title)}</button><span class="tour-hint">then answer again</span></div></div>`
+        : `<p class="tour-hint" style="margin-top:14px">press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to answer · a wrong answer reopens the landmark it came from</p>`
     }`
 }
 
@@ -362,8 +367,8 @@ function renderPlan() {
       notesList().length
         ? `<h3 class="tour-section-h">Your notes while reading</h3><ul class="tour-kept">${notesList()
             .map(
-              ([b, t]) =>
-                `<li><span>beat ${tour.beats.indexOf(b) + 1}</span><span>${esc(t)}</span><span class="place">${esc(b.title)}</span></li>`
+              ([lm, t]) =>
+                `<li><span>landmark ${tour.landmarks.indexOf(lm) + 1}</span><span>${esc(t)}</span><span class="place">${esc(lm.title)}</span></li>`
             )
             .join('')}</ul>`
         : ''
@@ -386,11 +391,11 @@ function renderPlan() {
     ${tour.notToured?.length ? `<h3 class="tour-section-h">Not toured</h3><ul class="tour-not">${tour.notToured.map(n => `<li><span>${esc(n.title)}</span><span class="path">${esc(n.path)}</span></li>`).join('')}</ul>` : ''}`
 }
 function notesList() {
-  return tour.beats.map(b => [b, (state.notes[b.id] ?? '').trim()]).filter(([, t]) => t)
+  return tour.landmarks.map(lm => [lm, (state.notes[lm.id] ?? '').trim()]).filter(([, t]) => t)
 }
 function buildPrompt(changes, kept) {
-  const first = tour.beats[0]
-  const respect = tour.beats[tour.beats.length - 1]
+  const first = tour.landmarks[0]
+  const respect = tour.landmarks[tour.landmarks.length - 1]
   const lines = [
     `# ${changes.length ? 'Re-implement' : 'Keep'} PR #${tour.key} as the tour settled it`,
     '',
@@ -423,7 +428,7 @@ function buildPrompt(changes, kept) {
   }
   if (notesList().length) {
     lines.push('', '## Notes the reader left while reading')
-    notesList().forEach(([b, t]) => lines.push(`- On "${b.title}": ${t}`))
+    notesList().forEach(([lm, t]) => lines.push(`- On "${lm.title}": ${t}`))
   }
   lines.push(
     '',
@@ -538,12 +543,12 @@ function renderHelp() {
   helpDialog.innerHTML = `<h3>Keys</h3><dl>
     <dt><kbd>→</kbd> <kbd>space</kbd></dt><dd>next</dd>
     <dt><kbd>←</kbd></dt><dd>back</dd>
-    <dt><kbd>i</kbd></dt><dd>show the code behind a beat</dd>
+    <dt><kbd>i</kbd></dt><dd>show the code behind a landmark</dd>
     <dt><kbd>k</kbd> <kbd>c</kbd></dt><dd>keep, or say what you want instead</dd>
     <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>answer a question</dd>
     <dt><kbd>esc</kbd></dt><dd>close this, or the grilling</dd>
   </dl>
-  <p>A tour has beats that explain the change, decisions you keep or change, and a quiz. Everything here is scripted from a data file: no agent, no server, no forge.</p>
+  <p>A tour has landmarks that explain the change, decisions you keep or change, and a quiz. Everything here is scripted from a data file: no agent, no server, no forge.</p>
   <div class="tour-actions"><button class="tour-btn" type="button" data-act="close-help">close</button></div>`
 }
 
@@ -566,17 +571,17 @@ document.addEventListener('click', e => {
     e.preventDefault()
     sessionStorage.removeItem(storeKey)
     location.reload()
-  } else if (act === 'code' && step.kind === 'beat') {
-    state.codeOpen[step.beat.id] = !state.codeOpen[step.beat.id]
+  } else if (act === 'code' && step.kind === 'landmark') {
+    state.codeOpen[step.landmark.id] = !state.codeOpen[step.landmark.id]
     save()
     render()
-  } else if (act === 'beat') {
+  } else if (act === 'landmark') {
     e.preventDefault()
-    const i = steps.findIndex(s => s.kind === 'beat' && s.beat.id === t.dataset.beat)
+    const i = steps.findIndex(s => s.kind === 'landmark' && s.landmark.id === t.dataset.landmark)
     state.returnTo = state.step
     go(i)
   } else if (act === 'reopen') {
-    const i = steps.findIndex(s => s.kind === 'beat' && s.beat.id === t.dataset.beat)
+    const i = steps.findIndex(s => s.kind === 'landmark' && s.landmark.id === t.dataset.landmark)
     state.returnTo = state.step
     delete state.quiz[step.q.id]
     go(i)
@@ -710,7 +715,7 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const t = /** @type {HTMLTextAreaElement} */ (e.target)
   if (t.dataset.act === 'note') {
-    state.notes[t.dataset.beat] = t.value
+    state.notes[t.dataset.landmark] = t.value
     save()
   }
 })
@@ -741,8 +746,8 @@ document.addEventListener('keydown', e => {
     e.preventDefault()
     go(state.step + 1)
   } else if (e.key === 'ArrowLeft') go(state.step - 1)
-  else if (e.key === 'i' && step.kind === 'beat' && step.beat.code?.length) {
-    state.codeOpen[step.beat.id] = !state.codeOpen[step.beat.id]
+  else if (e.key === 'i' && step.kind === 'landmark' && step.landmark.code?.length) {
+    state.codeOpen[step.landmark.id] = !state.codeOpen[step.landmark.id]
     save()
     render()
   } else if (e.key === 'k' && step.kind === 'decision') {

@@ -38,9 +38,9 @@ export default {
     url: 'https://github.com/vintasoftware/pr-review-canvas/pull/68',
   },
 
-  beats: [
+  landmarks: [
     {
-      id: 'b1',
+      id: 'l1',
       stage: 'world',
       title: 'A layer you can read at a glance',
       lead: 'Inside a layer, Tests, Attention points, and Files each get a title over their own box, and every file is a card.',
@@ -151,7 +151,7 @@ export default {
     },
 
     {
-      id: 'b2',
+      id: 'l2',
       stage: 'why',
       title: 'One box per section, one card per file',
       lead: 'A section title is a plain heading, the block after it gets the border, and files get a border, a gap, and the hairline that never showed.',
@@ -399,7 +399,7 @@ export default {
     },
 
     {
-      id: 'b3',
+      id: 'l3',
       stage: 'why',
       title: 'Denser text, one meaning per color',
       lead: 'Base text drops to 13px with tighter padding, and purple, green, and blue each get one job.',
@@ -508,7 +508,7 @@ export default {
     },
 
     {
-      id: 'b4',
+      id: 'l4',
       stage: 'why',
       title: 'Buttons, icon buttons, and links',
       lead: 'One rule in the skin decides which commands are buttons; a second makes some of them icon-only; the rest stay quiet links.',
@@ -662,7 +662,7 @@ export default {
     },
 
     {
-      id: 'b5',
+      id: 'l5',
       stage: 'respect',
       title: 'What the skin now expects of you',
       lead: 'A new command joins one list, a new class must be written by some source, and each file keeps its own wrapper.',
@@ -799,7 +799,7 @@ export default {
       id: 'd1',
       key: 'purple-marks-here',
       category: 'product',
-      beat: 'b3',
+      landmark: 'l3',
       title: 'Purple for where you are, not the link blue?',
       context:
         'The rail’s current item was blue, the same as links. The skin now paints it purple over the attention tint, and the `Layer n of m` label purple too, so blue means only “a link”.',
@@ -860,7 +860,7 @@ export default {
       id: 'd2',
       key: 'icon-only-copy-and-ask',
       category: 'product',
-      beat: 'b4',
+      landmark: 'l4',
       title: 'Icon-only for copy and the file ask?',
       context:
         'Copy on a point and ask in a file header are square buttons that show only a glyph; the word stays for screen readers and in a `title` tooltip. Settings, help, skin, and theme in the header get the same treatment.',
@@ -921,7 +921,7 @@ export default {
       id: 'd3',
       key: 'hairline-guard',
       category: 'pokayoke',
-      beat: 'b2',
+      landmark: 'l2',
       title: 'Does the file hairline need a guard?',
       context:
         'The base rule `.file + .file` matched nothing for as long as cards were wrapped in `<pr-file>`, and no check noticed. The fix is a new selector and a comment. Nothing fails if the wrapper changes again.',
@@ -970,7 +970,7 @@ export default {
       id: 'd4',
       key: 'base-13px',
       category: 'trade-off',
-      beat: 'b3',
+      landmark: 'l3',
       title: '13px base text against readability',
       context:
         'The github skin sets `--fs: 13px` where the base is 14px, and tightens padding in tables, points, headers, and the rail. The overview summary stays at 14px.',
@@ -1019,7 +1019,7 @@ export default {
   quiz: [
     {
       id: 'q1',
-      beat: 'b1',
+      landmark: 'l1',
       question: 'What problem did readers report that this change set out to fix?',
       options: [
         'Inside a layer, sections and files ran together, so it was hard to tell where one ended and the next began.',
@@ -1031,7 +1031,7 @@ export default {
     },
     {
       id: 'q2',
-      beat: 'b3',
+      landmark: 'l3',
       question: 'After this change, what does a color tell you in the github skin?',
       options: [
         'Its severity: red, yellow, and grey for blocker, major, and minor.',
@@ -1043,7 +1043,7 @@ export default {
     },
     {
       id: 'q3',
-      beat: 'b2',
+      landmark: 'l2',
       question: 'Why did the hairline between files never show before, in either skin?',
       options: [
         'Its color was too close to the background.',

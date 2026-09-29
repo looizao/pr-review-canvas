@@ -15,16 +15,16 @@ export default {
   mood: 'terminal',                                       // one of: terminal, blueprint, paper, grid
   spec: null,                                             // or { kind: 'pr-description' | 'plan' | 'issue', title, url? }
 
-  beats: [
+  landmarks: [
     {
-      id: 'b1',
+      id: 'l1',
       stage: 'world',                 // 'world' | 'why' | 'respect' (Naur order; one 'world' first, one 'respect' last)
       title: 'One rule for who reads the output',       // ≤ 60 chars
       lead: 'A person at a terminal gets text; a program on a pipe gets JSON.', // one sentence, ≤ 140 chars
       body: [                          // 1 to 3 short paragraphs, plain text, ≤ 70 words each. Inline `code` allowed.
         '…',
       ],
-      scene: {                         // a picture of this beat, drawn for this change
+      scene: {                         // a picture of this landmark, drawn for this change
         html: '<div class="sc-…">…</div>',   // HTML string; SVG welcome; classes prefixed sc-; fluid (max-width 100%)
         css: '.sc-… { … }',                   // optional; scoped to your sc- classes; use the page tokens:
                                               // var(--fg) var(--fg-muted) var(--bg) var(--panel) var(--line)
@@ -32,11 +32,11 @@ export default {
         init: root => {},                     // optional; runs once with the scene's root element
       },
       micro: null,                      // or { html, css, init(root) }: an interactive model of the changed
-                                        // behavior, inputs in, outcomes out. At most ONE beat has a micro.
-      code: [                           // the chunks behind this beat, shown on demand; 0 to 3
+                                        // behavior, inputs in, outcomes out. At most ONE landmark has a micro.
+      code: [                           // the chunks behind this landmark, shown on demand; 0 to 3
         { path: 'src/cli-text.ts', lang: 'ts', diff: '@@ -1,4 +1,6 @@\n …unified diff text…' },
       ],
-      decisions: ['d1'],                // ids of decisions anchored here; only on 'why' beats (and maybe 'respect')
+      decisions: ['d1'],                // ids of decisions anchored here; only on 'why' landmarks (and maybe 'respect')
     },
   ],
 
@@ -45,7 +45,7 @@ export default {
       id: 'd1',
       key: 'json-on-pipe',              // stable slug
       category: 'trade-off',            // 'trade-off' | 'architecture' | 'product' | 'pokayoke' | 'nfr' | 'spec'
-      beat: 'b2',
+      landmark: 'l2',
       title: 'Does a pipe imply JSON?',  // ≤ 70 chars, a question or noun phrase
       context: '…',                     // 1 to 2 sentences: what the code does and why the choice matters now
       keep: { label: 'Pipe means JSON', consequence: '…' },      // what the code does now; consequence ≤ 2 sentences, cost included
@@ -72,8 +72,8 @@ export default {
   quiz: [
     {
       id: 'q1',
-      beat: 'b2',                       // the beat a wrong answer reopens
-      question: 'What prints when `pr-review clean` runs inside a cron job?',   // checks the reader read the beat
+      landmark: 'l2',                       // the landmark a wrong answer reopens
+      question: 'What prints when `pr-review clean` runs inside a cron job?',   // checks the reader read the landmark
       options: ['…', '…', '…'],         // 3 options
       answer: 1,                        // index of the right one
       why: '…',                         // one sentence shown after answering
@@ -89,19 +89,19 @@ export default {
 Rules for the content:
 
 - Everything comes from the real diff and the PR description. No invented behavior.
-- Beats in Naur order: the first beat is the change as a user or the spec sees it; the middle
-  beats each explain one part and why it is shaped that way (decisions anchor there); the last
-  beat is what a later change must respect: invariants, extension points, pokayoke.
-- Reading all beats takes under 8 minutes. Prefer fewer, sharper beats.
+- Landmarks in Naur order: the first landmark is the change as a user or the spec sees it; the middle
+  landmarks each explain one part and why it is shaped that way (decisions anchor there); the last
+  landmark is what a later change must respect: invariants, extension points, pokayoke.
+- Reading all landmarks takes under 8 minutes. Prefer fewer, sharper landmarks.
 - Decisions are choices a reasonable engineer could make another way. Both sides have a real
   cost. Most recommendations are `keep`; a `change` recommendation must be argued in `context`.
   Cover at least three categories; include a `pokayoke` decision when the change has one.
 - Scenes show what happens, to whom, and at what cost, with this change's real names and values.
-  Vary the kind of picture across beats (a terminal, a flow, a table, a before/after, a timeline).
+  Vary the kind of picture across landmarks (a terminal, a flow, a table, a before/after, a timeline).
 - The micro-world lets the reader change inputs and see the outcome; keep it to a few controls.
 - Scenes and micro-worlds must read at 360px wide and in dark theme (use the tokens; never
   hard-code white or black).
-- Quiz questions check that the reader read the beats. Ask about behavior an end user or a
+- Quiz questions check that the reader read the landmarks. Ask about behavior an end user or a
   caller would notice, and about the decisions the change made and why. Never a gotcha, an edge
-  case the beats did not cover, a detail only the code shows, or a UI value nobody needs to
-  remember (a pixel size, a color hex, a class name). Each question is answerable from its beat.
+  case the landmarks did not cover, a detail only the code shows, or a UI value nobody needs to
+  remember (a pixel size, a color hex, a class name). Each question is answerable from its landmark.

@@ -184,7 +184,7 @@
   color: var(--mood-accent);
 }
 
-/* Code behind a beat. */
+/* Code behind a landmark. */
 .tour-code {
   margin: 12px 0;
 }
@@ -269,7 +269,7 @@
   border-color: var(--mood-accent);
   outline: none;
 }
-.tour-beat-note {
+.tour-landmark-note {
   margin: 0 0 14px;
   padding: 10px 14px;
   border-left: 4px solid var(--mood-accent);
@@ -277,7 +277,7 @@
   font-size: 13.5px;
   white-space: pre-wrap;
 }
-.tour-beat-note b {
+.tour-landmark-note b {
   display: block;
   font-size: 11px;
   text-transform: uppercase;
@@ -402,7 +402,7 @@
   border-radius: 0;
 }
 
-/* ---- Beat footer nav ---- */
+/* ---- Landmark footer nav ---- */
 .tour-nav {
   position: sticky;
   bottom: 0;

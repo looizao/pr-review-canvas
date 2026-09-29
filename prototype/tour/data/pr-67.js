@@ -206,9 +206,9 @@ export default {
     url: 'https://github.com/vintasoftware/pr-review-canvas/pull/67',
   },
 
-  beats: [
+  landmarks: [
     {
-      id: 'b1',
+      id: 'l1',
       stage: 'world',
       title: 'Text for a person, JSON for a program',
       lead: 'Five commands and every failure now print text at a terminal; a pipe or --json keeps the JSON line that scripts read.',
@@ -219,31 +219,31 @@ export default {
       ],
       scene: {
         html: `
-<div class="sc-b1">
-  <table class="sc-b1-table">
+<div class="sc-l1">
+  <table class="sc-l1-table">
     <thead>
       <tr><th>command</th><th>before</th><th>now, at a terminal</th><th>now, on a pipe or with --json</th></tr>
     </thead>
     <tbody>
-      <tr><td>install-skill</td><td class="sc-b1-json">JSON</td><td class="sc-b1-text">text</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>export</td><td class="sc-b1-json">JSON</td><td class="sc-b1-text">text</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>import</td><td class="sc-b1-json">JSON</td><td class="sc-b1-text">text</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>clean</td><td class="sc-b1-json">JSON</td><td class="sc-b1-text">text</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>upgrade</td><td class="sc-b1-json">JSON, plan on stderr</td><td class="sc-b1-text">stderr only</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>any failure</td><td class="sc-b1-json">{ "error": … } on stdout</td><td class="sc-b1-text">error: and hint: on stderr</td><td class="sc-b1-json">{ "error": … } on stdout</td></tr>
-      <tr><td>prepare, validate, publish</td><td class="sc-b1-json">JSON</td><td class="sc-b1-json">JSON</td><td class="sc-b1-json">JSON</td></tr>
-      <tr><td>doctor</td><td class="sc-b1-text">checklist</td><td class="sc-b1-text">checklist</td><td class="sc-b1-text">checklist on a pipe, JSON with --json</td></tr>
+      <tr><td>install-skill</td><td class="sc-l1-json">JSON</td><td class="sc-l1-text">text</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>export</td><td class="sc-l1-json">JSON</td><td class="sc-l1-text">text</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>import</td><td class="sc-l1-json">JSON</td><td class="sc-l1-text">text</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>clean</td><td class="sc-l1-json">JSON</td><td class="sc-l1-text">text</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>upgrade</td><td class="sc-l1-json">JSON, plan on stderr</td><td class="sc-l1-text">stderr only</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>any failure</td><td class="sc-l1-json">{ "error": … } on stdout</td><td class="sc-l1-text">error: and hint: on stderr</td><td class="sc-l1-json">{ "error": … } on stdout</td></tr>
+      <tr><td>prepare, validate, publish</td><td class="sc-l1-json">JSON</td><td class="sc-l1-json">JSON</td><td class="sc-l1-json">JSON</td></tr>
+      <tr><td>doctor</td><td class="sc-l1-text">checklist</td><td class="sc-l1-text">checklist</td><td class="sc-l1-text">checklist on a pipe, JSON with --json</td></tr>
     </tbody>
   </table>
 </div>`,
         css: `
-.sc-b1 { max-width: 100%; overflow-x: auto; font-family: var(--sans); color: var(--fg); }
-.sc-b1-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; line-height: 1.35; }
-.sc-b1-table th, .sc-b1-table td { text-align: left; vertical-align: top; padding: 6px 6px; border-bottom: 1px solid var(--line); }
-.sc-b1-table th { font-weight: 600; color: var(--fg-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.sc-b1-table td:first-child { font-family: var(--mono); white-space: nowrap; }
-.sc-b1-json { color: var(--accent); }
-.sc-b1-text { color: var(--ok); }
+.sc-l1 { max-width: 100%; overflow-x: auto; font-family: var(--sans); color: var(--fg); }
+.sc-l1-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; line-height: 1.35; }
+.sc-l1-table th, .sc-l1-table td { text-align: left; vertical-align: top; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+.sc-l1-table th { font-weight: 600; color: var(--fg-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.sc-l1-table td:first-child { font-family: var(--mono); white-space: nowrap; }
+.sc-l1-json { color: var(--accent); }
+.sc-l1-text { color: var(--ok); }
 `,
       },
       micro: null,
@@ -286,7 +286,7 @@ export default {
     },
 
     {
-      id: 'b2',
+      id: 'l2',
       stage: 'why',
       title: 'One decision in main, before any command runs',
       lead: 'outputMode reads the flag, the terminal, and the command name once; every command then asks io.json.',
@@ -296,66 +296,66 @@ export default {
       ],
       scene: {
         html: `
-<div class="sc-b2">
-  <svg class="sc-b2-flow" viewBox="0 0 340 372" role="img" aria-label="How outputMode picks text or JSON">
+<div class="sc-l2">
+  <svg class="sc-l2-flow" viewBox="0 0 340 372" role="img" aria-label="How outputMode picks text or JSON">
     <defs>
-      <marker id="sc-b2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" class="sc-b2-arrowhead"/>
+      <marker id="sc-l2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="sc-l2-arrowhead"/>
       </marker>
     </defs>
-    <rect x="8" y="8" width="204" height="30" rx="5" class="sc-b2-box"/>
+    <rect x="8" y="8" width="204" height="30" rx="5" class="sc-l2-box"/>
     <text x="110" y="27" text-anchor="middle">pr-review &lt;command&gt; …</text>
-    <line x1="110" y1="38" x2="110" y2="60" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
+    <line x1="110" y1="38" x2="110" y2="60" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
 
-    <rect x="8" y="62" width="204" height="40" rx="5" class="sc-b2-box"/>
+    <rect x="8" y="62" width="204" height="40" rx="5" class="sc-l2-box"/>
     <text x="110" y="86" text-anchor="middle">--json on the command line?</text>
-    <line x1="212" y1="82" x2="238" y2="82" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="225" y="76" text-anchor="middle" class="sc-b2-small">yes</text>
-    <line x1="110" y1="102" x2="110" y2="124" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="118" y="117" class="sc-b2-small">no</text>
+    <line x1="212" y1="82" x2="238" y2="82" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="225" y="76" text-anchor="middle" class="sc-l2-small">yes</text>
+    <line x1="110" y1="102" x2="110" y2="124" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="118" y="117" class="sc-l2-small">no</text>
 
-    <rect x="8" y="126" width="204" height="40" rx="5" class="sc-b2-box"/>
+    <rect x="8" y="126" width="204" height="40" rx="5" class="sc-l2-box"/>
     <text x="110" y="143" text-anchor="middle">stdout is a pipe,</text>
     <text x="110" y="158" text-anchor="middle">not a terminal?</text>
-    <line x1="212" y1="146" x2="238" y2="146" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="225" y="140" text-anchor="middle" class="sc-b2-small">yes</text>
-    <line x1="110" y1="166" x2="110" y2="188" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="118" y="181" class="sc-b2-small">no</text>
+    <line x1="212" y1="146" x2="238" y2="146" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="225" y="140" text-anchor="middle" class="sc-l2-small">yes</text>
+    <line x1="110" y1="166" x2="110" y2="188" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="118" y="181" class="sc-l2-small">no</text>
 
-    <rect x="8" y="190" width="204" height="40" rx="5" class="sc-b2-box"/>
+    <rect x="8" y="190" width="204" height="40" rx="5" class="sc-l2-box"/>
     <text x="110" y="214" text-anchor="middle">prepare, validate, or publish?</text>
-    <line x1="212" y1="210" x2="238" y2="210" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="225" y="204" text-anchor="middle" class="sc-b2-small">yes</text>
-    <line x1="110" y1="230" x2="110" y2="252" class="sc-b2-edge" marker-end="url(#sc-b2-arrow)"/>
-    <text x="118" y="245" class="sc-b2-small">no</text>
+    <line x1="212" y1="210" x2="238" y2="210" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="225" y="204" text-anchor="middle" class="sc-l2-small">yes</text>
+    <line x1="110" y1="230" x2="110" y2="252" class="sc-l2-edge" marker-end="url(#sc-l2-arrow)"/>
+    <text x="118" y="245" class="sc-l2-small">no</text>
 
-    <rect x="8" y="254" width="204" height="40" rx="5" class="sc-b2-box sc-b2-text"/>
-    <text x="110" y="273" text-anchor="middle" class="sc-b2-strong">text, for a person</text>
-    <text x="110" y="287" text-anchor="middle" class="sc-b2-small">io.json = false</text>
+    <rect x="8" y="254" width="204" height="40" rx="5" class="sc-l2-box sc-l2-text"/>
+    <text x="110" y="273" text-anchor="middle" class="sc-l2-strong">text, for a person</text>
+    <text x="110" y="287" text-anchor="middle" class="sc-l2-small">io.json = false</text>
 
-    <rect x="240" y="62" width="92" height="232" rx="5" class="sc-b2-box sc-b2-json"/>
-    <text x="286" y="170" text-anchor="middle" class="sc-b2-strong">JSON</text>
-    <text x="286" y="186" text-anchor="middle" class="sc-b2-small">one line</text>
-    <text x="286" y="200" text-anchor="middle" class="sc-b2-small">io.json = true</text>
+    <rect x="240" y="62" width="92" height="232" rx="5" class="sc-l2-box sc-l2-json"/>
+    <text x="286" y="170" text-anchor="middle" class="sc-l2-strong">JSON</text>
+    <text x="286" y="186" text-anchor="middle" class="sc-l2-small">one line</text>
+    <text x="286" y="200" text-anchor="middle" class="sc-l2-small">io.json = true</text>
 
-    <rect x="8" y="310" width="324" height="54" rx="5" class="sc-b2-box sc-b2-note"/>
-    <text x="18" y="329" class="sc-b2-small">doctor skips the middle two questions:</text>
-    <text x="18" y="343" class="sc-b2-small">its checklist prints on a pipe too, and only</text>
-    <text x="18" y="357" class="sc-b2-small">--json turns it into the JSON report.</text>
+    <rect x="8" y="310" width="324" height="54" rx="5" class="sc-l2-box sc-l2-note"/>
+    <text x="18" y="329" class="sc-l2-small">doctor skips the middle two questions:</text>
+    <text x="18" y="343" class="sc-l2-small">its checklist prints on a pipe too, and only</text>
+    <text x="18" y="357" class="sc-l2-small">--json turns it into the JSON report.</text>
   </svg>
 </div>`,
         css: `
-.sc-b2 { max-width: 100%; }
-.sc-b2-flow { display: block; width: 100%; max-width: 440px; height: auto; margin: 0 auto; font-family: var(--mono); font-size: 11px; }
-.sc-b2-flow text { fill: var(--fg); }
-.sc-b2-small { font-size: 9.5px; fill: var(--fg-muted) !important; }
-.sc-b2-strong { font-size: 12px; font-weight: 600; }
-.sc-b2-box { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
-.sc-b2-json { stroke: var(--accent); stroke-width: 1.5; }
-.sc-b2-text { stroke: var(--ok); stroke-width: 1.5; }
-.sc-b2-note { stroke: var(--warn); stroke-dasharray: 3 3; }
-.sc-b2-edge { stroke: var(--fg-muted); stroke-width: 1.2; }
-.sc-b2-arrowhead { fill: var(--fg-muted); }
+.sc-l2 { max-width: 100%; }
+.sc-l2-flow { display: block; width: 100%; max-width: 440px; height: auto; margin: 0 auto; font-family: var(--mono); font-size: 11px; }
+.sc-l2-flow text { fill: var(--fg); }
+.sc-l2-small { font-size: 9.5px; fill: var(--fg-muted) !important; }
+.sc-l2-strong { font-size: 12px; font-weight: 600; }
+.sc-l2-box { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+.sc-l2-json { stroke: var(--accent); stroke-width: 1.5; }
+.sc-l2-text { stroke: var(--ok); stroke-width: 1.5; }
+.sc-l2-note { stroke: var(--warn); stroke-dasharray: 3 3; }
+.sc-l2-edge { stroke: var(--fg-muted); stroke-width: 1.2; }
+.sc-l2-arrowhead { fill: var(--fg-muted); }
 `,
       },
       micro: null,
@@ -412,7 +412,7 @@ export default {
     },
 
     {
-      id: 'b3',
+      id: 'l3',
       stage: 'why',
       title: 'What a person reads, and where failures go',
       lead: 'Success is a sentence on stdout, a failure is an error: line and a hint on stderr, and JSON mode prints what it did before.',
@@ -423,30 +423,30 @@ export default {
       ],
       scene: {
         html: `
-<div class="sc-b3-term">
-  <div class="sc-b3-bar"><span></span><span></span><span></span><em>a terminal, from the pull request description</em></div>
-  <pre class="sc-b3-body"><span class="sc-b3-prompt">$</span> pr-review insall-skill
-<span class="sc-b3-err">error: unknown command: insall-skill (BAD_REQUEST)</span>
-<span class="sc-b3-err">hint: run pr-review --help</span>
+<div class="sc-l3-term">
+  <div class="sc-l3-bar"><span></span><span></span><span></span><em>a terminal, from the pull request description</em></div>
+  <pre class="sc-l3-body"><span class="sc-l3-prompt">$</span> pr-review insall-skill
+<span class="sc-l3-err">error: unknown command: insall-skill (BAD_REQUEST)</span>
+<span class="sc-l3-err">hint: run pr-review --help</span>
 
-<span class="sc-b3-prompt">$</span> pr-review install-skill
+<span class="sc-l3-prompt">$</span> pr-review install-skill
 Copied the pr-review-canvas skill to:
   claude  /home/ana/acme-widgets/.claude/skills/pr-review-canvas
   codex   /home/ana/acme-widgets/.agents/skills/pr-review-canvas
 
-<span class="sc-b3-prompt">$</span> pr-review clean --dry-run | cat
+<span class="sc-l3-prompt">$</span> pr-review clean --dry-run | cat
 {"removed":[],"skipped":[],"dryRun":true}</pre>
-  <p class="sc-b3-legend"><span class="sc-b3-err">red</span> lines went to stderr; the rest is stdout.</p>
+  <p class="sc-l3-legend"><span class="sc-l3-err">red</span> lines went to stderr; the rest is stdout.</p>
 </div>`,
         css: `
-.sc-b3-term { max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-family: var(--mono); color: var(--fg); }
-.sc-b3-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
-.sc-b3-bar span { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
-.sc-b3-bar em { font-family: var(--sans); font-style: normal; font-size: 0.72rem; color: var(--fg-muted); margin-left: 6px; }
-.sc-b3-body { margin: 0; padding: 10px 12px; font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.sc-b3-prompt { color: var(--accent); }
-.sc-b3-err { color: var(--bad); }
-.sc-b3-legend { margin: 0; padding: 6px 12px 8px; font-family: var(--sans); font-size: 0.75rem; color: var(--fg-muted); border-top: 1px solid var(--line); }
+.sc-l3-term { max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-family: var(--mono); color: var(--fg); }
+.sc-l3-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.sc-l3-bar span { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.sc-l3-bar em { font-family: var(--sans); font-style: normal; font-size: 0.72rem; color: var(--fg-muted); margin-left: 6px; }
+.sc-l3-body { margin: 0; padding: 10px 12px; font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sc-l3-prompt { color: var(--accent); }
+.sc-l3-err { color: var(--bad); }
+.sc-l3-legend { margin: 0; padding: 6px 12px 8px; font-family: var(--sans); font-size: 0.75rem; color: var(--fg-muted); border-top: 1px solid var(--line); }
 `,
       },
       micro: { html: SIM_HTML, css: SIM_CSS, init: simInit },
@@ -525,7 +525,7 @@ Copied the pr-review-canvas skill to:
     },
 
     {
-      id: 'b4',
+      id: 'l4',
       stage: 'why',
       title: 'upgrade talks to a person and to its own child',
       lead: 'The plan and each step go to stderr; the child upgrade runs with --json on a pipe, and the parent reads its last line.',
@@ -535,27 +535,27 @@ Copied the pr-review-canvas skill to:
       ],
       scene: {
         html: `
-<div class="sc-b4">
-  <ol class="sc-b4-line">
-    <li class="sc-b4-parent"><span class="sc-b4-who">parent 0.5.0</span><span class="sc-b4-what"><b>stderr</b> pr-review upgrade will: … Proceed? [y/N]</span></li>
-    <li class="sc-b4-parent"><span class="sc-b4-who">parent</span><span class="sc-b4-what"><b>runs</b> npm install -g @vintasoftware/pr-review-canvas@0.6.0</span></li>
-    <li class="sc-b4-parent"><span class="sc-b4-who">parent</span><span class="sc-b4-what"><b>execFile</b> pr-review upgrade --yes --json --only acpx,skill --repo …</span></li>
-    <li class="sc-b4-child"><span class="sc-b4-who">child 0.6.0</span><span class="sc-b4-what"><b>stdout is a pipe</b>, and --json is set: JSON either way. Plans again with its own code.</span></li>
-    <li class="sc-b4-child"><span class="sc-b4-who">child</span><span class="sc-b4-what"><b>stdout</b> {"applied":true,"ok":true,"steps":[…],"notes":[…]}</span></li>
-    <li class="sc-b4-parent"><span class="sc-b4-who">parent</span><span class="sc-b4-what"><b>parses</b> the last stdout line, then <b>stderr</b> done: upgrade acpx 0.13.2 -> 0.19.1 (npm install -g acpx@0.19.1)</span></li>
-    <li class="sc-b4-parent"><span class="sc-b4-who">parent</span><span class="sc-b4-what"><b>stderr</b> Upgrade complete. <b>stdout</b> nothing at a terminal; one JSON line with --json or on a pipe.</span></li>
+<div class="sc-l4">
+  <ol class="sc-l4-line">
+    <li class="sc-l4-parent"><span class="sc-l4-who">parent 0.5.0</span><span class="sc-l4-what"><b>stderr</b> pr-review upgrade will: … Proceed? [y/N]</span></li>
+    <li class="sc-l4-parent"><span class="sc-l4-who">parent</span><span class="sc-l4-what"><b>runs</b> npm install -g @vintasoftware/pr-review-canvas@0.6.0</span></li>
+    <li class="sc-l4-parent"><span class="sc-l4-who">parent</span><span class="sc-l4-what"><b>execFile</b> pr-review upgrade --yes --json --only acpx,skill --repo …</span></li>
+    <li class="sc-l4-child"><span class="sc-l4-who">child 0.6.0</span><span class="sc-l4-what"><b>stdout is a pipe</b>, and --json is set: JSON either way. Plans again with its own code.</span></li>
+    <li class="sc-l4-child"><span class="sc-l4-who">child</span><span class="sc-l4-what"><b>stdout</b> {"applied":true,"ok":true,"steps":[…],"notes":[…]}</span></li>
+    <li class="sc-l4-parent"><span class="sc-l4-who">parent</span><span class="sc-l4-what"><b>parses</b> the last stdout line, then <b>stderr</b> done: upgrade acpx 0.13.2 -> 0.19.1 (npm install -g acpx@0.19.1)</span></li>
+    <li class="sc-l4-parent"><span class="sc-l4-who">parent</span><span class="sc-l4-what"><b>stderr</b> Upgrade complete. <b>stdout</b> nothing at a terminal; one JSON line with --json or on a pipe.</span></li>
   </ol>
 </div>`,
         css: `
-.sc-b4 { max-width: 100%; font-family: var(--sans); color: var(--fg); }
-.sc-b4-line { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
-.sc-b4-line li { position: relative; padding: 0 0 12px 12px; font-size: 0.82rem; line-height: 1.4; }
-.sc-b4-line li::before { content: ''; position: absolute; left: -21px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); border: 2px solid var(--fg-muted); }
-.sc-b4-child::before { border-color: var(--accent) !important; }
-.sc-b4-who { display: block; font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
-.sc-b4-child .sc-b4-who { color: var(--accent); }
-.sc-b4-what { display: block; font-family: var(--mono); overflow-wrap: anywhere; }
-.sc-b4-what b { font-family: var(--sans); font-weight: 600; color: var(--fg); }
+.sc-l4 { max-width: 100%; font-family: var(--sans); color: var(--fg); }
+.sc-l4-line { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+.sc-l4-line li { position: relative; padding: 0 0 12px 12px; font-size: 0.82rem; line-height: 1.4; }
+.sc-l4-line li::before { content: ''; position: absolute; left: -21px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); border: 2px solid var(--fg-muted); }
+.sc-l4-child::before { border-color: var(--accent) !important; }
+.sc-l4-who { display: block; font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
+.sc-l4-child .sc-l4-who { color: var(--accent); }
+.sc-l4-what { display: block; font-family: var(--mono); overflow-wrap: anywhere; }
+.sc-l4-what b { font-family: var(--sans); font-weight: 600; color: var(--fg); }
 `,
       },
       micro: null,
@@ -610,7 +610,7 @@ Copied the pr-review-canvas skill to:
     },
 
     {
-      id: 'b5',
+      id: 'l5',
       stage: 'respect',
       title: 'What a new command must respect',
       lead: 'Ask io.json, print failures through printErrorEnvelope, keep stdout to one line in JSON mode, and name agent commands in one set.',
@@ -620,21 +620,21 @@ Copied the pr-review-canvas skill to:
       ],
       scene: {
         html: `
-<div class="sc-b5">
-  <div class="sc-b5-card"><div class="sc-b5-k">io.json</div><p>Set once by main. Read it before you print. Never declare --json in a command's parseArgs.</p></div>
-  <div class="sc-b5-card"><div class="sc-b5-k">printErrorEnvelope</div><p>Every failure goes through it: error: and hint: on stderr as text, the envelope on stdout as JSON.</p></div>
-  <div class="sc-b5-card"><div class="sc-b5-k">one line</div><p>In JSON mode stdout holds exactly one line. The upgrade parent parses the last line of its child.</p></div>
-  <div class="sc-b5-card"><div class="sc-b5-k">AGENT_COMMANDS</div><p>prepare, validate, publish. A new command the skill parses is added here, nowhere else.</p></div>
-  <div class="sc-b5-card sc-b5-warn"><div class="sc-b5-k">doctor</div><p>The one name coded in outputMode: checklist on a pipe, JSON only with --json. Do not copy this for a new command.</p></div>
-  <div class="sc-b5-card"><div class="sc-b5-k">CliIo fakes</div><p>A test io needs json: true or false. TypeScript refuses a fake without it.</p></div>
+<div class="sc-l5">
+  <div class="sc-l5-card"><div class="sc-l5-k">io.json</div><p>Set once by main. Read it before you print. Never declare --json in a command's parseArgs.</p></div>
+  <div class="sc-l5-card"><div class="sc-l5-k">printErrorEnvelope</div><p>Every failure goes through it: error: and hint: on stderr as text, the envelope on stdout as JSON.</p></div>
+  <div class="sc-l5-card"><div class="sc-l5-k">one line</div><p>In JSON mode stdout holds exactly one line. The upgrade parent parses the last line of its child.</p></div>
+  <div class="sc-l5-card"><div class="sc-l5-k">AGENT_COMMANDS</div><p>prepare, validate, publish. A new command the skill parses is added here, nowhere else.</p></div>
+  <div class="sc-l5-card sc-l5-warn"><div class="sc-l5-k">doctor</div><p>The one name coded in outputMode: checklist on a pipe, JSON only with --json. Do not copy this for a new command.</p></div>
+  <div class="sc-l5-card"><div class="sc-l5-k">CliIo fakes</div><p>A test io needs json: true or false. TypeScript refuses a fake without it.</p></div>
 </div>`,
         css: `
-.sc-b5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; max-width: 100%; font-family: var(--sans); color: var(--fg); }
-.sc-b5-card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-width: 0; }
-.sc-b5-card p { margin: 4px 0 0; font-size: 0.78rem; line-height: 1.4; overflow-wrap: anywhere; }
-.sc-b5-k { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; color: var(--accent); overflow-wrap: anywhere; }
-.sc-b5-warn { border-color: var(--warn); }
-.sc-b5-warn .sc-b5-k { color: var(--warn); }
+.sc-l5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; max-width: 100%; font-family: var(--sans); color: var(--fg); }
+.sc-l5-card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-width: 0; }
+.sc-l5-card p { margin: 4px 0 0; font-size: 0.78rem; line-height: 1.4; overflow-wrap: anywhere; }
+.sc-l5-k { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; color: var(--accent); overflow-wrap: anywhere; }
+.sc-l5-warn { border-color: var(--warn); }
+.sc-l5-warn .sc-l5-k { color: var(--warn); }
 `,
       },
       micro: null,
@@ -696,7 +696,7 @@ Copied the pr-review-canvas skill to:
       id: 'd1',
       key: 'pipe-means-json',
       category: 'trade-off',
-      beat: 'b2',
+      landmark: 'l2',
       title: 'Does a pipe mean JSON?',
       context:
         '`outputMode` prints JSON when stdout is not a terminal, so a script that never passed `--json` keeps getting the line it parsed before. The same rule turns `pr-review clean | less` into JSON for a person.',
@@ -746,7 +746,7 @@ Copied the pr-review-canvas skill to:
       id: 'd2',
       key: 'handoff-passes-json',
       category: 'pokayoke',
-      beat: 'b4',
+      landmark: 'l4',
       title: 'Should the handoff pass --json when the pipe already implies it?',
       context:
         "`handOff` runs the newly installed pr-review through `execFile`, so the child's stdout is a pipe and the pipe rule already gives JSON. The change passes `--json` too, and the parent reads the last stdout line as the report.",
@@ -794,7 +794,7 @@ Copied the pr-review-canvas skill to:
       id: 'd3',
       key: 'one-owner-for-json',
       category: 'architecture',
-      beat: 'b2',
+      landmark: 'l2',
       title: 'Where is --json parsed?',
       context:
         '`main` calls `outputMode` once: it removes `--json` from the arguments and sets `io.json` before any command parses its flags. No command declares `json` in its own `parseArgs`, and `doctor` lost the one it had.',
@@ -844,7 +844,7 @@ Copied the pr-review-canvas skill to:
       id: 'd4',
       key: 'error-line-shows-code',
       category: 'product',
-      beat: 'b3',
+      landmark: 'l3',
       title: 'Does the error line show the code?',
       context:
         'At a terminal a failure prints `error: <message> (<code>)` and `hint: <hint>` on stderr. The code in parentheses is the same `BAD_REQUEST` or `NOT_A_REPO` the JSON envelope carries.',
@@ -907,7 +907,7 @@ Copied the pr-review-canvas skill to:
   quiz: [
     {
       id: 'q1',
-      beat: 'b2',
+      landmark: 'l2',
       question:
         'A cron job runs `pr-review clean` with stdout redirected to a log file. What lands in the log?',
       options: [
@@ -920,7 +920,7 @@ Copied the pr-review-canvas skill to:
     },
     {
       id: 'q2',
-      beat: 'b3',
+      landmark: 'l3',
       question: 'At a terminal, a person runs `pr-review insall-skill 2>/dev/null`. What do they see?',
       options: [
         'error: unknown command: insall-skill (BAD_REQUEST), then the hint',
@@ -932,7 +932,7 @@ Copied the pr-review-canvas skill to:
     },
     {
       id: 'q3',
-      beat: 'b4',
+      landmark: 'l4',
       question:
         'A pr-review from before this change upgrades itself and hands off to the new version without passing --json. What does the old parent read from the child?',
       options: [
