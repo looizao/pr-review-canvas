@@ -434,6 +434,9 @@ export function planHtml(bundle) {
   const done = finished
     ? `<h3 class="tour-section-h">Done</h3><ul class="tour-sharing">
          ${sharingLine(finished.sharing)}
+         ${finished.posted === undefined ? '' : `<li>${finished.posted === 0 ? 'No kept reason belonged on the pull request this time.' : `${plural(finished.posted, 'kept reason')} posted as ${finished.posted === 1 ? 'a comment' : 'comments'} on ${finished.posted === 1 ? 'its line' : 'their lines'}.`}</li>`}
+         ${finished.queued === undefined ? '' : `<li>${finished.queued === 0 ? 'Nothing new for your pending review.' : `${plural(finished.queued, 'change request')} added to your pending review; it goes out with your verdict.`}</li>`}
+         ${(finished.warnings ?? []).map(w => `<li class="failed">${esc(w)}</li>`).join('')}
          ${bundle.options.finalQuiz === 'off' ? '' : `<li class="private">Quiz ${right} of ${tour.quiz.length}, kept on this machine.</li>`}
          <li>Prompt written to <span class="mono">${esc(finished.promptPath)}</span>. Run <code>/pr-tour-apply ${esc(bundle.local ?? String(tour.pr.number))}</code> to implement it.</li>
        </ul>

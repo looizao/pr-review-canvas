@@ -375,7 +375,7 @@ describe('planHtml', () => {
       quiz: { 'q-run': { answered: 1, right: true } },
     })
     /** @param {import('../contract-types.js').TourSharing} sharing */
-    const finished = sharing => ({
+    const finished = sharing => /** @type {import('../contract-types.js').TourBundle} */ ({
       ...bundle,
       reader: {
         ...bundle.reader,
@@ -390,6 +390,30 @@ describe('planHtml', () => {
     expect(document.querySelector('#prompt')?.textContent).toBe('# P')
     expect(document.body.textContent).toContain('/pr-tour-apply 42')
     expect(document.querySelector('[data-act="confirm"]')).toBeNull()
+    // What went to the pull request, for the author and for a reviewer.
+    const withPosted = finished({ status: 'off' })
+    const done = /** @type {import('../contract-types.js').TourFinished} */ (withPosted.reader.finished)
+    withPosted.reader.finished = { ...done, posted: 2, warnings: ['one was not posted: boom'] }
+    document.body.innerHTML = planHtml(withPosted)
+    expect(document.querySelector('.tour-sharing')?.textContent).toContain(
+      '2 kept reasons posted as comments on their lines.'
+    )
+    expect(document.querySelector('.tour-sharing .failed')?.textContent).toBe('one was not posted: boom')
+    withPosted.reader.finished = { ...done, posted: 0 }
+    document.body.innerHTML = planHtml(withPosted)
+    expect(document.querySelector('.tour-sharing')?.textContent).toContain(
+      'No kept reason belonged on the pull request'
+    )
+    withPosted.reader.finished = { ...done, queued: 1 }
+    document.body.innerHTML = planHtml(withPosted)
+    expect(document.querySelector('.tour-sharing')?.textContent).toContain(
+      '1 change request added to your pending review'
+    )
+    withPosted.reader.finished = { ...done, queued: 0 }
+    document.body.innerHTML = planHtml(withPosted)
+    expect(document.querySelector('.tour-sharing')?.textContent).toContain(
+      'Nothing new for your pending review.'
+    )
     document.body.innerHTML = planHtml(finished({ status: 'failed', warning: 'boom', zipPath: '/z.zip' }))
     expect(document.querySelector('.tour-sharing .failed')?.textContent).toContain('boom')
     document.body.innerHTML = planHtml(finished({ status: 'off' }))

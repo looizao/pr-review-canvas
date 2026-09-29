@@ -22,6 +22,7 @@ import {
 import {
   BASE_SHA,
   GH_ISSUE_COMMENTS,
+  GH_REVIEW_COMMENTS,
   ghFor42,
   gitFor42,
   gitForLocal,
@@ -40,7 +41,10 @@ let t: TestContext
 afterEach(() => t?.cleanup())
 
 /** GitHub for PR #42 that accepts the tour comment and lists it afterwards. */
-function ghSharing(): { gh: ReturnType<typeof ghFor42>; posted: () => Array<Record<string, unknown>> } {
+function ghSharing(postRoutes: Record<string, ReturnType<typeof ghPost>> = {}): {
+  gh: ReturnType<typeof ghFor42>
+  posted: () => Array<Record<string, unknown>>
+} {
   const posted: Array<Record<string, unknown>> = []
   const share = ghPost(body => {
     const comment = {
@@ -60,6 +64,7 @@ function ghSharing(): { gh: ReturnType<typeof ghFor42>; posted: () => Array<Reco
       postRoutes: {
         'repos/acme/widgets/issues/42/comments': share,
         'repos/acme/widgets/issues/comments/6001': share,
+        ...postRoutes,
       },
     }),
     posted: () => posted,
@@ -328,6 +333,7 @@ describe('PUT /api/tours/:n/reader', () => {
 describe('POST /api/tours/:n/finish', () => {
   it('writes the prompt, records the author with their picks, shares the record once, and marks the reader finished', async () => {
     const sharing = ghSharing()
+    // Nothing fakes the inline post here: the reason is not posted, and the finish says so.
     t = await context({ gh: sharing.gh })
     await t.ctx.tours.write(HEAD_SHA, syntheticTour())
     await send('/api/tours/42/reader', 'PUT', { headSha: HEAD_SHA, reader: settledReader() })
@@ -340,6 +346,8 @@ describe('POST /api/tours/:n/finish', () => {
       promptPath,
       prompt: expect.stringContaining('- sum-over-product: Sum. Sum is what the spec says.'),
       sharing: { status: 'shared', url: 'https://github.com/acme/widgets/pull/42#issuecomment-6001' },
+      posted: 0,
+      warnings: [expect.stringContaining('The reason for "Sum over product?" was not posted')],
     })
     expect(await readFile(promptPath, 'utf8')).toBe(`${body.finished.prompt}\n`)
     expect(body.record).toEqual({
@@ -604,6 +612,164 @@ describe('the grilling routes', () => {
     expect(await json<{ name: string; turns: unknown[] }>(await get('/api/tours/42/grill/history'))).toEqual({
       name: 'pr-review-acme-widgets-42-claude-t0',
       turns: [],
+    })
+  })
+})
+
+describe('finishing on the pull request', () => {
+  const POSTED = ghPost(body => ({
+    ...GH_REVIEW_COMMENTS[0],
+    ...(body as Record<string, unknown>),
+    id: 5001,
+    html_url: 'https://github.com/acme/widgets/pull/42#discussion_r5001',
+  }))
+
+  it("posts the author's kept reasons that belong on the pull request, once each", async () => {
+    const posted: unknown[] = []
+    const sharing = ghSharing({
+      'repos/acme/widgets/pulls/42/comments': ghPost(body => {
+        posted.push(body)
+        return {
+          ...GH_REVIEW_COMMENTS[0],
+          ...(body as Record<string, unknown>),
+          id: 5001,
+          html_url: 'https://github.com/acme/widgets/pull/42#discussion_r5001',
+        }
+      }),
+    })
+    t = await context({ gh: sharing.gh })
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    // The line is checked against the head's diff, which the bundle route builds.
+    await get('/api/prs/42')
+    await send('/api/tours/42/reader', 'PUT', { headSha: HEAD_SHA, reader: settledReader() })
+    const first = await json<TourFinishResponse>(
+      await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    )
+    expect(first.finished.posted).toBe(1)
+    expect(first.finished.queued).toBeUndefined()
+    expect(first.record.author?.picks['sum-over-product']).toEqual({
+      pick: 'keep',
+      place: 'pr',
+      commentUrl: 'https://github.com/acme/widgets/pull/42#discussion_r5001',
+    })
+    expect(posted).toHaveLength(1)
+    expect(posted[0]).toMatchObject({ path: 'src/app.ts', line: 4, side: 'RIGHT' })
+    expect(String((posted[0] as Record<string, unknown>)['body'])).toContain('**Kept in the tour:** Sum')
+    // Finishing again posts nothing new and keeps the comment.
+    const again = await json<TourFinishResponse>(
+      await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    )
+    expect(again.finished.posted).toBe(0)
+    expect(again.record.author?.picks['sum-over-product']?.commentUrl).toContain('discussion_r5001')
+    expect(posted).toHaveLength(1)
+  })
+
+  it("queues a reviewer's approved changes in their pending review, once each", async () => {
+    t = await context({
+      gh: ghFor42({ postRoutes: { 'repos/acme/widgets/pulls/42/comments': POSTED } }),
+      capabilities: { get: async () => ({ canComment: true, tokenKind: 'x', login: 'reviewer' }) },
+    })
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    const changed = settledReader({
+      picks: {
+        'sum-over-product': {
+          pick: 'change',
+          approved: true,
+          restatement: { what: 'Multiply.', where: ['src/app.ts:4'], unchanged: 'Callers.' },
+        },
+      },
+    })
+    await send('/api/tours/42/reader', 'PUT', { headSha: HEAD_SHA, reader: changed })
+    const first = await json<TourFinishResponse>(
+      await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    )
+    expect(first.finished.queued).toBe(1)
+    expect(first.finished.posted).toBeUndefined()
+    const pending = (await t.ctx.state.read(42)).pending
+    expect(pending).toHaveLength(1)
+    expect(pending[0]).toMatchObject({
+      path: 'src/app.ts',
+      line: 4,
+      side: 'new',
+      proposalFingerprint: 'tour:sum-over-product',
+      headSha: HEAD_SHA,
+    })
+    expect(pending[0]?.body).toContain('**Change requested in the tour:** Sum over product?')
+    expect(pending[0]?.body).toContain('Stays the same: Callers.')
+    const again = await json<TourFinishResponse>(
+      await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    )
+    expect(again.finished.queued).toBe(0)
+    expect((await t.ctx.state.read(42)).pending).toHaveLength(1)
+  })
+
+  it('posts nothing from the tour of an older commit', async () => {
+    const git = gitFor42()
+    t = await context({ git })
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    moveFakeHead(git, {
+      headRef: 'pull/42/head',
+      baseRef: 'refs/pr/42/base',
+      headSha: OTHER_SHA,
+      mergeBaseSha: BASE_SHA,
+      diff: SYNTHETIC_DIFF,
+      ahead: { [HEAD_SHA]: 1 },
+    })
+    await get('/api/tours/42?refresh=1')
+    await send('/api/tours/42/reader', 'PUT', { headSha: HEAD_SHA, reader: settledReader() })
+    const body = await json<TourFinishResponse>(
+      await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    )
+    expect(body.finished.posted).toBeUndefined()
+    expect(body.finished.queued).toBeUndefined()
+  })
+})
+
+describe('pr-review tour plan', () => {
+  async function plan(...argv: string[]): Promise<Record<string, unknown>> {
+    const out: string[] = []
+    const { runTour } = await import('../tour/commands.js')
+    await runTour(t.ctx, ['plan', ...argv], { stdout: l => out.push(l), stderr: () => undefined, json: true })
+    return JSON.parse(out.at(-1) ?? '{}') as Record<string, unknown>
+  }
+
+  it('prints the confirmed plan for the apply skill, or says the tour is not finished', async () => {
+    t = await context()
+    await writeTextAtomic(t.ctx.settings.file, 'tourComment: false\n')
+    const { runTour } = await import('../tour/commands.js')
+    await expect(
+      runTour(t.ctx, ['plan', '--pr', '42'], { stdout: () => undefined, stderr: () => undefined, json: true })
+    ).rejects.toThrow('no tour of 42')
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour())
+    expect(await plan('--pr', '42')).toEqual({
+      status: 'unfinished',
+      headSha: HEAD_SHA,
+      tourDir: t.ctx.tours.tourDir(HEAD_SHA),
+      tourUrl: 'http://localhost:3010/tour/42',
+    })
+    await send('/api/tours/42/reader', 'PUT', { headSha: HEAD_SHA, reader: settledReader() })
+    await send('/api/tours/42/finish', 'POST', { headSha: HEAD_SHA })
+    const done = await plan('--pr', '42')
+    expect(done).toMatchObject({
+      status: 'finished',
+      headSha: HEAD_SHA,
+      promptPath: path.join(t.ctx.tours.tourDir(HEAD_SHA), 'prompt.md'),
+      finishedAt: '2026-09-10T12:00:00.000Z',
+      changes: 0,
+      kept: 1,
+      stale: false,
+    })
+    expect(String(done['prompt'])).toContain('# Keep PR #42')
+    await expect(plan('--base', 'x', '--head', 'y')).rejects.toThrow()
+  })
+
+  it('reads a local review by its key', async () => {
+    t = await context({ git: gitForLocal({ snapshot: null, head: HEAD_SHA }) })
+    await t.ctx.prs.writePr('branch', { ...syntheticTour().pr, number: null })
+    await t.ctx.tours.write(HEAD_SHA, syntheticTour({ pr: { ...syntheticTour().pr, number: null } }))
+    expect(await plan('--branch')).toMatchObject({
+      status: 'unfinished',
+      tourUrl: 'http://localhost:3010/tour/branch',
     })
   })
 })

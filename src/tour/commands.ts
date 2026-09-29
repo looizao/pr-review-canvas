@@ -5,8 +5,14 @@ import { parseArgs } from 'node:util'
 import { HARNESSES } from '../contract/review-artifact.js'
 import { formatTourError } from '../contract/tour.js'
 import { type CliIo, EXIT, parsePrepareTarget, printJson, UsageError } from '../commands.js'
+import { keyToString, type ReviewKey } from '../contract/review-key.js'
 import { PublishError } from '../review/publish.js'
+import { createPrLoader } from '../server/bundle.js'
 import type { AppContext } from '../server/context.js'
+import { tourReviewer } from './bundle.js'
+import { lookupTour } from './lookup.js'
+import { planOf } from './plan.js'
+import { readReaderState } from './reader.js'
 import { startQuietServer } from '../server/node-server.js'
 import {
   TOUR_PREVIEW_OPTIONS as PREVIEW_OPTIONS,
@@ -18,10 +24,10 @@ import { headlessScreenshot, previewTour } from './preview.js'
 import { publishTour, readTourContext, readTourModel, tourValidationInput } from './publish.js'
 import { validateTourModel } from './validate.js'
 
-export const TOUR_STEPS = ['prepare', 'validate', 'preview', 'publish'] as const
+export const TOUR_STEPS = ['prepare', 'validate', 'preview', 'publish', 'plan'] as const
 export type TourStep = (typeof TOUR_STEPS)[number]
 
-/** The step named, or a usage error naming the four. */
+/** The step named, or a usage error naming the five. */
 export function parseTourStep(argv: string[]): { step: TourStep; rest: string[] } {
   const [step, ...rest] = argv
   const hit = TOUR_STEPS.find(s => s === step)
@@ -46,9 +52,55 @@ export async function runTour(ctx: AppContext, argv: string[], io: CliIo): Promi
       return runTourValidate(ctx, rest, io)
     case 'preview':
       return runTourPreview(ctx, rest, io)
+    case 'plan':
+      return runTourPlan(ctx, rest, io)
     default:
       return runTourPublish(ctx, rest, io)
   }
+}
+
+/**
+ * `tour plan (--pr <n> | --branch | --uncommitted)`: the plan a finished tour settled on, for the
+ * apply skill: the prompt as written at finish, and where it is.
+ */
+async function runTourPlan(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {
+  const { values } = parseArgs({
+    args: argv,
+    options: { pr: { type: 'string' }, branch: { type: 'boolean' }, uncommitted: { type: 'boolean' } },
+    strict: true,
+  })
+  const target = parsePrepareTarget(values)
+  const key: ReviewKey =
+    target.kind === 'pr' ? target.number : target.kind === 'local' ? target.source : 'branch'
+  const found = await lookupTour(ctx, createPrLoader(ctx), key)
+  if (found.status === 'missing') {
+    throw new PublishError('NOT_FOUND', `no tour of ${keyToString(key)}`, 'generate one with /pr-tour')
+  }
+  const reviewer = await tourReviewer(ctx, key, found.pr)
+  const reader = await readReaderState(ctx, found.headSha, found.artifact, reviewer.author)
+  const tourDir = ctx.tours.tourDir(found.headSha)
+  const finished = reader.finished
+  if (finished === undefined) {
+    printJson(io, { status: 'unfinished', headSha: found.headSha, tourDir, tourUrl: tourUrlOf(ctx, key) })
+    return EXIT.ok
+  }
+  const plan = planOf(found.artifact, reader)
+  printJson(io, {
+    status: 'finished',
+    headSha: found.headSha,
+    tourDir,
+    promptPath: finished.promptPath,
+    prompt: finished.prompt,
+    finishedAt: finished.at,
+    changes: plan.changes.length,
+    kept: plan.kept.length,
+    stale: found.status === 'stale',
+  })
+  return EXIT.ok
+}
+
+function tourUrlOf(ctx: AppContext, key: ReviewKey): string {
+  return `http://localhost:${ctx.config.port}/tour/${keyToString(key)}`
 }
 
 async function runTourPrepare(ctx: AppContext, argv: string[], io: CliIo): Promise<number> {

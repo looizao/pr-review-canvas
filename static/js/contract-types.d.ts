@@ -80,6 +80,7 @@ export type {
   Restatement,
   TourBootstrap,
   TourBundle,
+  TourFinished,
   TourFinishResponse,
   TourPageLandmark,
   TourPageTour,

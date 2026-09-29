@@ -295,3 +295,7 @@ decisions fed into the canvas are not.
 
 Before building, iterate on a prototype tour with the maintainer: the look, the order of things,
 and the interactions, without integrated functionality.
+
+Done: the prototype was iterated on 2026-09-28 and 2026-09-29 (its findings are in the Landmarks,
+Look, and Boundaries sections above), then the tour was built on this branch and the prototype
+removed. Issue #44 was closed pointing here.

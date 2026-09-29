@@ -72,7 +72,15 @@ export function tourRoutes(ctx: AppContext, loader: PrLoader): Hono {
       const found = await tourOnScreen(ctx, loader, key, input.headSha)
       const reviewer = await tourReviewer(ctx, key, found.pr)
       const reader = await readReaderState(ctx, found.headSha, found.artifact, reviewer.author)
-      return finishTour(ctx, { key, headSha: found.headSha, artifact: found.artifact, reader, reviewer })
+      return finishTour(ctx, {
+        key,
+        headSha: found.headSha,
+        artifact: found.artifact,
+        reader,
+        reviewer,
+        loader,
+        current: found.status === 'ready',
+      })
     })
     return c.json(answer)
   })

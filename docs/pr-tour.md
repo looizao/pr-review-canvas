@@ -17,9 +17,6 @@ report a ready canvas, so a look at the review page needs no generation run. Ope
 `/review/<n>` still fetches that pull request's live head, so it needs a GitHub login (`gh auth
 status`). The tour page is `/tour/<n>`.
 
-The prototype of the tour, before it was built, runs on its own: `node prototype/tour/serve.mjs`,
-then `http://localhost:3011/?pr=67`.
-
 ## Synthetic data
 
 - Canvases: `__fixtures__/pr-278/review.json` is a real canvas of a public pull request, used as a
@@ -54,7 +51,6 @@ pnpm check
 pnpm test
 pnpm test:browser
 pnpm start --fixture-canvas __fixtures__/pr-278/review.json
-node prototype/tour/serve.mjs
 git show <sha>:<path>
 gh pr view <n>
 ```

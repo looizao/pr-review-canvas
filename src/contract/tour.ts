@@ -252,6 +252,8 @@ export const AuthorPickSchema = z.object({
   restatement: z
     .object({ what: z.string().min(1), where: z.array(z.string().min(1)), unchanged: z.string().min(1) })
     .optional(),
+  /** For a keep whose reason belongs on the pull request: the comment it was posted as, once. */
+  commentUrl: z.string().optional(),
 })
 export type AuthorPick = z.infer<typeof AuthorPickSchema>
 

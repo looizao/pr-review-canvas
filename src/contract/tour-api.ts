@@ -42,6 +42,12 @@ export const TourFinishedSchema = z.object({
   promptPath: z.string(),
   prompt: z.string(),
   sharing: TourSharingSchema,
+  /** The author's kept reasons posted as comments on their lines, this time. */
+  posted: z.number().int().nonnegative().optional(),
+  /** A reviewer's approved changes added to their pending review, this time. */
+  queued: z.number().int().nonnegative().optional(),
+  /** A comment that could not be posted: the finish stands, the reason is said. */
+  warnings: z.array(z.string()).optional(),
 })
 export type TourFinished = z.infer<typeof TourFinishedSchema>
 
