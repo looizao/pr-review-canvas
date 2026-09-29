@@ -200,7 +200,6 @@ export default {
   head: '7f7f84e',
   author: 'fjsj',
   changed: { files: 12, added: 314, removed: 63 },
-  mood: 'terminal',
   spec: {
     kind: 'pr-description',
     title: 'PR 67: text at a terminal, JSON on a pipe',
@@ -208,6 +207,56 @@ export default {
   },
 
   landmarks: [
+    {
+      id: 'l0',
+      stage: 'background',
+      title: 'A CLI built for an agent, then handed to people',
+      lead: 'pr-review began as commands the skill runs and parses; the commands people run inherited the same JSON.',
+      body: [
+        'pr-review is a command line tool with two kinds of readers. The skill, an agent, runs `prepare`, `validate`, and `publish` and parses their one JSON line; that is what the CLI was built for. The later commands, `install-skill`, `export`, `import`, `clean`, `upgrade`, and `doctor`, exist for a person at a terminal.',
+        'Every command printed through one path: `printJson` on a shared `CliIo` that has a `stdout` and a `stderr` and nothing else. Nothing in it knew who was reading, so a person got the same `{"skill":"pr-review-canvas","targets":[…]}` as the skill, and a typo printed an error envelope on stdout with the hint buried inside it.',
+        'Why it matters: the terminal is the first place a person meets the tool, and JSON where a sentence belongs is the kind of rough edge nobody feels until a user does. At the same time scripts, cron jobs, and the upgrade handoff already depend on that JSON line, so it cannot simply go away. Both readers have to be served from the same commands.',
+      ],
+      scene: {
+        html: `
+<div class="sc-l0">
+  <div class="sc-l0-readers">
+    <div class="sc-l0-reader sc-l0-agent"><b>the skill</b><span>runs prepare, validate, publish; parses the line</span></div>
+    <div class="sc-l0-reader"><b>a script or cron job</b><span>pipes clean or export; parses the line</span></div>
+    <div class="sc-l0-reader"><b>the upgrade parent</b><span>runs the new pr-review; reads its last line</span></div>
+    <div class="sc-l0-reader sc-l0-person"><b>a person at a terminal</b><span>types install-skill, or a typo</span></div>
+  </div>
+  <div class="sc-l0-funnel" aria-hidden="true"></div>
+  <div class="sc-l0-out">
+    <div class="sc-l0-path"><code>printJson(io, result)</code><span>the one way out, before this change</span></div>
+    <pre class="sc-l0-stdout">{"skill":"pr-review-canvas","targets":[{"kind":"claude","path":"…"}]}
+{"error":{"code":"BAD_REQUEST","message":"unknown command: insall-skill","hint":"run pr-review --help"}}</pre>
+    <p class="sc-l0-note">Three readers wanted exactly this. One did not, and had no other option.</p>
+  </div>
+</div>`,
+        css: `
+.sc-l0 { max-width: 100%; font-family: var(--sans); color: var(--fg); font-size: 0.82rem; }
+.sc-l0-readers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.sc-l0-reader { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--panel); min-width: 0; }
+.sc-l0-reader b { display: block; font-size: 0.85rem; }
+.sc-l0-reader span { color: var(--fg-muted); font-size: 0.76rem; }
+.sc-l0-agent { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.sc-l0-person { border-color: var(--warn); }
+.sc-l0-person b { color: var(--warn); }
+.sc-l0-funnel { height: 18px; margin: 4px auto; width: 2px; background: var(--fg-muted); }
+.sc-l0-out { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--panel); }
+.sc-l0-path { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.sc-l0-path code { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+.sc-l0-path span { color: var(--fg-muted); font-size: 0.76rem; }
+.sc-l0-stdout { margin: 6px 0 0; padding: 6px 8px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; background: color-mix(in srgb, var(--fg) 5%, var(--panel)); border-radius: 4px; }
+.sc-l0-note { margin: 6px 0 0; color: var(--fg-muted); font-size: 0.76rem; }
+`,
+      },
+      micro: null,
+      code: [],
+      decisions: [],
+    },
+
     {
       id: 'l1',
       stage: 'world',

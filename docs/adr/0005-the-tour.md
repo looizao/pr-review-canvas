@@ -90,11 +90,14 @@ their pending review, posted with their verdict, plus the same prompt for the au
 
 ## Landmarks
 
-Landmarks come in Naur's order:
+Landmarks open with a background, then come in Naur's order:
 
-1. What the change means to the world: the user's or the spec's view of it.
-2. Why each part is the way it is. Decisions anchor here.
-3. What a later change must respect: extension points, invariants, pokayoke.
+1. The world before the change, and why the change matters: the part of the existing system the
+   change touches, told for a reader who does not know it, and the cost of leaving it as it was.
+   This is the background section of Litt's explain-diff skill. It has no code and no decisions.
+2. What the change means to the world: the user's or the spec's view of it.
+3. Why each part is the way it is. Decisions anchor here.
+4. What a later change must respect: extension points, invariants, pokayoke.
 
 Each landmark has a scene, a picture drawn for this change. One landmark may be a micro-world: an
 interactive model of the changed behavior, when the change has behavior worth playing with. The
@@ -184,13 +187,14 @@ project can turn the quiz off or require it before the prompt is written.
 
 ## Look
 
-Each tour gets a **mood** from a validated catalog: an accent and a display font from a bundled
-set. The mood themes the landmarks, scenes, and quiz. Controls, chat, and the diff keep the
-app's skin and theme. Scenes and micro-worlds run in the sandboxed frame from PR 44 (no origin,
-inline code only, no network). No badges, streaks, or scores.
-
-The catalog has four moods so far: terminal (amber, IBM Plex Mono), blueprint (blue, Space
-Grotesk), paper (rust, Fraunces), and grid (teal, Inter Tight).
+The tour has one look, the blueprint: a blue accent and Space Grotesk for display text, over the
+app's skin and theme. The page offers the github and olive skins and the light and dark themes;
+the base terminal look is not offered. A per-tour mood catalog was tried in the prototype and
+dropped on 2026-09-29: four accents and display fonts added choice without adding meaning.
+Open: the blue accent button reads as a link in the github skin, where blue means a link, and
+belongs to olive no more; the primary button should take each skin's own primary color. Scenes
+and micro-worlds run in the sandboxed frame from PR 44 (no origin, inline code only, no
+network). No badges, streaks, or scores.
 
 ## The guide
 
@@ -250,7 +254,9 @@ The chat agent and model follow the existing chat settings. The blast radius rea
 - Skills: `pr-tour`, `pr-tour-setup`, `pr-tour-apply`. Skill install and upgrade handle several
   skills.
 - The page is `/tour/<n|branch|uncommitted>`, with its own module, keyboard and mobile parity,
-  and links from the home page and the canvas header.
+  and links from the home page and the canvas header. Every step is a browser history entry: the
+  back and forward buttons move through the tour, a reload lands on the step the reader was on,
+  and a step's URL can be shared.
 - A tour needs no canvas: its own prepare builds the diff, its own chat subject and seed template
   serve the grilling, one chat thread per tour, and the chat agent stays read-only.
 - Model choice follows `generation.models`. GitHub and GitLab both work.

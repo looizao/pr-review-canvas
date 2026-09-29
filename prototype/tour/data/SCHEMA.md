@@ -13,13 +13,13 @@ export default {
   head: '7f7f84e',                                        // short sha
   author: 'fjsj',
   changed: { files: 12, added: 314, removed: 63 },
-  mood: 'terminal',                                       // one of: terminal, blueprint, paper, grid
   spec: null,                                             // or { kind: 'pr-description' | 'plan' | 'issue', title, url? }
 
   landmarks: [
     {
-      id: 'l1',
-      stage: 'world',                 // 'world' | 'why' | 'respect' (Naur order; one 'world' first, one 'respect' last)
+      id: 'l0',
+      stage: 'background',            // 'background' | 'world' | 'why' | 'respect': one 'background' first, then Naur
+                                      // order: one 'world', the 'why' landmarks, one 'respect' last
       title: 'One rule for who reads the output',       // ≤ 60 chars
       lead: 'A person at a terminal gets text; a program on a pipe gets JSON.', // one sentence, ≤ 140 chars
       body: [                          // 1 to 3 short paragraphs, plain text, ≤ 70 words each. Inline `code` allowed.
@@ -96,9 +96,12 @@ export default {
 Rules for the content:
 
 - Everything comes from the real diff and the PR description. No invented behavior.
-- Landmarks in Naur order: the first landmark is the change as a user or the spec sees it; the middle
-  landmarks each explain one part and why it is shaped that way (decisions anchor there); the last
-  landmark is what a later change must respect: invariants, extension points, pokayoke.
+- The first landmark is the background: the part of the existing system the change touches, told
+  for a reader who does not know it, and why the change matters (what users asked for, what it
+  cost to leave as it was). It has no code and no decisions. Then Naur order: the change as a user
+  or the spec sees it; the middle landmarks each explain one part and why it is shaped that way
+  (decisions anchor there); the last landmark is what a later change must respect: invariants,
+  extension points, pokayoke.
 - Reading all landmarks takes under 8 minutes. Prefer fewer, sharper landmarks.
 - A literate diff walks the landmark's chunks in the order that explains them, not the order of
   the diff: the rule before its uses, the bug before its fix, the shared path before the cases. Each

@@ -8,13 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Space+Grotesk:wght@400;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter+Tight:wght@400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap"
     />
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="stylesheet" href="./tour.css" />
   </head>
   <body>
-    <div class="page tour-page" id="app" data-mood="terminal">
+    <div class="page tour-page" id="app">
       <header class="hdr">
         <div class="hdr-bar">
           <div class="brand">
@@ -25,14 +25,6 @@
           </div>
           <div class="hdr-actions" role="group" aria-label="Tour actions">
             <button class="cmd" type="button" id="help" title="Keys and what a tour is">help</button>
-            <button
-              class="cmd"
-              type="button"
-              id="mood-toggle"
-              title="Prototype: try the next mood on this tour"
-            >
-              terminal
-            </button>
             <button class="cmd" type="button" id="skin-toggle" title="Switch skin">github</button>
             <button class="cmd" type="button" id="theme-toggle" title="Switch theme">auto</button>
             <button class="cmd" type="button" id="reset" title="Prototype: forget picks, answers, and notes">

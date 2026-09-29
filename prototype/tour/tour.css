@@ -1,10 +1,13 @@
 /* Tour prototype. Reads the app's tokens (base.css and the skins) and adds the tour's own rules.
    Every tour-* class belongs to this page; sc-* classes belong to the data files' scenes. */
 
+/* The tour's look, the blueprint: a blue accent and a display font over the app's skin and theme.
+   Open: this blue reads as a link in the github skin and belongs to neither skin; the accent button
+   should take each skin's own primary color. */
 .tour-page {
-  --mood-accent: var(--accent);
-  --mood-accent-bg: var(--accent-bg);
-  --mood-display: var(--sans);
+  --mood-accent: light-dark(#1d4ed8, #8fb4ff);
+  --mood-accent-bg: light-dark(#e8efff, rgb(143 180 255 / 14%));
+  --mood-display: 'Space Grotesk', var(--sans);
   --stage-w: 760px;
   --here-c: var(--here, var(--purple));
   --here-bg-c: var(--here-bg, var(--annot-bg));
@@ -13,31 +16,6 @@
   --btn-bg-c: var(--btn-bg, var(--panel-2));
   --r-card: 8px;
   min-height: 100vh;
-}
-:root[data-skin='terminal'] .tour-page {
-  --r-card: 0;
-}
-
-/* ---- Moods: an accent and a display font for the stage. ---- */
-.tour-page[data-mood='terminal'] {
-  --mood-accent: light-dark(#b45309, #f5b942);
-  --mood-accent-bg: light-dark(#fff4dc, rgb(245 185 66 / 14%));
-  --mood-display: 'IBM Plex Mono', var(--mono);
-}
-.tour-page[data-mood='blueprint'] {
-  --mood-accent: light-dark(#1d4ed8, #8fb4ff);
-  --mood-accent-bg: light-dark(#e8efff, rgb(143 180 255 / 14%));
-  --mood-display: 'Space Grotesk', var(--sans);
-}
-.tour-page[data-mood='paper'] {
-  --mood-accent: light-dark(#9a3412, #f4a27a);
-  --mood-accent-bg: light-dark(#fff1e8, rgb(244 162 122 / 14%));
-  --mood-display: 'Fraunces', Georgia, serif;
-}
-.tour-page[data-mood='grid'] {
-  --mood-accent: light-dark(#0f766e, #7dd3c8);
-  --mood-accent-bg: light-dark(#e6f7f5, rgb(125 211 200 / 14%));
-  --mood-display: 'Inter Tight', var(--sans);
 }
 
 /* ---- Rail ---- */
@@ -431,9 +409,6 @@
 .tour-btn.icon svg {
   width: 18px;
   height: 18px;
-}
-:root[data-skin='terminal'] .tour-btn {
-  border-radius: 0;
 }
 
 /* ---- Landmark footer nav ---- */

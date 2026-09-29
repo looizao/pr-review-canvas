@@ -97,7 +97,7 @@ A guided pass over one change that builds the reader's theory of it: landmarks t
 _Avoid_: Self-review, Walkthrough, Deck, Onboarding
 
 **Landmark**:
-One idea of a tour, told in order: first what the change means to the world, then why each part is the way it is, last what a later change must respect. The code behind a landmark is available but never required.
+One idea of a tour, told in order: first the world before the change and why the change matters, then what the change means to the world, then why each part is the way it is, last what a later change must respect. The code behind a landmark is available but never required.
 _Avoid_: Beat, Semantic layer, Slide, File
 
 **Scene**:
@@ -107,10 +107,6 @@ _Avoid_: Screenshot, Illustration
 **Micro-world**:
 A landmark the reader plays with: inputs of the changed behavior go in, outcomes come out. A tour has one only when the change has behavior worth playing with.
 _Avoid_: Demo, Sandbox, Playground
-
-**Mood**:
-The visual identity of one tour, picked from a catalog: an accent and a display font. It themes the landmarks, scenes, and quiz, not the app around them.
-_Avoid_: Skin, Theme, Style
 
 **Decision**:
 A choice the change makes that a reasonable engineer could make another way, anchored on a landmark. The reader keeps it or asks to change it; keeping records a reason, changing starts a grilling.

@@ -4,17 +4,12 @@ const params = new URLSearchParams(location.search)
 const prKey = params.get('pr') ?? '67'
 const tour = (await import(`./data/pr-${prKey}.js`)).default
 
-const app = document.getElementById('app')
 const stage = document.getElementById('stage')
 const rail = document.getElementById('rail')
 const nav = document.getElementById('nav')
 const chat = /** @type {HTMLDialogElement} */ (document.getElementById('chat'))
 const helpDialog = /** @type {HTMLDialogElement} */ (document.getElementById('help-dialog'))
-// The mood catalog. A tour picks one; `?mood=` overrides it so every mood can be tried on any tour.
-const MOODS = ['terminal', 'blueprint', 'paper', 'grid']
-app.dataset.mood = MOODS.includes(params.get('mood')) ? params.get('mood') : tour.mood
 document.title = `Tour · #${tour.key} ${tour.title}`
-const hostName = /gitlab/.test(tour.url) ? 'GitLab' : 'GitHub'
 
 const steps = [
   { kind: 'cover' },
@@ -23,7 +18,14 @@ const steps = [
   ...tour.quiz.map(q => ({ kind: 'quiz', q })),
   { kind: 'plan' },
 ]
-const STAGE_LABEL = { world: 'The world', why: 'Why', respect: 'What to respect' }
+const STAGE_LABEL = {
+  background: 'Before this change',
+  world: 'The world',
+  why: 'Why',
+  respect: 'What to respect',
+}
+// The landmark that says what the change means; the cover and the prompt lead with it.
+const worldLandmark = tour.landmarks.find(l => l.stage === 'world') ?? tour.landmarks[0]
 const CATEGORY_LABEL = {
   'trade-off': 'Trade-off',
   architecture: 'Architecture',
@@ -138,14 +140,19 @@ function stepTitle(step) {
   return 'The plan'
 }
 
-// ---- Navigation ----
-function go(i, force = false) {
+// ---- Navigation: every step is a history entry, so the browser's back and forward work. ----
+function go(i, force = false, fromHistory = false) {
   if (i < 0 || i >= steps.length || (!force && !reachable(i))) return
   state.step = i
   save()
   render()
   window.scrollTo({ top: 0 })
+  if (!fromHistory) history.pushState({ step: i }, '', `#${i}`)
 }
+window.addEventListener('popstate', e => {
+  const i = e.state?.step
+  if (typeof i === 'number' && steps[i]) go(i, true, true)
+})
 function renderNav() {
   const i = state.step
   const step = steps[i]
@@ -203,8 +210,8 @@ function renderCover() {
   stage.innerHTML = `
     <p class="tour-eyebrow"><span class="tour-stage-tag">Tour</span><span><a href="${esc(tour.url)}" target="_blank" rel="noopener">#${tour.key}</a> · ${esc(tour.repo)}</span></p>
     <h1 class="tour-title">${esc(tour.title)}</h1>
-    <p class="tour-cover-meta"><span>by ${esc(tour.author)}</span><span class="mono">${esc(tour.head)} → main</span><span><span class="ok">+${tour.changed.added}</span> <span class="bad">−${tour.changed.removed}</span> in ${tour.changed.files} files</span>${spec}<span><a href="${esc(tour.url)}" target="_blank" rel="noopener">pull request on ${hostName}</a></span></p>
-    <p class="tour-lead">${esc(tour.landmarks[0].lead)}</p>
+    <p class="tour-cover-meta"><span>by ${esc(tour.author)}</span><span class="mono">${esc(tour.head)} → main</span><span><span class="ok">+${tour.changed.added}</span> <span class="bad">−${tour.changed.removed}</span> in ${tour.changed.files} files</span>${spec}</p>
+    <p class="tour-lead">${esc(worldLandmark.lead)}</p>
     <div class="tour-budget">
       <div><b>${tour.landmarks.length}</b><span>landmarks</span></div>
       <div><b>${tour.decisions.length}</b><span>decisions</span></div>
@@ -246,9 +253,9 @@ function renderLandmark(landmark) {
     <p class="tour-lead">${inline(landmark.lead)}</p>
     <div class="tour-body">${landmark.body.map(p => `<p>${inline(p)}</p>`).join('')}</div>
     ${landmark.scene ? `<div class="tour-card tour-scene"><div class="tour-card-h"><span>scene</span></div><div class="sc-root" id="scene-${landmark.id}"></div></div>` : ''}
-    ${landmark.micro ? `<div class="tour-card tour-micro"><div class="tour-card-h"><span>micro-world · play with it</span></div><div class="sc-root" id="micro-${landmark.id}"></div></div>` : ''}
+    ${landmark.micro ? `<div class="tour-card tour-micro"><div class="tour-card-h"><span>micro-world</span></div><div class="sc-root" id="micro-${landmark.id}"></div></div>` : ''}
     ${decisionsHere.length ? `<div class="tour-chips"><span class="tour-chip">${decisionsHere.length === 1 ? 'one decision waits here' : decisionsHere.length + ' decisions wait here'}</span>${decisionsHere.map(d => `<button class="tour-chip link" type="button" data-cat="${d.category}" data-act="jump" data-decision="${d.id}" title="Jump to this decision now">${esc(d.title)} →</button>`).join('')}</div>` : ''}
-    <div class="tour-note"><label for="note-${landmark.id}">Something I noticed <span class="tour-hint">optional · carried into this landmark's decisions and the plan</span></label><textarea id="note-${landmark.id}" data-act="note" data-landmark="${landmark.id}" rows="2" placeholder="A thought while reading, so you do not have to hold it until the decisions">${esc(note)}</textarea></div>
+    <div class="tour-note"><label for="note-${landmark.id}">Something I noticed <span class="tour-hint">optional</span></label><textarea id="note-${landmark.id}" data-act="note" data-landmark="${landmark.id}" rows="2" placeholder="A thought while reading, so you do not have to hold it until the decisions">${esc(note)}</textarea></div>
     ${
       landmark.code?.length
         ? `<div class="tour-actions"><button class="tour-btn quiet" type="button" data-act="code">${codeOpen ? 'hide code' : 'code behind this landmark'} <kbd>i</kbd></button></div>
@@ -258,7 +265,6 @@ function renderLandmark(landmark) {
                  ? `<div class="tour-code-tabs" role="tablist">
                       <button class="tour-code-tab" type="button" role="tab" aria-selected="${codeView === 'literate'}" data-act="code-view" data-view="literate">literate diff</button>
                       <button class="tour-code-tab" type="button" role="tab" aria-selected="${codeView === 'raw'}" data-act="code-view" data-view="raw">raw diff</button>
-                      <span class="tour-hint">${codeView === 'literate' ? 'the change in reading order, with the lines that matter' : `${plural(landmark.code.length, 'chunk')} as the diff has them`}</span>
                     </div>`
                  : ''
              }
@@ -341,8 +347,8 @@ function renderDecision(d) {
             ? `<span class="tour-state">✓ kept · reason ${esc(PLACE_LABEL[p.place])}</span><button class="tour-btn quiet" type="button" data-act="unsettle">change my mind</button>`
             : `<span class="tour-state change">✓ change approved · in the plan</span><button class="tour-btn quiet" type="button" data-act="grill">reopen the grilling</button><button class="tour-btn quiet" type="button" data-act="unsettle">change my mind</button>`
           : p.pick === 'keep'
-            ? `<button class="tour-btn accent" type="button" data-act="keep">Keep it <kbd>k</kbd></button><span class="tour-hint">or pick <b>change</b> to be grilled on what you want instead</span>`
-            : `<button class="tour-btn accent" type="button" data-act="grill">Say what you want instead <kbd>c</kbd></button><span class="tour-hint">the agent asks until it can restate it</span>`
+            ? `<button class="tour-btn accent" type="button" data-act="keep">Keep it <kbd>k</kbd></button>`
+            : `<button class="tour-btn accent" type="button" data-act="grill">Say what you want instead <kbd>c</kbd></button>`
       }
     </div>
     ${done && p.pick === 'change' && p.restatement ? restatedHtml(p.restatement) : ''}`
@@ -390,7 +396,7 @@ function renderPlan() {
   const right = tour.quiz.filter(q => state.quiz[q.id]?.right).length
   const confirmed = state.planConfirmed
   stage.innerHTML = `
-    <p class="tour-eyebrow"><span class="tour-stage-tag">The plan</span><span>the agent restates everything once</span></p>
+    <p class="tour-eyebrow"><span class="tour-stage-tag">The plan</span></p>
     <h2 class="tour-title">${changes.length ? `${changes.length} change${changes.length > 1 ? 's' : ''} to make, ${kept.length} kept` : `Nothing to change. ${kept.length} decisions kept.`}</h2>
     <p class="tour-lead">${changes.length ? 'Read it once. When you confirm, the prompt is written and the record is shared. No further plan review.' : 'Your reasons are recorded. When you confirm, the record is shared and the prompt carries the intent and the kept decisions for whoever touches this next.'}</p>
     ${changes.length ? `<h3 class="tour-section-h">Changes</h3><ol class="tour-plan-list">${changes.map(({ d, p }) => `<li><b>${esc(d.title)}</b><br>${inline(p.restatement.what)} <span class="where">${p.restatement.where.map(esc).join(' · ')}</span><span class="where">stays: ${inline(p.restatement.unchanged)}</span></li>`).join('')}</ol>` : ''}
@@ -425,7 +431,7 @@ function notesList() {
   return tour.landmarks.map(lm => [lm, (state.notes[lm.id] ?? '').trim()]).filter(([, t]) => t)
 }
 function buildPrompt(changes, kept) {
-  const first = tour.landmarks[0]
+  const first = worldLandmark
   const respect = tour.landmarks[tour.landmarks.length - 1]
   const lines = [
     `# ${changes.length ? 'Re-implement' : 'Keep'} PR #${tour.key} as the tour settled it`,
@@ -806,7 +812,7 @@ document.getElementById('help').addEventListener('click', () => {
   renderHelp()
   helpDialog.showModal()
 })
-const SKINS = ['github', 'terminal', 'olive']
+const SKINS = ['github', 'olive']
 const THEMES = ['auto', 'light', 'dark']
 document.getElementById('skin-toggle').addEventListener('click', e => {
   const cur = document.documentElement.dataset.skin
@@ -820,21 +826,12 @@ document.getElementById('theme-toggle').addEventListener('click', e => {
   document.documentElement.dataset.theme = next
   ;/** @type {HTMLElement} */ (e.currentTarget).textContent = next
 })
-// Prototype controls: try every mood on this tour, and start the tour over.
-const moodToggle = document.getElementById('mood-toggle')
-moodToggle.textContent = app.dataset.mood
-moodToggle.addEventListener('click', () => {
-  const next = MOODS[(MOODS.indexOf(app.dataset.mood) + 1) % MOODS.length]
-  app.dataset.mood = next
-  moodToggle.textContent = next
-  const url = new URL(location.href)
-  url.searchParams.set('mood', next)
-  history.replaceState(null, '', url)
-})
+// Prototype control: start the tour over.
 document.getElementById('reset').addEventListener('click', () => {
   sessionStorage.removeItem(storeKey)
   location.reload()
 })
 chat.addEventListener('close', () => render())
 
+history.replaceState({ step: state.step }, '', `#${state.step}`)
 render()

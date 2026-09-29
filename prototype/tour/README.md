@@ -9,8 +9,8 @@ look can be iterated on before anything is built. It is deleted before the desig
 node prototype/tour/serve.mjs      # then open http://localhost:3011/?pr=67 or ?pr=68
 ```
 
-The header has two prototype-only controls: `mood` cycles the catalog on the current tour (also
-`?mood=terminal|blueprint|paper|grid`), and `reset` forgets picks, answers, and notes.
+The header has one prototype-only control: `reset` forgets picks, answers, and notes. The skin
+and theme toggles are the app's own.
 
 - `index.html`, `tour.css`, `tour.js`: the page. It loads the app's real stylesheet for tokens,
   the header, and the skins, and adds the tour's own rules and the mood catalog.

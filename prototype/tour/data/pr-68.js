@@ -32,7 +32,6 @@ export default {
   head: '0640fa0',
   author: 'fjsj',
   changed: { files: 24, added: 1375, removed: 162 },
-  mood: 'blueprint',
   spec: {
     kind: 'pr-description',
     title: 'feat: cleaner github skin with clear section and file separation',
@@ -40,6 +39,67 @@ export default {
   },
 
   landmarks: [
+    {
+      id: 'l0',
+      stage: 'background',
+      title: 'The review page, and the skin most readers see',
+      lead: 'A canvas is layers of tests, attention points, and files; the github skin dresses that page for GitHub users and is the default.',
+      body: [
+        'The review page shows a canvas as a rail of layers on the left and one layer section after another. Inside a layer come the summary, a Tests table, the Attention points, and the changed Files, each file card rendered by a `<pr-file>` element that wraps an `article.file`. Every command, from copy and ask to approve, is one `.cmd` class throughout.',
+        'Three skins dress that markup: the base look with `[ bracket ]` commands, github, and olive. The github skin is the default and the one a GitHub user sees first; it overrides the component stylesheets by specificity. The markup is built in JavaScript, so a stylesheet can name a class nothing writes and no tool notices.',
+        'Why it matters: users said they could not tell where a section ended and the next file began, and asked for more of a layer on one screen. A skin named after GitHub also sets expectations, for what a button looks like and for what blue means, and the page used blue for links, for the current layer, and for tests alike.',
+      ],
+      scene: {
+        html: `
+<div class="sc-l0">
+  <div class="sc-l0-page">
+    <div class="sc-l0-rail"><span>Overview</span><span class="sc-l0-cur">Storage lifecycle</span><span>Retention config</span><span>Other changes</span></div>
+    <div class="sc-l0-layer">
+      <div class="sc-l0-lh"><span class="sc-l0-lbl">Layer 2 of 7</span>Storage lifecycle</div>
+      <div class="sc-l0-body">Blobs past their retention window are deleted by a job.</div>
+      <div class="sc-l0-bar">Tests</div>
+      <div class="sc-l0-row"><span>Deletes expired blobs</span><span class="sc-l0-pill">test</span></div>
+      <div class="sc-l0-bar">Attention points · 1</div>
+      <div class="sc-l0-row"><span class="sc-l0-sq"></span><span>Retention is read at startup only</span><span class="sc-l0-cmd">[ copy ] [ ask ]</span></div>
+      <div class="sc-l0-bar">Files · 2</div>
+      <div class="sc-l0-file"><code>src/storage/lifecycle.ts</code><span class="sc-l0-cmd">[ ask ]</span></div>
+      <div class="sc-l0-file"><code>src/storage/lifecycle.test.ts</code><span class="sc-l0-cmd">[ ask ]</span></div>
+    </div>
+  </div>
+  <dl class="sc-l0-legend">
+    <dt>rail</dt><dd><code>.tree a</code>, the current layer marked in blue, the link color</dd>
+    <dt>section title</dt><dd><code>.lbl.sub</code>, a grey bar with a border above and below</dd>
+    <dt>file card</dt><dd><code>&lt;pr-file&gt;&lt;article class="file"&gt;</code>; the base hairline rule is <code>.file + .file</code></dd>
+    <dt>command</dt><dd><code>.cmd</code> everywhere; the base look brackets it, the github skin decides which become buttons</dd>
+  </dl>
+</div>`,
+        css: `
+.sc-l0 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; max-width: 100%; font: 12px/1.45 var(--sans); color: var(--fg); }
+.sc-l0-page { display: grid; grid-template-columns: 96px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); min-width: 0; }
+.sc-l0-rail { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-right: 1px solid var(--line); font-size: 11px; color: var(--fg-muted); }
+.sc-l0-cur { color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); padding-left: 4px; }
+.sc-l0-layer { min-width: 0; }
+.sc-l0-lh { padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 13px; }
+.sc-l0-lbl { color: var(--accent); font-weight: 500; font-size: 11px; margin-right: 8px; }
+.sc-l0-body { padding: 8px 10px; color: var(--fg-muted); }
+.sc-l0-bar { padding: 7px 10px 5px; border-top: 1px solid var(--fg-muted); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--fg) 6%, var(--panel)); font-weight: 600; }
+.sc-l0-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 6px 10px; }
+.sc-l0-pill { color: var(--accent); font-size: 11px; }
+.sc-l0-sq { width: 8px; height: 8px; border-radius: 2px; background: var(--bad); flex: 0 0 8px; }
+.sc-l0-cmd { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--accent); white-space: nowrap; }
+.sc-l0-file { display: flex; gap: 8px; align-items: center; padding: 6px 10px; font-family: var(--mono); font-size: 11px; }
+.sc-l0-file code { min-width: 0; overflow-wrap: anywhere; }
+.sc-l0-file + .sc-l0-file { border-top: 0; }
+.sc-l0-legend { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-content: start; }
+.sc-l0-legend dt { font-weight: 600; white-space: nowrap; }
+.sc-l0-legend dd { margin: 0; color: var(--fg-muted); }
+.sc-l0-legend code { font-family: var(--mono); font-size: 11px; color: var(--fg); }`,
+      },
+      micro: null,
+      code: [],
+      decisions: [],
+    },
+
     {
       id: 'l1',
       stage: 'world',
