@@ -187,14 +187,15 @@ project can turn the quiz off or require it before the prompt is written.
 
 ## Look
 
-The tour has one look, the blueprint: a blue accent and Space Grotesk for display text, over the
-app's skin and theme. The page offers the github and olive skins and the light and dark themes;
-the base terminal look is not offered. A per-tour mood catalog was tried in the prototype and
-dropped on 2026-09-29: four accents and display fonts added choice without adding meaning.
-Open: the blue accent button reads as a link in the github skin, where blue means a link, and
-belongs to olive no more; the primary button should take each skin's own primary color. Scenes
-and micro-worlds run in the sandboxed frame from PR 44 (no origin, inline code only, no
-network). No badges, streaks, or scores.
+The tour has one look: Space Grotesk for display text, and an accent that follows the skin, so
+the tour's accent button is that skin's own primary. In the github skin the accent is GitHub's
+green, as Approve is, and blue stays a link; in the olive skin it is the site's olive, lime in
+the dark. Each pair goes through light-dark(), so the light and dark themes both work. The page
+offers the github and olive skins and the light and dark themes; the base terminal look is not
+offered. A per-tour mood catalog was tried in the prototype and dropped on 2026-09-29: four
+accents and display fonts added choice without adding meaning, and a fixed blue read as a link
+in the github skin. Scenes and micro-worlds run in the sandboxed frame from PR 44 (no origin,
+inline code only, no network). No badges, streaks, or scores.
 
 ## The guide
 

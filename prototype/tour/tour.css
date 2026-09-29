@@ -1,12 +1,13 @@
 /* Tour prototype. Reads the app's tokens (base.css and the skins) and adds the tour's own rules.
    Every tour-* class belongs to this page; sc-* classes belong to the data files' scenes. */
 
-/* The tour's look, the blueprint: a blue accent and a display font over the app's skin and theme.
-   Open: this blue reads as a link in the github skin and belongs to neither skin; the accent button
-   should take each skin's own primary color. */
+/* The tour's look: a display font, and an accent that follows the skin so the accent button is
+   that skin's own primary. GitHub: the green primary, as Approve is; blue stays a link. Olive: the
+   site's olive, lime in the dark. Each pair goes through light-dark(), so both themes work. */
 .tour-page {
-  --mood-accent: light-dark(#1d4ed8, #8fb4ff);
-  --mood-accent-bg: light-dark(#e8efff, rgb(143 180 255 / 14%));
+  --mood-accent: light-dark(#1f883d, #57ab5a);
+  --mood-accent-bg: light-dark(#dafbe1, rgb(87 171 90 / 15%));
+  --mood-accent-fg: light-dark(#fff, #212830);
   --mood-display: 'Space Grotesk', var(--sans);
   --stage-w: 760px;
   --here-c: var(--here, var(--purple));
@@ -16,6 +17,11 @@
   --btn-bg-c: var(--btn-bg, var(--panel-2));
   --r-card: 8px;
   min-height: 100vh;
+}
+:root[data-skin='olive'] .tour-page {
+  --mood-accent: light-dark(#50643f, #b5cf8f);
+  --mood-accent-bg: light-dark(#e4ecd7, rgb(181 207 143 / 14%));
+  --mood-accent-fg: light-dark(#f7f7f2, #1d1f1a);
 }
 
 /* ---- Rail ---- */
@@ -380,7 +386,7 @@
 .tour-btn.accent {
   background: var(--mood-accent);
   border-color: var(--mood-accent);
-  color: var(--bg);
+  color: var(--mood-accent-fg);
   font-weight: 600;
 }
 .tour-btn.quiet {
