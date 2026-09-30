@@ -1,4 +1,13 @@
 // @ts-check
+
+/** Root of this module's repository mount, empty in the local app.
+ * @param {string} url
+ */
+export function serviceUrl(url) {
+  const moduleUrl = new URL(import.meta.url)
+  const root = moduleUrl.protocol === 'file:' ? '' : new URL('../../', moduleUrl).pathname.replace(/\/$/, '')
+  return `${root}${url}`
+}
 /** @typedef {import('./contract-types.js').ErrorEnvelope} ErrorEnvelope */
 /** @typedef {import('./contract-types.js').ReviewKey} ReviewKey */
 /** @typedef {import('./contract-types.js').PrBundle} PrBundle */
@@ -52,7 +61,7 @@ export async function fetchJson(url, opts = {}) {
     init.headers = { ...init.headers, 'content-type': 'application/json' }
     init.body = JSON.stringify(opts.body)
   }
-  const res = await doFetch(url, init)
+  const res = await doFetch(serviceUrl(url), init)
   /** @type {unknown} */
   let body = null
   try {
@@ -350,7 +359,7 @@ export function pollBundle(prNumber, opts = {}) {
 export function uploadForm(url, form, opts = {}) {
   const xhr = opts.xhrImpl ? opts.xhrImpl() : new XMLHttpRequest()
   return new Promise((resolve, reject) => {
-    xhr.open('POST', url)
+    xhr.open('POST', serviceUrl(url))
     xhr.setRequestHeader('accept', 'application/json')
     const onProgress = opts.onProgress
     if (onProgress !== undefined) {
@@ -416,7 +425,9 @@ export function fetchSharedCanvas(prNumber, opts = {}) {
 export async function fetchCanvasZip(prNumber, opts = {}) {
   const doFetch = opts.fetchImpl ?? fetch
   const q = opts.headSha ? `?headSha=${encodeURIComponent(opts.headSha)}` : ''
-  const res = await doFetch(`/api/prs/${prNumber}/export${q}`, { headers: { accept: 'application/zip' } })
+  const res = await doFetch(serviceUrl(`/api/prs/${prNumber}/export${q}`), {
+    headers: { accept: 'application/zip' },
+  })
   if (!res.ok) {
     /** @type {unknown} */
     let body = null
@@ -608,7 +619,7 @@ export async function streamChat(prNumber, input, opts) {
   if (opts.signal !== undefined) {
     init.signal = opts.signal
   }
-  const res = await doFetch(`/api/prs/${prNumber}/chat`, init)
+  const res = await doFetch(serviceUrl(`/api/prs/${prNumber}/chat`), init)
   if (!res.ok) {
     /** @type {unknown} */
     let body = null

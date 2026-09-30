@@ -1,0 +1,13 @@
+.git
+node_modules
+.pr-review
+.env
+.env.*
+coverage
+test-results
+playwright-report
+site
+browser
+.agents
+.claude
+.codex

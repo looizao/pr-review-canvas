@@ -1,0 +1,17 @@
+{
+  "name": "Cactus PR Review Canvas",
+  "url": "https://REPLACE_WITH_RENDER_HOST",
+  "hook_attributes": {
+    "url": "https://REPLACE_WITH_RENDER_HOST/webhooks/github",
+    "active": true
+  },
+  "callback_urls": ["https://REPLACE_WITH_RENDER_HOST/auth/callback"],
+  "public": false,
+  "default_permissions": {
+    "contents": "read",
+    "metadata": "read",
+    "pull_requests": "write",
+    "issues": "write"
+  },
+  "default_events": ["pull_request"]
+}

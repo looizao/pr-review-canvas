@@ -1,4 +1,4 @@
-import { type Context, Hono } from 'hono'
+import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import type { AppContext } from './context.js'
 import type { AppEnv } from './env.js'
 import { AppError, logRequestError, toAppError } from './errors.js'
@@ -13,11 +13,14 @@ function wantsJson(pathname: string): boolean {
   return pathname.startsWith('/api/') || pathname.startsWith('/vendor/') || pathname.startsWith('/static/')
 }
 
-export function createApp(ctx: AppContext): Hono<AppEnv> {
+export function createApp(
+  ctx: AppContext,
+  security: MiddlewareHandler<AppEnv> = securityMiddleware
+): Hono<AppEnv> {
   const app = new Hono<AppEnv>()
 
   app.use('*', responseHeaders)
-  app.use('*', securityMiddleware)
+  app.use('*', security)
 
   /**
    * An error skips the code after `await next()` in the middleware above, so the answers built
