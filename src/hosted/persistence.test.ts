@@ -96,4 +96,7 @@ it('encrypts tokens at rest and invalidates expired, corrupted, rotated and logg
   encrypted.tag = '0'.repeat(32)
   await writeFile(path.join(root, 'sessions', `${corrupted}.json`), JSON.stringify(encrypted))
   expect(await sessions.read(corrupted)).toBeNull()
+  const malformed = await sessions.create(session)
+  await writeFile(path.join(root, 'sessions', `${malformed}.json`), '{broken json')
+  expect(await sessions.read(malformed)).toBeNull()
 })

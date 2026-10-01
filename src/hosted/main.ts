@@ -21,7 +21,11 @@ if (process.env['PR_REVIEW_SETUP_MODE'] === 'true' && missing.length > 0) {
     .min(1)
     .max(65535)
     .parse(process.env['PORT'] ?? 10000)
-  const server = serve({ fetch: createSetupApp().fetch, port, hostname: '0.0.0.0' })
+  const server = serve({
+    fetch: createSetupApp(process.env['GITHUB_ORGANIZATION']).fetch,
+    port,
+    hostname: '0.0.0.0',
+  })
   process.stderr.write(`Hosted service awaiting configuration: ${missing.join(', ')}\n`)
   process.once('SIGTERM', () => server.close())
   process.once('SIGINT', () => server.close())
@@ -39,14 +43,17 @@ if (process.env['PR_REVIEW_SETUP_MODE'] === 'true' && missing.length > 0) {
   const app = createHostedApp({ config, github, sessions, queue, repositories, log })
   const agentHome = process.env['PR_REVIEW_AGENT_HOME'] ?? path.join(config.dataDir, 'agent')
   await mkdir(agentHome, { recursive: true })
-  const worker = startWorker({
-    config,
-    github,
-    repositories,
-    queue,
-    agent: createClaudeGenerator({ ...process.env, PR_REVIEW_AGENT_HOME: agentHome }),
-    log,
-  })
+  const worker = process.env['CLAUDE_CODE_OAUTH_TOKEN']?.trim()
+    ? startWorker({
+        config,
+        github,
+        repositories,
+        queue,
+        agent: createClaudeGenerator({ ...process.env, PR_REVIEW_AGENT_HOME: agentHome }),
+        log,
+      })
+    : undefined
+  if (worker === undefined) log('Canvas generation paused: configure CLAUDE_CODE_OAUTH_TOKEN')
   const server = serve({ fetch: app.fetch, port: config.port, hostname: '0.0.0.0' }, () => {
     log(`PR Review Canvas hosted: ${config.origin} · ${config.organization}`)
   })
@@ -55,7 +62,7 @@ if (process.env['PR_REVIEW_SETUP_MODE'] === 'true' && missing.length > 0) {
     if (closing) return
     closing = true
     server.close()
-    await worker.stop()
+    await worker?.stop()
     if ('closeAllConnections' in server && typeof server.closeAllConnections === 'function')
       server.closeAllConnections()
     await release()

@@ -92,12 +92,13 @@ it('exchanges GitHub App OAuth codes and limits session duration', async () => {
     { body: { access_token: 'user-token' } },
     { status: 400, body: {} },
   ])
-  expect(await app.exchangeCode('test-code')).toEqual({ token: 'user-token', expiresIn: 3600 })
-  expect(await app.exchangeCode('test-code')).toEqual({ token: 'user-token', expiresIn: 28_800 })
-  await expect(app.exchangeCode('bad-code')).rejects.toThrow('HTTP 400')
+  expect(await app.exchangeCode('test-code', 'verifier')).toEqual({ token: 'user-token', expiresIn: 3600 })
+  expect(await app.exchangeCode('test-code', 'verifier')).toEqual({ token: 'user-token', expiresIn: 28_800 })
+  await expect(app.exchangeCode('bad-code', 'verifier')).rejects.toThrow('HTTP 400')
   const calls = fetchImpl.mock.calls as unknown as [string, RequestInit][]
   expect(JSON.parse(String(calls[0]?.[1].body))).toMatchObject({
     code: 'test-code',
+    code_verifier: 'verifier',
     redirect_uri: 'https://canvas.example.com/auth/callback',
   })
 })

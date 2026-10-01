@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { timingSafeEqual } from 'node:crypto'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { html } from 'hono/html'
@@ -14,6 +14,7 @@ import { JobInputSchema, jobId, type GenerationQueue } from './queue.js'
 import { hostedSecurity, mountResponse } from './security.js'
 import type { Session, Sessions } from './sessions.js'
 import { receiveWebhook } from './webhook.js'
+import { canvasReturnPath, loginPage } from './auth.js'
 
 const SESSION_COOKIE = '__Host-pr-review'
 const STATE_COOKIE = '__Host-pr-review-oauth'
@@ -43,6 +44,8 @@ export function createHostedApp(opts: HostedAppOptions): Hono<HostedEnv> {
     }
     c.header('cache-control', 'no-store')
     c.header('strict-transport-security', 'max-age=31536000')
+    // Keep canvas URLs off other sites while preserving Origin on same-origin form POSTs.
+    c.header('referrer-policy', c.req.path.startsWith('/auth/') ? 'no-referrer' : 'same-origin')
   })
   // Render's health probe can use an internal hostname; this exposes no repository data.
   app.get('/healthz', c => c.json({ ok: true }))
@@ -51,7 +54,15 @@ export function createHostedApp(opts: HostedAppOptions): Hono<HostedEnv> {
     const err = toAppError(error)
     // Avoid logging request bodies, OAuth codes, user tokens, or CLI stderr.
     opts.log(`hosted request failed: ${c.req.method} ${c.req.path} ${err.code}`)
-    const response = c.json(err.toEnvelope(), err.status)
+    if (c.req.path === '/auth/callback' && c.req.header('accept')?.includes('text/html')) {
+      return c.html(loginPage(config.organization, '/', true, true), err.status)
+    }
+    const response = c.json(
+      err.status >= 500
+        ? { error: { code: 'INTERNAL', message: 'Request failed. Please try again.' } }
+        : err.toEnvelope(),
+      err.status
+    )
     applyResponseHeaders(response, '/api/', c.get('cspNonce'))
     return response
   })
@@ -65,13 +76,27 @@ export function createHostedApp(opts: HostedAppOptions): Hono<HostedEnv> {
     return c.json({ accepted: true, queued }, 202)
   })
 
+  app.get('/login', async c => {
+    const returnTo = canvasReturnPath(c.req.query('next'), config.origin)
+    if (await sessions.read(getCookie(c, SESSION_COOKIE))) return c.redirect(returnTo)
+    return c.html(loginPage(config.organization, returnTo))
+  })
+
   app.get('/auth/login', c => {
-    const state = randomBytes(32).toString('hex')
+    const attempt = sessions.logins.begin(canvasReturnPath(c.req.query('next'), config.origin))
+    if (attempt === null) {
+      c.header('retry-after', '600')
+      throw new AppError('BAD_REQUEST', 'Too many sign-in attempts. Please try again shortly.', 429)
+    }
+    const { state, challenge } = attempt
     setCookie(c, STATE_COOKIE, state, { ...COOKIE_OPTIONS, maxAge: 600 })
     const url = new URL('https://github.com/login/oauth/authorize')
     url.searchParams.set('client_id', config.clientId)
     url.searchParams.set('redirect_uri', `${config.origin}/auth/callback`)
     url.searchParams.set('state', state)
+    url.searchParams.set('code_challenge', challenge)
+    url.searchParams.set('code_challenge_method', 'S256')
+    url.searchParams.set('allow_signup', 'false')
     return c.redirect(url.href)
   })
 
@@ -86,9 +111,11 @@ export function createHostedApp(opts: HostedAppOptions): Hono<HostedEnv> {
     ) {
       throw new AppError('CROSS_ORIGIN', 'invalid sign-in state', 403)
     }
+    const attempt = sessions.logins.consume(state)
+    if (attempt === null) throw new AppError('CROSS_ORIGIN', 'expired or already used sign-in state', 403)
     const code = c.req.query('code')
     if (!code) throw new AppError('BAD_REQUEST', 'missing GitHub authorization code', 400)
-    const { token, expiresIn } = await github.exchangeCode(code)
+    const { token, expiresIn } = await github.exchangeCode(code, attempt.verifier)
     const user = z
       .object({ id: z.number().int().positive(), login: z.string() })
       .parse(await github.request(token, 'user'))
@@ -100,26 +127,24 @@ export function createHostedApp(opts: HostedAppOptions): Hono<HostedEnv> {
     })
     await sessions.remove(getCookie(c, SESSION_COOKIE))
     setCookie(c, SESSION_COOKIE, id, { ...COOKIE_OPTIONS, maxAge: expiresIn })
-    return c.redirect('/')
+    return c.redirect(attempt.returnTo)
   })
 
   app.post('/auth/logout', async c => {
     await sessions.remove(getCookie(c, SESSION_COOKIE))
     deleteCookie(c, SESSION_COOKIE, COOKIE_OPTIONS)
-    return c.redirect('/', 303)
+    return c.redirect('/login', 303)
   })
 
   app.use('*', async (c, next) => {
     const session = await sessions.read(getCookie(c, SESSION_COOKIE))
     if (session === null) {
-      if (c.req.path === '/')
-        return c.html(
-          html`<!doctype html><html lang="en"><title>PR Review Canvas</title><h1>PR Review Canvas</h1><p>${config.organization}</p><a href="/auth/login">Sign in with GitHub</a></html>`
+      if (c.req.path === '/') return c.redirect('/login')
+      if (['GET', 'HEAD'].includes(c.req.method) && /^\/repos\/[^/]+\/[^/]+\/review(?:\/|$)/.test(c.req.path))
+        return c.redirect(
+          `/login?next=${encodeURIComponent(canvasReturnPath(new URL(c.req.url).pathname + new URL(c.req.url).search, config.origin))}`
         )
-      return c.json(
-        { error: { code: 'GH_UNAUTHENTICATED', message: 'sign in with GitHub at /auth/login' } },
-        401
-      )
+      return c.json({ error: { code: 'GH_UNAUTHENTICATED', message: 'sign in with GitHub at /login' } }, 401)
     }
     c.set('session', session)
     await next()

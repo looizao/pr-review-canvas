@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHash, createHmac } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -48,8 +48,19 @@ function req(route: string, init: RequestInit = {}, signedIn = true) {
 }
 
 it('offers sign-in, protects all repository routes and rejects unrecognized hosts', async () => {
-  expect(await (await req('/', {}, false)).text()).toContain('Sign in with GitHub')
-  expect((await req('/repos/acme/widgets/review/42', {}, false)).status).toBe(401)
+  expect((await req('/', {}, false)).headers.get('location')).toBe('/login')
+  expect(await (await req('/login', {}, false)).text()).toContain('Sign in with GitHub')
+  const canvas = await req('/repos/acme/widgets/review/42', {}, false)
+  expect(canvas.status).toBe(302)
+  expect(canvas.headers.get('location')).toBe('/login?next=%2Frepos%2Facme%2Fwidgets%2Freview%2F42')
+  for (const route of [
+    '/repos/acme/widgets/api/prs',
+    '/repos/acme/widgets/static/js/api.js',
+    '/repos/acme/widgets/vendor/diff/index.js',
+    '/jobs/retry',
+  ]) {
+    expect((await req(route, {}, false)).status).toBe(401)
+  }
   expect((await req('/healthz')).status).toBe(200)
   expect((await req('/', { headers: { host: 'evil.example' } })).status).toBe(403)
   expect((await req('/repos/other/widgets/review/42')).status).toBe(404)
@@ -75,6 +86,7 @@ it('mounts canvas pages, modules, redirects and POST bodies in the repository UR
   expect(nonce).toBeTruthy()
   expect(response.headers.get('content-security-policy')).toContain(`'nonce-${nonce}'`)
   expect(response.headers.get('cache-control')).toBe('no-store')
+  expect(response.headers.get('referrer-policy')).toBe('same-origin')
   const redirect = await req('/repos/acme/widgets/review?n=42')
   expect(redirect.headers.get('location')).toBe('/repos/acme/widgets/review/42')
   const setting = await req('/repos/acme/widgets/api/appearance', {
@@ -106,30 +118,104 @@ it('rejects cross-site writes including logout, even with a valid session', asyn
       })
     ).status
   ).toBe(303)
-  expect(await (await req('/')).text()).toContain('Sign in with GitHub')
+  expect((await req('/')).headers.get('location')).toBe('/login')
 })
 
 it('binds OAuth to a browser cookie and saves an encrypted expiring session', async () => {
-  const login = await req('/auth/login', {}, false)
+  const returnTo = '/repos/acme/widgets/review/42'
+  const login = await req(`/auth/login?next=${encodeURIComponent(returnTo)}`, {}, false)
   const location = new URL(login.headers.get('location') ?? '')
   const state = location.searchParams.get('state') ?? ''
   expect(location.origin).toBe('https://github.com')
   expect(location.searchParams.get('redirect_uri')).toBe(`${opts.config.origin}/auth/callback`)
   expect(login.headers.get('set-cookie')).toContain('Secure')
+  expect(login.headers.get('set-cookie')).toContain('HttpOnly')
+  expect(login.headers.get('set-cookie')).toContain('SameSite=Lax')
+  expect(location.searchParams.get('code_challenge_method')).toBe('S256')
   const stateCookie = `__Host-pr-review-oauth=${state}`
   const callback = await req(
     `/auth/callback?state=${state}&code=test-code`,
-    { headers: { cookie: stateCookie } },
+    { headers: { cookie: `${stateCookie}; ${cookie}` } },
     false
   )
   expect(callback.status).toBe(302)
-  expect(opts.github.exchangeCode).toHaveBeenCalledWith('test-code')
+  expect(callback.headers.get('referrer-policy')).toBe('no-referrer')
+  const calls = vi.mocked(opts.github.exchangeCode).mock.calls
+  const verifier = calls[0]?.[1] ?? ''
+  expect(calls[0]?.[0]).toBe('test-code')
+  expect(createHash('sha256').update(verifier).digest('base64url')).toBe(
+    location.searchParams.get('code_challenge')
+  )
+  expect(callback.headers.get('location')).toBe(returnTo)
   const id = /__Host-pr-review=([a-f0-9]{64})/.exec(callback.headers.get('set-cookie') ?? '')?.[1]
   expect((await opts.sessions.read(id))?.login).toBe('alice')
+  expect(await opts.sessions.read(cookie.split('=')[1])).toBeNull()
   expect((await req(`/auth/callback?state=${state}&code=stolen`, {}, false)).status).toBe(403)
   expect(
-    (await req(`/auth/callback?state=${state}`, { headers: { cookie: stateCookie } }, false)).status
+    (await req(`/auth/callback?state=${state}&code=replay`, { headers: { cookie: stateCookie } }, false))
+      .status
+  ).toBe(403)
+  const fresh = new URL((await req('/auth/login', {}, false)).headers.get('location') ?? '')
+  const freshState = fresh.searchParams.get('state') ?? ''
+  expect(
+    (
+      await req(
+        `/auth/callback?state=${freshState}`,
+        { headers: { cookie: `__Host-pr-review-oauth=${freshState}` } },
+        false
+      )
+    ).status
   ).toBe(400)
+})
+
+it('rejects a forged callback even when the cookie matches, and never exposes provider error details', async () => {
+  const state = 'a'.repeat(64)
+  const forged = await req(
+    `/auth/callback?state=${state}&code=forged`,
+    { headers: { cookie: `__Host-pr-review-oauth=${state}` } },
+    false
+  )
+  expect(forged.status).toBe(403)
+  expect(opts.github.exchangeCode).not.toHaveBeenCalled()
+  const login = new URL((await req('/auth/login', {}, false)).headers.get('location') ?? '')
+  const realState = login.searchParams.get('state') ?? ''
+  opts.github.exchangeCode = vi.fn(async () => {
+    throw new Error('secret provider error')
+  })
+  const failed = await req(
+    `/auth/callback?state=${realState}&code=valid`,
+    { headers: { cookie: `__Host-pr-review-oauth=${realState}` } },
+    false
+  )
+  expect(failed.status).toBe(500)
+  expect(await failed.text()).not.toContain('secret provider error')
+  expect((await req('/', {}, false)).headers.get('location')).toBe('/login')
+})
+
+it('redirects authenticated users from the login page and rejects expired or forged sessions', async () => {
+  expect((await req('/login?next=%2Frepos%2Facme%2Fwidgets%2Freview%2F42')).headers.get('location')).toBe(
+    '/repos/acme/widgets/review/42'
+  )
+  const expired = await opts.sessions.create({ userId: 1, login: 'alice', token: 'old-token', expires: 0 })
+  for (const id of [expired, 'f'.repeat(64), '../escape']) {
+    const response = await req('/repos/acme/widgets/api/prs', {
+      headers: { cookie: `__Host-pr-review=${id}` },
+    })
+    expect(response.status).toBe(401)
+  }
+  expect(opts.repositories.forUser).not.toHaveBeenCalled()
+})
+
+it('lets browser users retry a cancelled or invalid sign-in without exposing callback details', async () => {
+  const response = await req(
+    '/auth/callback?error=access_denied',
+    { headers: { accept: 'text/html' } },
+    false
+  )
+  expect(response.status).toBe(403)
+  expect(await response.text()).toContain('Sign-in could not be completed. Please try again.')
+  expect(response.headers.get('content-security-policy')).toContain("default-src 'none'")
+  expect(opts.github.exchangeCode).not.toHaveBeenCalled()
 })
 
 it('lists only authorized jobs, exposes status and retries failed jobs with repository authorization', async () => {

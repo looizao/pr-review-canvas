@@ -2,7 +2,8 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
-import { readJson, writeJsonAtomic } from '../store/atomic-json.js'
+import { readJsonOrDefault, writeJsonAtomic } from '../store/atomic-json.js'
+import { LoginAttempts } from './auth.js'
 
 const SessionSchema = z.object({
   userId: z.number().int().positive(),
@@ -14,6 +15,7 @@ export type Session = z.infer<typeof SessionSchema>
 const EncryptedSchema = z.object({ iv: z.string(), tag: z.string(), data: z.string() })
 
 export class Sessions {
+  readonly logins = new LoginAttempts()
   private readonly key: Buffer
   private readonly root: string
   constructor(root: string, key: string) {
@@ -40,7 +42,7 @@ export class Sessions {
 
   async read(id: string | undefined): Promise<Session | null> {
     if (id === undefined || !/^[a-f0-9]{64}$/.test(id)) return null
-    const encrypted = await readJson(this.file(id), EncryptedSchema)
+    const encrypted = await readJsonOrDefault(this.file(id), EncryptedSchema, () => null)
     if (encrypted === null) return null
     try {
       const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(encrypted.iv, 'hex'))

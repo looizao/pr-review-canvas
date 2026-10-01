@@ -129,7 +129,7 @@ export class GithubApp {
     }
   }
 
-  async exchangeCode(code: string): Promise<{ token: string; expiresIn: number }> {
+  async exchangeCode(code: string, verifier: string): Promise<{ token: string; expiresIn: number }> {
     const response = await this.fetchImpl('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: { accept: 'application/json', 'content-type': 'application/json' },
@@ -137,13 +137,14 @@ export class GithubApp {
         client_id: this.config.clientId,
         client_secret: this.config.clientSecret,
         code,
+        code_verifier: verifier,
         redirect_uri: `${this.config.origin}/auth/callback`,
       }),
       signal: AbortSignal.timeout(30_000),
     })
     if (!response.ok) throw new GithubApiError(response.status)
     const result = z
-      .object({ access_token: z.string(), expires_in: z.number().optional() })
+      .object({ access_token: z.string().min(1), expires_in: z.number().int().positive().optional() })
       .parse(await response.json())
     return { token: result.access_token, expiresIn: Math.min(result.expires_in ?? 28_800, 28_800) }
   }
